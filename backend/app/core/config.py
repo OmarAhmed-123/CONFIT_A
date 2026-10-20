@@ -646,6 +646,23 @@ class Settings(BaseSettings):
     STORAGE_PROBE_TIMEOUT_SECONDS: float = 5.0
     STORAGE_PROBE_TTL_SECONDS: float = 300.0
 
+    # Catalogue CSV import — first-party image sources.
+    #
+    # The media materialiser classifies every ingested picture by provenance.
+    # `stock` means licensed third-party photography and is restricted to an
+    # allowlist of commercial-use hosts (Unsplash, Pexels). A boutique's OWN
+    # product photography usually lives on its own CDN, which is not — and must
+    # not be — on that allowlist; it is `own`, and the media service already
+    # supports that provenance without a licence check.
+    #
+    # Importing such a URL from a CSV is still an owner decision, because the
+    # server will fetch an address a third party typed. Default OFF: a row that
+    # declares `image_source=own` is then rejected with an actionable message
+    # rather than silently accepted or silently ignored. Flipping this to true
+    # routes every such fetch through `core.net_guard`, which refuses private
+    # addresses and re-checks each redirect hop.
+    CATALOG_IMPORT_ALLOW_OWN_IMAGES: bool = False
+
 
     # Onboarding wizard version (Phase 0.2). Stamped onto
     # `user_style_profiles.onboarding_version` when a user completes the

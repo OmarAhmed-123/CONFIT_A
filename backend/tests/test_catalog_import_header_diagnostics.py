@@ -34,7 +34,15 @@ from backend.app.models.user import BrandProfile, User, UserRole
 from backend.app.services.brand_catalog_service import BrandCatalogService
 
 REQUIRED = "title,category_slug,base_price,color_family,thumbnail_url"
-GOOD_ROW = '"Tailored Blazer",outerwear,299.99,Navy,https://example.com/blazer.jpg'
+# The image host is an APPROVED stock source on purpose. `brand_catalog_service`
+# now refuses a row whose picture the media stage could not materialise (it used
+# to pass validation and be rejected at commit instead, so the preview table
+# called the row valid and the import then failed it). `example.com` is exactly
+# such a host, and these tests are about the HEADER diagnostics — the row they
+# reuse as filler has to be one the importer can really accept, or they would be
+# measuring the image rules instead of the header rules.
+GOOD_IMAGE = "https://images.pexels.com/photos/1342609/pexels-photo-1342609.jpeg"
+GOOD_ROW = f'"Tailored Blazer",outerwear,299.99,Navy,{GOOD_IMAGE}'
 
 
 @pytest.fixture()
@@ -151,7 +159,7 @@ class TestValidFilesStillImport:
     def test_the_documented_sample_is_accepted(self, svc):
         csv_text = (f"{REQUIRED},size,color,stock_level\n"
                     f'"Tailored Blazer",outerwear,299.99,Navy,'
-                    f"https://example.com/blazer.jpg,M,Navy,20\n")
+                    f"{GOOD_IMAGE},M,Navy,20\n")
         _valid, errors, stats = svc.parse_csv(csv_text, svc._test_brand_id)
         assert stats["accepted"] == 1, f"the documented sample no longer imports: {[e.to_dict() for e in errors]}"
 

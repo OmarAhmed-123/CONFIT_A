@@ -1471,6 +1471,8 @@ export interface CatalogImportPreviewRecord {
   stock: number;
   size: string;
   color: string;
+  /** mens | womens | unisex — the value the stylist filters on. */
+  gender?: string;
   thumbnail_url?: string;
   branch_id?: number | null;
   error_message?: string;
@@ -1483,6 +1485,9 @@ export interface CatalogImportPreviewResponse {
   warning_rows_count: number;
   duplicate_rows_count: number;
   can_import: boolean;
+  /** Reasons NOTHING would land (no storage, disabled image source, …).
+   *  `can_import` is false whenever this is non-empty. */
+  blocked_reasons?: string[];
   preview_records: CatalogImportPreviewRecord[];
   errors: Array<{
     row: number;
@@ -1495,6 +1500,8 @@ export interface CatalogImportPreviewResponse {
     row: number;
     field: string;
     message: string;
+    /** Row 0/1 = a file-level note; >1 is a data row. */
+    blocking?: boolean;
   }>;
 }
 
@@ -1507,6 +1514,12 @@ export interface CatalogImportResult {
   duplicate_rows: number;
   notifications_queued?: number;
   notification_recipients_count?: number;
+  /** Derived completeness facts the API already returns — surfaced so the
+   *  summary cannot claim success while hiding an untranslated catalogue. */
+  media_rows_registered?: number;
+  rows_missing_title_ar?: number;
+  rows_missing_description_ar?: number;
+  rows_gender_inferred?: number;
   errors?: any[];
 }
 

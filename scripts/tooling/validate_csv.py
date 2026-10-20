@@ -29,17 +29,36 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Expected catalog columns (from CONFIT schema)
-EXPECTED_CATALOG_COLUMNS = [
-    "sku", "name", "description", "category", "subcategory",
-    "brand", "color", "size", "gender", "season",
-    "price", "currency", "cost_price", "tax_rate",
-    "stock_quantity", "low_stock_threshold", "track_inventory",
-    "image_url", "image_alt", "tags", "attributes",
-    "is_active", "is_featured", "meta_title", "meta_description",
-]
+# Column vocabulary comes FROM THE IMPORTER, never from a copy.
+#
+# This file used to carry its own list (name, subcategory, brand, cost_price,
+# tax_rate, meta_title, ...) that the importer has never heard of. A
+# diagnostic tool that measures a file against an invented schema is worse than
+# no tool: it reported "missing required column: name" for a file the API
+# imports perfectly, and reported "unexpected column" for the real required one.
+# Importing the service's own constants makes drift impossible.
+try:  # pragma: no cover - exercised by scripts/tooling tests, not the app
+    import sys
+    from pathlib import Path as _Path
 
-REQUIRED_COLUMNS = ["sku", "name", "category", "price", "currency"]
+    _ROOT = _Path(__file__).resolve().parents[2]
+    if str(_ROOT) not in sys.path:
+        sys.path.insert(0, str(_ROOT))
+    from backend.app.services.brand_catalog_service import BrandCatalogService as _Svc
+
+    REQUIRED_COLUMNS = list(_Svc.REQUIRED_FIELDS)
+    EXPECTED_CATALOG_COLUMNS = list(_Svc.REQUIRED_FIELDS) + list(_Svc.OPTIONAL_FIELDS) \
+        + list(_Svc.HEADER_ALIASES)
+    SEEDED_CATEGORY_SLUGS = tuple(_Svc.SEEDED_CATEGORY_SLUGS)
+except Exception as _exc:  # pragma: no cover
+    # A diagnostic tool must still run when the app's dependencies are missing
+    # (it is documented as a standalone aid); it then says so instead of
+    # pretending it validated anything against the real contract.
+    print(f"WARNING: could not load the importer's contract ({_exc}); "
+          "column checks in this run are unverified.")
+    REQUIRED_COLUMNS = ["title", "category_slug", "base_price", "color_family", "thumbnail_url"]
+    EXPECTED_CATALOG_COLUMNS = REQUIRED_COLUMNS[:]
+    SEEDED_CATEGORY_SLUGS = ()
 
 
 class CSVDiagnostic:
@@ -160,8 +179,21 @@ class CSVDiagnostic:
             else:
                 seen[col] = i
         
+        # Resolve header aliases exactly as the importer does. Without this the
+        # tool reports "missing required column: title" for a file whose header
+        # says `product_name` — which `BrandCatalogService.HEADER_ALIASES` maps
+        # to `title` and the API imports without complaint.
+        try:
+            from backend.app.services.brand_catalog_service import BrandCatalogService as _Svc
+            resolved = [_Svc.HEADER_ALIASES.get((c or "").strip().lower(), (c or "").strip())
+                        for c in self.header]
+            if any((c or "").strip().lower() == "color" for c in self.header) and "color_family" not in resolved:
+                resolved.append("color_family")
+        except Exception:
+            resolved = list(self.header)
+
         # Check required columns
-        missing_required = set(REQUIRED_COLUMNS) - set(self.header)
+        missing_required = set(REQUIRED_COLUMNS) - set(resolved)
         for col in missing_required:
             self.issues.append({
                 "type": "missing_required_column",
@@ -171,7 +203,7 @@ class CSVDiagnostic:
             })
         
         # Check for unexpected columns
-        unexpected = set(self.header) - set(EXPECTED_CATALOG_COLUMNS)
+        unexpected = set(resolved) - set(EXPECTED_CATALOG_COLUMNS)
         for col in unexpected:
             self.issues.append({
                 "type": "unexpected_column",

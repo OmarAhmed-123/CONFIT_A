@@ -1,0 +1,213 @@
+# Catalog CSV import — contract and operations
+
+Status: **implemented and verified** on branch `feat/catalog-csv-import-verified`
+(base `fix/wizard-reappearing`). Every rule below is enforced by
+`backend/app/services/brand_catalog_service.py` and pinned by
+`backend/tests/test_catalog_csv_import_contract.py`; the end-to-end path is
+proven by `scripts/tooling/verify_catalog_csv_import_e2e.py`.
+
+---
+
+## 1. What the feature is
+
+A brand owner uploads one UTF-8 CSV of their clothing catalogue. Each row is one
+**variant** (product × size × colour). The importer validates the file, shows a
+preview with a per-row create/update verdict, and on confirmation writes
+products, SKUs, media and branch inventory into the real database, after which
+the items appear in the storefront catalogue, search, product pages and cart.
+
+Identity rules (unchanged from the original design, now documented):
+
+| Entity | Identity |
+| --- | --- |
+| Product | `(brand_id, title)` — the same title in two rows is one product with two variants |
+| Variant (SKU) | `sku_code`, globally unique; generated deterministically from `(brand slug, title, size, colour)` when absent |
+| Brand ownership | resolved from the authenticated session. **There is no brand/owner column, and no credential may appear in the file.** |
+
+---
+
+## 2. HTTP surface
+
+All routes are mounted twice for historical reasons (`/partner/…` and `/brand/…`);
+they are the same handlers.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/partner/catalog/preview-csv` | **dry run** — parse, validate, resolve categories/stores/skus, write nothing |
+| `POST` | `/api/v1/partner/catalog/confirm-import` | commit; returns the job result |
+| `GET` | `/api/v1/partner/catalog/template.csv` | the authoritative template (public; contains no data) |
+| `POST` | `/api/v1/partner/catalog/export-errors` | CSV error report, formula-injection escaped server-side |
+| `GET` | `/api/v1/partner/catalog/imports` | import history |
+| `GET` | `/api/v1/brand/catalog/jobs/{job_id}` | one job, with its stored row errors |
+
+Authorisation: `require_brand_access("catalog:write")` for preview/import;
+`brand_auth` for reads. Tenant isolation is enforced on stores
+(`StoreLocation.brand_id`) and on SKUs (a SKU cannot be moved between products).
+
+---
+
+## 3. Column contract
+
+Header names are matched case-insensitively after alias resolution. Unknown
+columns are **warned about, not fatal** — but they are ignored, so the warning is
+the only signal that a value was dropped.
+
+### Required
+
+| Column | Aliases | Target | Rule |
+| --- | --- | --- | --- |
+| `title` | `product_name`, `product_title`, `name` | `products.title` | ≤ 255 chars |
+| `category_slug` | `category` | `products.category_id` | must exist; resolved by slug, English name or Arabic name |
+| `base_price` | `price`, `selling_price` | `products.base_price` | > 0, ≤ 2 decimals, finite, ≤ `BrandRepository.MAX_SKU_PRICE` |
+| `color_family` | — | `products.color_family` | ≤ 50 chars; derived from `color` when absent |
+| `thumbnail_url` | `image_url`, `image` | `products.thumbnail_url` + `product_images` | see §5 |
+
+Valid `category_slug` values are exactly the slugs the seeded catalogue creates
+(`BrandCatalogService.SEEDED_CATEGORY_SLUGS`):
+`outerwear, tops, bottoms, dresses, footwear, accessories`.
+
+### Optional
+
+| Column | Aliases | Target | Rule |
+| --- | --- | --- | --- |
+| `sku_code` | `sku` | `product_skus.sku_code` | `[A-Za-z0-9_-]{3,100}`; unique in file and, if it already exists, must belong to this product |
+| `size` | — | `product_skus.size` | ≤ 20 chars; default `M` |
+| `color` | — | `product_skus.color` | ≤ 50 chars; defaults to `color_family` |
+| `color_hex` | — | `product_skus.color_hex` | `#RRGGBB` |
+| `stock_level` | `stock_quantity`, `stock`, `quantity` | `product_skus.stock_level` | integer 0–100000; default 0 |
+| `price_override` | — | `product_skus.price_override` | same money rules as `base_price` |
+| `compare_at_price` | `original_price` | `products.compare_at_price` | **must be strictly greater than `base_price`**; empty clears it |
+| `currency` | — | `products.currency` | **must equal `PRICING_CURRENCY`** (see §6) |
+| `title_ar` | — | `products.title_ar` | Arabic; empty is honest ("no translation"), never filled with English |
+| `description_ar` | — | `products.description_ar` | idem |
+| `description` | — | `products.description` | ≤ 2000 chars |
+| `material` | — | `products.material` | ≤ 255 chars |
+| `care_instructions` | `care`, `wash_care` | `products.care_instructions` | ≤ 500 chars |
+| `gender` | `sex`, `audience`, `target_gender` | `products.gender` | `mens` \| `womens` \| `unisex`; synonyms (`men`, `women`, `ladies`, `رجالي`, `نسائي`, `للجنسين`, …) are folded; **inferred from the title when absent** (§7) |
+| `style_tags` | — | `products.style_tags` | JSON array or comma-separated; ≤ 100 items |
+| `occasion_tags` | — | `products.occasion_tags` | idem |
+| `images` | — | `products.images` | JSON array or comma-separated; first entry becomes the materialisation source |
+| `dominant_hex` | — | `products.dominant_hex` | `#RRGGBB` |
+| `image_source` | `img_source`, `image_source_type` | provenance | `stock` (default) or `own` (§5) |
+| `store_id` / `branch_id` | `branch_id` | store inventory target | must belong to **your** brand |
+| `store_name` / `branch_name` | — | store inventory target | matched by name inside your brand |
+
+Not importable today: `is_featured`, `is_active`, `size_chart_json`,
+`style_embedding`, `rating`, `review_count`. These are curated elsewhere; the CSV
+is a product-data channel, not a merchandising console.
+
+---
+
+## 4. Validation, warnings, blockers
+
+Three separate channels, deliberately distinct:
+
+* **errors** — the row will not import. Reported per row and field with a
+  `suggestion` that names an actionable fix. One bad row never aborts the file:
+  every accepted row commits independently (partial success is the documented
+  contract).
+* **warnings** — the row *will* import, and the shopper will notice something:
+  stock 0 (the storefront hides unpurchasable products), no `title_ar`, no
+  `description_ar`, gender inferred, or a column that is not part of the
+  contract and is therefore ignored.
+* **blockers** — nothing at all would land (e.g. no object storage configured,
+  first-party images disabled). `can_import` is `false` and `blocked_reasons`
+  says why before the brand owner can confirm.
+
+The preview **is** the dry run: the same code path validates and resolves, and it
+writes nothing (`test_preview_writes_nothing`).
+
+Limits: 10 MB, 1 000 rows, one file per import, UTF-8 (a UTF-8 BOM is tolerated
+and is what Excel writes).
+
+---
+
+## 5. Images
+
+Media is not optional. A row whose picture cannot be *materialised and verified*
+is refused, because a product whose hero 404s is the defect the media pass exists
+to remove. `_materialize_media` therefore:
+
+1. classifies the source: an approved stock host (`images.pexels.com`,
+   `images.unsplash.com`) or `image_source=own`;
+2. applies the network guard (`backend/app/core/net_guard.py`): scheme, port,
+   embedded credentials, and every resolved address are checked, and **each
+   redirect hop is re-checked** before it is requested — a public host cannot
+   bounce the request into `169.254.169.254` or a private range;
+3. downloads, centre-crops and encodes **five ratios × two formats**, uploads all
+   ten objects, then verifies bytes-back (a registry row alone is not evidence);
+4. only then registers `product_images` and points `products.thumbnail_url` at
+   `/api/v1/media/products/{id}/{id}-{ratio}.{ext}`, which is the only key shape
+   the media route serves.
+
+Re-importing a row whose product already holds verified media **from the same
+source URL** re-uses it: no re-download, no re-render, no delete-then-write. A
+stock-level correction is therefore cheap and cannot take a live product's
+imagery down.
+
+**Owner decision — first-party photography.** `CATALOG_IMPORT_ALLOW_OWN_IMAGES`
+defaults to `false`. With it off, a row declaring `image_source=own` is refused
+with a message telling the brand owner to upload through the dashboard instead.
+Turning it on lets the server fetch arbitrary public hosts, which is why the
+network guard above exists and why the decision belongs to the operator.
+
+---
+
+## 6. Prices and currency
+
+`products.base_price` is denominated in exactly one currency,
+`settings.PRICING_CURRENCY` (today `USD`). The storefront converts for display
+(EGP by default). A row that declares any other currency is **refused**.
+
+This was measured, not assumed: with a row priced `1450.00 EGP`, the product page
+rendered `1 450 EGP` (the payload declared EGP, so the presentation layer
+correctly declined to convert) while the cart converted the same number from the
+USD price book and rendered `78 166.03 EGP`. One product, two prices, a factor of
+~54 apart — shown to the shopper at one price and charged at the other.
+
+The alternative — converting at import time from the row's currency — was
+rejected for now because conversion depends on a live FX table; making an import
+succeed or fail on network availability is a worse failure mode than asking for
+the price-book currency. Recorded as a follow-up in the PR.
+
+---
+
+## 7. Gender
+
+`products.gender` (`mens | womens | unisex`) was added in migration `0027`, which
+backfilled **every existing product** with `services/styling/garment_gender.infer_gender`
+from the garment name. CSV imports did not set it at all, so every imported
+product was `unisex` — the one class of product the stylist's gender filter could
+not reason about, on the path that produces most new products.
+
+The importer now (a) accepts an explicit `gender` column with synonyms, and
+(b) when the column is absent, uses the same classifier the migration used. The
+inferred value is written **only on create**, reported as `rows_gender_inferred`,
+and warned about per row, so a merchandiser's later correction is never
+overwritten by the next stock upload.
+
+---
+
+## 8. Notifications
+
+`send_notifications` defaults to **false**. A bulk catalogue load must not email
+the customer base; the API made that change deliberately and the modal now
+matches it (it previously defaulted to `true` and re-opened the accident).
+
+---
+
+## 9. Known limitations (honest list)
+
+1. **One photo per product.** `images` accepts a list, but only its first entry is
+   materialised; the gallery is the derived ratio ladder, not extra shots.
+2. **Currency must be the price-book currency** (§6). Import-time conversion from
+   EGP is not implemented.
+3. **First-party image ingestion is off by default** (§5).
+4. **`is_featured` / `is_active` / `size_chart_json` are not importable.**
+5. **1000 rows per file**, and the import runs synchronously inside the request.
+   At ~10 objects per row this is a seconds-per-row path; a 1000-row file with
+   cold images can outlive a gateway timeout even though the rows commit
+   individually. A background worker is the correct next step; the import history
+   table already models the job state needed for it.
+6. **`/partner/catalog/template.csv` is unauthenticated.** It is static and holds
+   no tenant data; it is left open so a prospective brand can look at the format.

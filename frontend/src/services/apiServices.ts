@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requestBlob, request } from "./apiClient";
+import { requestBlob, requestBlobPost, request } from "./apiClient";
 import type { CurrencyCatalog } from "../lib/currency";
 import {
   User,
@@ -38,6 +38,7 @@ import {
   CustomerBrand,
   CustomerBrandDetail,
   StoreBranchSummary,
+  CatalogImportResult,
   BranchInventoryCatalog,
   BrandRegistrationPayload,
   BrandRegistrationResponse,
@@ -1591,11 +1592,29 @@ export const brandService = {
     });
   },
 
+  /**
+   * The error report is CSV, not JSON. `request()` always parses JSON, so this
+   * used to throw on every call and the component fell back to opening the
+   * POST-only endpoint in a new tab (405). It now goes through the blob path,
+   * which keeps the session/refresh semantics and lets the SERVER name the
+   * file via Content-Disposition.
+   */
   exportImportErrors: (errors: any[]) =>
-    request<string>('/partner/catalog/export-errors', {
-      method: 'POST',
-      body: JSON.stringify({ errors }),
-    }),
+    requestBlobPost('/partner/catalog/export-errors', { errors }),
+
+  /** The official template, straight from the API that validates against it. */
+  downloadCatalogTemplate: () => requestBlob('/partner/catalog/template.csv'),
+
+  /**
+   * One import job, as persisted by the server.
+   *
+   * The commit endpoint answers before the job has finished, so this is the
+   * only honest source of progress: `total_rows`/`accepted_rows` are written by
+   * the worker as it goes, and `status` is one of the five states the job table
+   * constrains. It never invents a percentage.
+   */
+  getCatalogImportJob: (jobId: number) =>
+    request<CatalogImportResult>(`/partner/catalog/imports/${jobId}`),
 };
 
 /**

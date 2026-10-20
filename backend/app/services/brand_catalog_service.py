@@ -43,6 +43,22 @@ class CatalogImportError:
         return res
 
 
+#: What each media verdict means for the person holding the CSV.
+_MEDIA_REASONS = {
+    'no_source': 'no image_url was supplied',
+    'source_not_approved': ('the image host is not an approved stock source; use '
+                            'images.unsplash.com or images.pexels.com, or declare image_source=own'),
+    'own_images_disabled': ('your own photography is not enabled for CSV import on this '
+                            'deployment; upload the image in the brand dashboard instead'),
+    'storage_unavailable': ('this deployment has no object storage configured, so no image can '
+                            'be registered; an operator must configure storage first'),
+    'materialization_failed': ('the image could not be downloaded, decoded or stored; check the '
+                               'URL is a public direct link to a JPEG/PNG/WebP file'),
+    'object_missing': 'the stored image is missing from object storage; retry the import',
+    'legacy_label_key': 'the existing image registration is unreadable; supply image_url again',
+}
+
+
 class BrandCatalogService:
     MAX_ROWS = 1000
     MAX_BYTES = 10 * 1024 * 1024
@@ -53,14 +69,36 @@ class BrandCatalogService:
     #: two of the template's own four sample rows failed validation and a user
     #: who followed the hint was led straight back into the error.
     SEEDED_CATEGORY_SLUGS = ('outerwear', 'tops', 'bottoms', 'dresses', 'footwear', 'accessories')
-    OPTIONAL_FIELDS = ['title_ar', 'description', 'description_ar', 'material', 'currency',
-                       'style_tags', 'occasion_tags', 'images', 'sku_code', 'size', 'color',
-                       'stock_level', 'price_override', 'dominant_hex', 'color_hex',
-                       'store_id', 'branch_id', 'store_name', 'branch_name']
+    #: Every column the importer actually understands. This used to be an
+    #: advisory list nothing read, which is how a column could be named in a CSV
+    #: and silently dropped — a brand owner who typed ``materiel`` got no error
+    #: and no material. It is now the whitelist behind the "unrecognised column"
+    #: warning, so it must stay honest about what is read.
+    OPTIONAL_FIELDS = ['title_ar', 'description', 'description_ar', 'material', 'care_instructions',
+                       'gender', 'currency', 'compare_at_price', 'style_tags', 'occasion_tags',
+                       'images', 'image_source', 'sku_code', 'size', 'color', 'stock_level',
+                       'price_override', 'dominant_hex', 'color_hex', 'store_id', 'branch_id',
+                       'branch_name', 'branch_slug', 'store_name']
     DANGEROUS_PREFIXES = ['=', '+', '-', '@', '\t', '\r']
     LIMITS = dict(title=255, title_ar=255, description=2000, description_ar=2000,
-                  material=255, color_family=50, thumbnail_url=1000, size=20, color=50,
-                  sku_code=100, category_slug=100)
+                  material=255, care_instructions=500, color_family=50, thumbnail_url=1000,
+                  size=20, color=50, sku_code=100, category_slug=100, gender=16, image_source=8)
+
+    #: ``image_source`` accepts only these. Empty means "decide from the host":
+    #: an approved stock host is ``stock``; anything else is refused unless the
+    #: row asserts first-party rights with ``image_source=own``.
+    IMAGE_SOURCES = ('stock', 'own')
+
+    #: Words a human writes in a spreadsheet, mapped onto the three values the
+    #: stylist understands (``services/styling/garment_gender``).
+    GENDER_SYNONYMS = {
+        'men': 'mens', 'man': 'mens', 'male': 'mens', 'mens': 'mens', 'menswear': 'mens',
+        'gents': 'mens', 'gentlemen': 'mens', 'رجالي': 'mens',
+        'women': 'womens', 'woman': 'womens', 'female': 'womens', 'womens': 'womens',
+        'womenswear': 'womens', 'ladies': 'womens', 'ladys': 'womens', 'نسائي': 'womens',
+        'unisex': 'unisex', 'all': 'unisex', 'any': 'unisex', 'both': 'unisex',
+        'none': 'unisex', 'للجنسين': 'unisex',
+    }
 
     HEADER_ALIASES = {
         'product_name': 'title',
@@ -81,6 +119,13 @@ class BrandCatalogService:
         'branch_slug': 'branch_slug',
         'store_id': 'store_id',
         'store_name': 'store_name',
+        'sex': 'gender',
+        'audience': 'gender',
+        'target_gender': 'gender',
+        'care': 'care_instructions',
+        'wash_care': 'care_instructions',
+        'img_source': 'image_source',
+        'image_source_type': 'image_source',
     }
 
     def __init__(self, db: Session):
@@ -117,7 +162,7 @@ class BrandCatalogService:
             mapped[canonical_key] = v
 
         row = {k: v.strip() if isinstance(v, str) else v for k, v in mapped.items()}
-        for field, default in dict(size='M', stock_level='0', currency='EGP',
+        for field, default in dict(size='M', stock_level='0', currency=self._pricing_currency(),
                                    color=row.get('color_family', ''), sku_code='').items():
             if row.get(field) in (None, ''):
                 row[field] = default
@@ -125,6 +170,32 @@ class BrandCatalogService:
         # If color_family was not provided in source at all but color provided, derive color_family
         if 'color_family' not in source and row.get('color'):
             row['color_family'] = row['color']
+
+        # Gender is stored as exactly one of mens/womens/unisex. A spreadsheet
+        # says "Women", " ladies" or "رجالي"; translating that here means the
+        # validator, the template and the stylist cannot disagree about it.
+        raw_gender = row.get('gender')
+        row['_gender_explicit'] = bool(isinstance(raw_gender, str) and raw_gender.strip())
+        if row['_gender_explicit']:
+            row['gender'] = self.GENDER_SYNONYMS.get(raw_gender.strip().lower(), raw_gender.strip().lower())
+        else:
+            # No gender column: derive it from the garment noun with the same
+            # classifier migration 0027 used to backfill every existing product
+            # (`services/styling/garment_gender`). Without this, CSV-imported
+            # products would be the ONLY rows in the catalogue whose gender was
+            # never inferred — and since import is a brand's primary path, the
+            # stylist's gender filter would degrade for the newest stock first.
+            # The derived value is reported as `rows_gender_inferred`, and it is
+            # only ever written on CREATE, so a human correction is never
+            # overwritten by a later re-upload.
+            from backend.app.services.styling.garment_gender import infer_gender
+            row['gender'] = infer_gender(row.get('title'), row.get('category_slug'))
+
+        raw_source = row.get('image_source')
+        if isinstance(raw_source, str) and raw_source.strip():
+            row['image_source'] = raw_source.strip().lower()
+        else:
+            row.pop('image_source', None)
 
         # Resolve category if given as name or name_ar instead of raw slug
         slug = row.get('category_slug')
@@ -203,6 +274,46 @@ class BrandCatalogService:
 
         if not isinstance(row.get('currency'), str) or not re.fullmatch(r'[A-Z]{3}', row['currency']):
             error('currency', 'Use a three-letter uppercase currency code', 'Use standard ISO code such as EGP or USD')
+        else:
+            book = self._pricing_currency()
+            if row['currency'] != book:
+                # MEASURED, not theoretical (scripts/tooling/verify_catalog_csv_import_e2e.py):
+                # a row priced in EGP was stored as 1450.00 with currency=EGP; the
+                # product page then rendered "1,450 EGP" because the payload
+                # declared EGP, while the cart converted the SAME number from the
+                # USD price book and rendered 78,166.03 EGP. One product, two
+                # prices, differing by the FX rate — and the shopper is charged
+                # the second one. The price book has exactly one denomination, so
+                # a row priced in another is refused rather than silently
+                # re-interpreted.
+                error('currency',
+                      f'Prices are stored in {book}, which is the price book denomination; '
+                      f'this row declares {row["currency"]}',
+                      f'Price the row in {book} (the storefront converts for display), or ask an '
+                      f'operator to configure market FX before importing other denominations')
+
+        raw_gender = row.get('gender')
+        if raw_gender not in (None, ''):
+            # `_normalize` has already folded synonyms; anything still unknown is
+            # refused rather than quietly coerced, because the stylist filters on
+            # this value and a wrong one hides a garment from half the catalogue.
+            if raw_gender not in self.VALID_GENDERS:
+                error('gender', f'Gender "{raw_gender}" is not recognised',
+                      'Use one of: ' + ', '.join(self.VALID_GENDERS) + ' (men/women also accepted)')
+
+        raw_source = row.get('image_source')
+        if raw_source not in (None, '') and raw_source not in self.IMAGE_SOURCES:
+            error('image_source', f'image_source "{raw_source}" is not recognised',
+                  'Use "stock" for licensed stock photography or "own" for your own product image')
+
+        # The media check used to live only in `import_products`, which meant
+        # preview called a row valid and the import then rejected it. A validation
+        # screen that disagrees with the commit is worse than no screen: the brand
+        # owner confirms a green table and gets a red result. Everything the
+        # materialiser needs to refuse is therefore refused HERE, so the two
+        # verdicts cannot diverge.
+        if isinstance(url, str) and url:
+            self._validate_image_source(row, url, error)
 
         # Branch store isolation check
         target_store = row.get('store_id') or row.get('branch_id')
@@ -238,12 +349,141 @@ class BrandCatalogService:
 
         return errors
 
+    #: mens | womens | unisex — the vocabulary `services/styling/garment_gender`
+    #: filters on. Kept as a tuple here so a bad CSV value can be reported
+    #: against the same list the stylist uses.
+    VALID_GENDERS = ('mens', 'womens', 'unisex')
+
+    def _pricing_currency(self) -> str:
+        """The ONE denomination `products.base_price` is allowed to be in.
+
+        `pricing_presentation` states the invariant plainly: "the price book
+        itself is NEVER mutated … the database keeps one canonical denomination
+        (PRICING_CURRENCY)". A per-row currency column is therefore not a
+        denomination, it is a label — and a label that disagrees with the number
+        beside it is exactly the defect that module exists to remove.
+        """
+        try:
+            from backend.app.core.config import settings
+            return (getattr(settings, 'PRICING_CURRENCY', 'USD') or 'USD').strip().upper()
+        except Exception:
+            return 'USD'
+
+    def _own_images_allowed(self) -> bool:
+        """Whether first-party image URLs may be fetched. Owner-controlled."""
+        try:
+            from backend.app.core.config import settings
+            return bool(getattr(settings, 'CATALOG_IMPORT_ALLOW_OWN_IMAGES', False))
+        except Exception:  # config must never make validation explode
+            return False
+
+    def _validate_image_source(self, row, url, error) -> None:
+        """Refuse an image URL the media stage could not materialise.
+
+        Two provenances exist and they are checked by different rules:
+          ``stock`` — licensed third-party photography, restricted to the
+          media service's commercial-use allowlist;
+          ``own``   — the brand's own asset, allowed only when the deployment
+          has opted in, and then still routed through `core.net_guard`.
+
+        Raises nothing: every failure is reported through `error(...)` so the
+        preview table shows the same field the import would fail on.
+        """
+        from backend.app.services.media_materialization_service import (
+            APPROVED_SOURCE_HOSTS, MediaSourceNotApproved, provider_for_url,
+        )
+        from backend.app.core.net_guard import UnsafeURLError, assert_public_http_url
+
+        declared = row.get('image_source')
+        if declared == 'own':
+            if not self._own_images_allowed():
+                error('image_source',
+                      'First-party image imports are disabled on this deployment',
+                      'Upload product photography through the brand dashboard, or use a '
+                      'licensed stock URL from ' + ', '.join(APPROVED_SOURCE_HOSTS))
+                return
+            try:
+                assert_public_http_url(url)
+            except UnsafeURLError as exc:
+                error('thumbnail_url', f'Image URL is not fetchable: {exc}',
+                      'Use a public https URL on a normal internet host')
+            return
+
+        try:
+            provider_for_url(url)
+        except MediaSourceNotApproved:
+            error('thumbnail_url',
+                  'This image host is not an approved stock source',
+                  'Use images.unsplash.com or images.pexels.com, or set image_source=own '
+                  'to import your own photography (requires the deployment flag)')
+
+    def _row_warnings(self, row) -> List[Dict[str, Any]]:
+        """Real warnings for one validated row — reported, never blocking.
+
+        Each of these describes something the import CAN do but the shopper
+        will notice, so it is surfaced in the preview instead of being
+        discovered after publishing.
+        """
+        number = row.get('_row_number')
+        out: List[Dict[str, Any]] = []
+
+        def warn(field, message):
+            out.append({'row': number, 'field': field, 'message': message})
+
+        try:
+            stock = int(row.get('stock_level') or 0)
+        except (TypeError, ValueError):
+            stock = 0
+        if stock == 0:
+            warn('stock_level',
+                 'Stock is 0, so the storefront hides this product until it is stocked '
+                 '(the catalogue lists only purchasable items)')
+
+        if not (row.get('title_ar') or '').strip():
+            warn('title_ar',
+                 'No Arabic title: the Arabic storefront will show the English title and '
+                 'this product will not match Arabic search terms')
+
+        if not (row.get('description_ar') or '').strip():
+            warn('description_ar',
+                 'No Arabic description: the Arabic product page will fall back to the '
+                 'English copy')
+
+        if not row.get('_gender_explicit'):
+            warn('gender',
+                 f'No gender given, so it is inferred from the title as '
+                 f'"{row.get("gender") or "unisex"}" — add the gender column to control it')
+
+        return out
+
+    def _unknown_column_warnings(self, fields: List[str]) -> List[Dict[str, Any]]:
+        """Warn about columns the importer will ignore.
+
+        Without this a typo'd optional column is invisible: the row validates,
+        the product is created, and the value the brand owner typed is simply
+        not there. Silence is the one answer that is never acceptable here.
+        """
+        known = set(self.REQUIRED_FIELDS) | set(self.OPTIONAL_FIELDS) | set(self.HEADER_ALIASES)
+        out = []
+        for field in fields:
+            name = (field or '').strip()
+            if not name or name in known or name.lower() in known:
+                continue
+            out.append({
+                'row': 1,
+                'field': name,
+                'message': (f'Column "{name}" is not part of the import contract and will be '
+                            f'ignored. Recognised columns: '
+                            + ', '.join(sorted(set(self.REQUIRED_FIELDS) | set(self.OPTIONAL_FIELDS)))),
+            })
+        return out
+
     def _generate_sku_code(self, product_title, size, color, brand_slug):
         identity = json.dumps([brand_slug, product_title, size, color], ensure_ascii=False)
         return 'SKU-' + hashlib.sha256(identity.encode()).hexdigest()[:32].upper()
 
     def _prepare_rows(self, rows, brand_id, target_store_id=None):
-        valid, errors, seen, duplicate = [], [], set(), 0
+        valid, errors, seen, duplicate, warnings = [], [], set(), 0, []
         brand = self.brand_repo.get_by_id(brand_id)
         if not brand:
             raise ValueError('Brand not found')
@@ -252,6 +492,7 @@ class BrandCatalogService:
                 errors.append(CatalogImportError(number, 'row', 'Row has invalid structure or extra columns'))
                 continue
             row = self._normalize(source, target_store_id=target_store_id)
+            row['_row_number'] = number
             row_errors = self._validate_row(row, number, brand_id=brand_id)
             if row_errors:
                 errors.extend(row_errors)
@@ -262,11 +503,34 @@ class BrandCatalogService:
                 errors.append(CatalogImportError(number, 'sku_code', 'Duplicate SKU in file', code, 'Each SKU in the CSV must be unique'))
                 duplicate += 1
                 continue
+            # A SKU that already belongs to a DIFFERENT product cannot be
+            # imported — `import_products` refuses to reassign it. Checking that
+            # here means the preview says so on the row, in the same words,
+            # instead of showing "valid" and failing at commit.
+            collision = self._sku_collision(code, row, brand_id)
+            if collision:
+                errors.append(CatalogImportError(number, 'sku_code', collision, code,
+                                                 'Reuse the SKU only on its own product row, or use a new SKU'))
+                continue
             seen.add(code)
-            row['sku_code'], row['_row_number'] = code, number
+            row['sku_code'] = code
             valid.append(row)
+            warnings.extend(self._row_warnings(row))
         return valid, errors, dict(total=len(rows), accepted=len(valid),
-                                  rejected=len({e.row for e in errors}), duplicate=duplicate)
+                                  rejected=len({e.row for e in errors}), duplicate=duplicate,
+                                  warnings=warnings)
+
+    def _sku_collision(self, code: str, row, brand_id: int) -> Optional[str]:
+        """Why this SKU may not be imported onto this row, or None."""
+        existing = self.db.query(ProductSKU).filter_by(sku_code=code).first()
+        if not existing:
+            return None
+        owner = existing.product
+        if owner and owner.brand_id == brand_id and owner.title == row.get('title'):
+            return None  # a genuine update of this very product
+        where = f'product "{owner.title}"' if owner else 'another product'
+        return f'SKU already belongs to {where}; a SKU cannot be moved between products'
+
 
     def _diagnose_header(self, fields: List[str]) -> Optional[str]:
         """Explain what is actually wrong with a header row, or return None if it is fine."""
@@ -356,42 +620,108 @@ class BrandCatalogService:
                 rows.append({k: self._sanitize_csv_value(v) if k in ('title', 'title_ar', 'description', 'description_ar', 'product_name') else v for k, v in source.items() if k is not None})
             if not rows:
                 raise ValueError('CSV contains no data rows')
-            return self._prepare_rows(rows, brand_id, target_store_id=target_store_id)
+            valid, errors, stats = self._prepare_rows(rows, brand_id, target_store_id=target_store_id)
+            # Header-level findings (unrecognised columns) come first so they
+            # read before any per-row note.
+            stats['warnings'] = self._unknown_column_warnings(fields) + stats.get('warnings', [])
+            return valid, errors, stats
         except (csv.Error, ValueError) as exc:
             field = 'header' if isinstance(exc, CatalogHeaderError) else 'file'
-            return [], [CatalogImportError(0, field, str(exc))], dict(total=0, accepted=0, rejected=0, duplicate=0)
+            return [], [CatalogImportError(0, field, str(exc))], dict(
+                total=0, accepted=0, rejected=0, duplicate=0, warnings=[])
+
+    def _preview_action(self, row, brand_id: int) -> str:
+        """`create` or `update`, decided by the SAME rule the importer applies.
+
+        The previous version asked only "does this sku_code exist?". For a row
+        with no sku_code — the common case, because SKUs are generated — that
+        answer is always "no", so a re-upload of an existing product was
+        labelled `create` and then silently updated it. The preview must not
+        guess differently from the write.
+        """
+        sku = self.db.query(ProductSKU).filter_by(sku_code=row['sku_code']).first()
+        if sku:
+            owner = sku.product
+            return 'update' if owner and owner.brand_id == brand_id and owner.title == row.get('title') else 'create'
+        if row.get('_generated_sku'):
+            product = self.db.query(Product).filter_by(brand_id=brand_id, title=row.get('title')).first()
+            if product:
+                match = self.db.query(ProductSKU).filter_by(
+                    product_id=product.id, size=row.get('size'), color=row.get('color')).first()
+                if match:
+                    return 'update'
+        return 'create'
+
+    def _blocking_warnings(self) -> List[Dict[str, Any]]:
+        """Reasons the import cannot succeed on THIS deployment.
+
+        Media materialisation is mandatory and its storage backend is an
+        environment concern, not a data concern: with no object store every
+        valid row is rejected at commit. Telling the brand owner after they
+        confirm is a dead end, so it is said before they can.
+        """
+        out: List[Dict[str, Any]] = []
+        try:
+            from backend.app.services.media_materialization_service import MediaMaterializationService
+            MediaMaterializationService(self.db)._get_storage()
+        except Exception as exc:
+            out.append({
+                'row': 0,
+                'field': 'storage',
+                'message': ('Object storage is not configured on this deployment, so no image '
+                            'can be registered and every row would be rejected. Fix storage '
+                            f'before importing ({type(exc).__name__}).'),
+                'blocking': True,
+            })
+        if not self._own_images_allowed():
+            out.append({
+                'row': 0,
+                'field': 'image_source',
+                'message': ('Rows that use your own photography (image_source=own) will be '
+                            'rejected: first-party image imports are disabled on this '
+                            'deployment. Stock URLs from Unsplash/Pexels are unaffected.'),
+                'blocking': False,
+            })
+        return out
 
     def preview_csv(self, csv_content: str, brand_id: int, target_store_id: Optional[int] = None) -> Dict[str, Any]:
         """
         Parses and validates CSV content without database writes.
-        Returns total rows, counts, preview records, errors, and warnings.
+
+        This IS the dry run: every check the commit performs runs here, and
+        nothing is written. Returns row counts, a per-row record with the
+        create/update verdict, field-level errors and real warnings.
         """
         valid_rows, errors, stats = self.parse_csv(csv_content, brand_id, target_store_id=target_store_id)
         error_rows = {e.row for e in errors}
         total_rows = stats.get('total', 0)
         accepted_rows = stats.get('accepted', 0)
+        warnings = self._blocking_warnings() + list(stats.get('warnings') or [])
+        blocking = [w for w in warnings if w.get('blocking')]
 
         # Build preview items
         preview_records = []
         for row in valid_rows[:50]:
             code = row.get('sku_code')
-            existing_sku = self.db.query(ProductSKU).filter_by(sku_code=code).first()
-            action = "update" if existing_sku else "create"
             preview_records.append({
                 "row_number": row.get('_row_number'),
                 "status": "valid",
-                "action": action,
+                "action": self._preview_action(row, brand_id),
                 "product_name": row.get('title'),
                 "sku": code,
                 "category": row.get('category_slug'),
                 "price": str(row.get('base_price')),
                 "original_price": str(row.get('compare_at_price')) if row.get('compare_at_price') else None,
-                "currency": row.get('currency', 'EGP'),
+                "currency": row.get('currency') or self._pricing_currency(),
                 "stock": row.get('stock_level'),
                 "size": row.get('size'),
                 "color": row.get('color'),
+                "gender": row.get('gender') or 'unisex',
                 "thumbnail_url": row.get('thumbnail_url'),
-                "branch_id": row.get('store_id'),
+                # Was `row.get('store_id')`, which is empty whenever the branch
+                # was given as branch_id or resolved by name — so the Branch
+                # column was blank for rows that DO go to a branch.
+                "branch_id": row.get('store_id') or row.get('branch_id') or target_store_id,
             })
 
         # Add failed rows to preview with error status
@@ -405,10 +735,11 @@ class BrandCatalogService:
                     "sku": str(err.value or "—") if err.field == "sku_code" else "—",
                     "category": "—",
                     "price": "—",
-                    "currency": "EGP",
+                    "currency": self._pricing_currency(),
                     "stock": 0,
                     "size": "—",
                     "color": "—",
+                    "gender": "—",
                     "thumbnail_url": "",
                     "branch_id": None,
                     "error_message": f"{err.field}: {err.message}",
@@ -416,25 +747,34 @@ class BrandCatalogService:
 
         preview_records.sort(key=lambda x: x.get("row_number", 0))
 
+        # Row 1 is the header — its notes are file-level, not a data row.
+        warning_rows = {w.get('row') for w in warnings if isinstance(w.get('row'), int) and w['row'] > 1}
+
         return {
             "total_rows": total_rows,
             "valid_rows_count": accepted_rows,
             "error_rows_count": len(error_rows),
-            "warning_rows_count": 0,
+            "warning_rows_count": len(warning_rows),
             "duplicate_rows_count": stats.get('duplicate', 0),
-            "can_import": accepted_rows > 0,
+            # A blocker means "not one row would land", so the confirm button
+            # must stay disabled rather than let the owner discover it.
+            "can_import": accepted_rows > 0 and not blocking,
+            "blocked_reasons": [w['message'] for w in blocking],
             "preview_records": preview_records,
             "errors": [e.to_dict() for e in errors],
-            "warnings": [],
+            "warnings": warnings,
         }
 
     def import_products(self, valid_rows, brand_id, target_store_id=None):
         accepted, rejected, errors = 0, 0, []
         new_products_created = []
-        # Rows accepted without an Arabic title. Reported, never hidden: the
-        # column stays empty (see _arabic_or_blank), so the storefront falls
-        # back to English visibly rather than claiming a translation exists.
+        # Rows accepted without Arabic copy, and rows whose gender was derived
+        # rather than supplied. Reported, never hidden: the column stays empty
+        # (see _arabic_or_blank), so the storefront falls back to English
+        # visibly rather than claiming a translation exists.
         missing_title_ar = []
+        missing_description_ar = []
+        gender_inferred = []
         media_registered = 0
 
         for fallback_number, row in enumerate(valid_rows, 2):
@@ -469,8 +809,16 @@ class BrandCatalogService:
                     # which the storefront already resolves honestly with
                     # `(lang === 'ar' && title_ar) || title`.
                     product = Product(brand_id=brand_id, category_id=category.id, title=row['title'], slug=slug,
-                                      title_ar=self._arabic_or_blank(row.get('title_ar')), description=row.get('description') or row['title'],
-                                      description_ar=row.get('description_ar') or row.get('description') or row['title'],
+                                      title_ar=self._arabic_or_blank(row.get('title_ar')),
+                                      description=row.get('description') or row['title'],
+                                      # The Arabic description followed the OLD rule that
+                                      # `_arabic_or_blank` exists to kill: it fell back to the
+                                      # English copy, so every imported product claimed an Arabic
+                                      # description and the AR storefront rendered English prose
+                                      # with nothing marking it as untranslated. Missing Arabic is
+                                      # stored as MISSING; the PDP falls back visibly.
+                                      description_ar=self._arabic_or_blank(row.get('description_ar')),
+                                      gender=row.get('gender') or 'unisex',
                                       rating=0, review_count=0, style_compatibility_base=0)
                     self.db.add(product)
                     is_brand_new = True
@@ -482,7 +830,14 @@ class BrandCatalogService:
                                        required=True, exact_scale=True)
                         if row.get('compare_at_price') not in (None, '') else None
                     )
-                for field in ('color_family', 'thumbnail_url', 'currency', 'material', 'dominant_hex', 'title_ar', 'description', 'description_ar', 'style_tags', 'occasion_tags', 'images'):
+                # A gender that was INFERRED from the title is only written on
+                # creation: re-uploading a stock CSV must not overwrite a value
+                # a merchandiser corrected by hand in the dashboard.
+                if row.get('_gender_explicit') or is_brand_new:
+                    product.gender = row.get('gender') or 'unisex'
+                for field in ('color_family', 'thumbnail_url', 'currency', 'material', 'care_instructions',
+                              'dominant_hex', 'title_ar', 'description', 'description_ar',
+                              'style_tags', 'occasion_tags', 'images'):
                     if row.get(field) not in (None, ''):
                         setattr(product, field, row[field])
                 self.db.flush()
@@ -547,10 +902,12 @@ class BrandCatalogService:
                 # evidence (all 54 legacy rows existed and all 54 404'd).
                 media = self._materialize_media(product, row)
                 if not media.resolvable:
+                    # The reason is translated into what the brand owner can DO.
+                    # "(materialization_failed)" told them nothing about which of
+                    # six causes applied to their own file.
                     raise ValueError(
-                        f"product '{row['title']}' created with no resolvable media "
-                        f"({media.reason}); fix the image URL or provide one from "
-                        f"an approved source"
+                        f"product '{row['title']}' was refused: {_MEDIA_REASONS.get(media.reason, media.reason)} "
+                        f"(media: {media.reason})"
                     )
                 self.db.commit()
                 if media.rows:
@@ -559,6 +916,10 @@ class BrandCatalogService:
                 accepted += 1
                 if is_brand_new and not (row.get('title_ar') or '').strip():
                     missing_title_ar.append({'row': number, 'title': product.title})
+                if is_brand_new and not (row.get('description_ar') or '').strip():
+                    missing_description_ar.append({'row': number, 'title': product.title})
+                if not row.get('_gender_explicit'):
+                    gender_inferred.append({'row': number, 'gender': product.gender})
                 if is_brand_new:
                     new_products_created.append({
                         "id": product.id,
@@ -577,39 +938,69 @@ class BrandCatalogService:
                 self.db.rollback()
                 logger.error('catalog_import_row_failed', row=number)
                 raise
-        return accepted, rejected, errors, new_products_created, missing_title_ar, media_registered
+        return (accepted, rejected, errors, new_products_created, missing_title_ar,
+                media_registered, missing_description_ar, gender_inferred)
 
     def _materialize_media(self, product, row):
-        """Register product_images for an imported product. Returns rows written.
+        """Register product_images for an imported product. Returns a verdict.
 
-        Returns 0 — never raises — when the import cannot lawfully or physically
-        materialise a picture:
+        Returns a `MediaResolvability` with ``resolvable=False`` — never raises —
+        when the import cannot lawfully or physically materialise a picture:
           * no thumbnail_url on the row;
-          * the host is not an approved commercial source (Unsplash/Pexels);
-          * object storage is not configured in this environment (the test
-            suite and local dev run without a bucket).
+          * the host is not an approved commercial source (Unsplash/Pexels) and
+            the row did not declare ``image_source=own``;
+          * ``image_source=own`` while the deployment has not opted in;
+          * object storage is not configured in this environment.
         A caller can therefore tell "registered N assets" from "registered
         nothing" via the job result, and the storefront falls back to the legacy
         URL instead of being told a registered image exists when it does not.
+
+        IDEMPOTENCY: when the product already holds verified media derived from
+        this exact source, nothing is re-fetched, re-cropped or re-uploaded. A
+        stock-level correction (the normal reason to re-upload a catalogue) used
+        to re-render five ratios x two formats for every row and delete the
+        registry rows first, so a failed network call during a routine update
+        could take a live product's imagery down with it.
         """
         from backend.app.services.media_materialization_service import (
-            MediaResolvability, verify_resolvable,
+            CANONICAL_KEY_RE, MediaResolvability, verify_resolvable,
         )
         source_url = (row.get('thumbnail_url') or '').strip()
         if not source_url:
             return MediaResolvability(0, False, 'no_source')
+
+        declared = row.get('image_source')
+        if declared == 'own' and not self._own_images_allowed():
+            logger.warning('catalog_import_own_image_refused', product_id=product.id)
+            return MediaResolvability(0, False, 'own_images_disabled')
+
         try:
+            from backend.app.models.catalog import ProductImage
             from backend.app.services.media_materialization_service import (
                 MediaMaterializationService, MediaMaterializationError,
                 MediaSourceNotApproved, provider_for_url,
             )
-            provider = provider_for_url(source_url)
             service = MediaMaterializationService(self.db)
             try:
-                service._get_storage()
+                storage = service._get_storage()
             except Exception as exc:  # unconfigured storage is a skip, not a failure
                 logger.warning('catalog_import_media_storage_unavailable', product_id=product.id, reason=type(exc).__name__)
                 return MediaResolvability(0, False, 'storage_unavailable')
+
+            existing = self.db.query(ProductImage).filter(ProductImage.product_id == product.id).all()
+            same_source = [r for r in existing if (r.source_ref or '') == source_url]
+            if same_source and any(CANONICAL_KEY_RE.match(r.storage_key or '') for r in same_source):
+                verdict = verify_resolvable(self.db, product.id, storage=storage)
+                if verdict.resolvable:
+                    return verdict
+
+            if declared == 'own':
+                provider, source_type = 'own', 'own'
+                attribution = 'Image supplied by the brand'
+            else:
+                provider = provider_for_url(source_url)
+                source_type, attribution = 'stock', f"Photo: {provider.capitalize()}"
+
             images = row.get('images') or ''
             source_ref = source_url
             if isinstance(images, str) and images.startswith('['):
@@ -619,13 +1010,13 @@ class BrandCatalogService:
                         source_ref = str(parsed[0])
                 except (TypeError, ValueError):
                     pass
-            rows = service.materialize(
+            service.materialize(
                 product,
                 source_url,
-                source_type='stock',
+                source_type=source_type,
                 provider=provider,
                 source_ref=source_ref,
-                attribution=f"Photo: {provider.capitalize()}",
+                attribution=attribution,
                 # The caller owns the transaction. If verification below fails,
                 # the product, its SKUs and its media rows must all disappear
                 # together — a committed-then-rejected row would be the worst
@@ -633,7 +1024,7 @@ class BrandCatalogService:
                 commit=False,
             )
             self.db.flush()
-            return verify_resolvable(self.db, product.id, storage=service._get_storage())
+            return verify_resolvable(self.db, product.id, storage=storage)
         except MediaSourceNotApproved as exc:
             logger.warning('catalog_import_media_not_approved', product_id=product.id, reason=str(exc))
             return MediaResolvability(0, False, 'source_not_approved')
@@ -651,7 +1042,8 @@ class BrandCatalogService:
             job.status, job.started_at = 'processing', datetime.now(timezone.utc)
             self.db.commit()
             valid, validation_errors, stats = prepare()
-            accepted, rejected, import_errors, new_prods, missing_ar, media_rows = self.import_products(valid, brand_id, target_store_id=target_store_id)
+            (accepted, rejected, import_errors, new_prods, missing_ar, media_rows,
+             missing_desc_ar, gender_inferred) = self.import_products(valid, brand_id, target_store_id=target_store_id)
             errors = [e.to_dict() for e in validation_errors] + import_errors
             job.total_rows, job.accepted_rows = stats['total'], accepted
             job.rejected_rows = stats['rejected'] + rejected
@@ -676,9 +1068,14 @@ class BrandCatalogService:
                 duplicate_rows=job.duplicate_rows,
                 notifications_queued=notif_result.get("queued", 0),
                 notification_recipients_count=notif_result.get("recipients_count", 0),
-                # Honest completeness signal: rows created without Arabic copy.
+                # Honest completeness signals, all additive to the existing
+                # contract: rows created without Arabic copy, rows whose gender
+                # was derived from the title rather than supplied, and the real
+                # number of media rows registered.
                 rows_missing_title_ar=len(missing_ar),
+                rows_missing_description_ar=len(missing_desc_ar),
                 media_rows_registered=media_rows,
+                rows_gender_inferred=len(gender_inferred),
                 missing_title_ar_rows=[m['row'] for m in missing_ar][:50],
                 errors=errors[:50]
             )
@@ -826,38 +1223,71 @@ class BrandCatalogService:
 
     @staticmethod
     def generate_sample_csv() -> str:
-        """Downloadable official CSV sample template matching CONFIT_A schema."""
+        """The downloadable template: one header, five rows that ACTUALLY validate.
+
+        Two of the four previous sample rows were rejected by the importer's own
+        rules — `original_price` was equal to `price` on two of them, and a
+        strike-through price that was never higher is refused as a false
+        discount claim. A template that fails its own validator teaches the
+        brand owner the wrong contract, so every row here is round-trip tested
+        (`backend/tests/test_catalog_csv_import_contract.py`).
+
+        The Arabic columns are filled in on purpose: UTF-8 in, UTF-8 out, and a
+        template that shows only ASCII quietly implies Arabic is optional
+        decoration rather than a first-class field.
+
+        The images are real Pexels URLs of the garment each row names — the
+        import refuses a row whose picture cannot be resolved, and it refuses a
+        picture that is not the thing being sold just as firmly.
+        """
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow([
-            "product_name", "sku", "description", "category",
-            "price", "currency", "original_price", "color",
-            "size", "stock_quantity", "image_url"
+            "product_name", "sku", "description", "category", "price", "currency",
+            "original_price", "color", "size", "stock_quantity", "image_url",
+            "gender", "title_ar", "description_ar", "material", "care_instructions",
         ])
-        writer.writerow([
-            "Classic Cotton Shirt", "CONFIT-SHIRT-001",
-            "Regular fit crisp cotton shirt with spread collar", "tops",
-            "850.00", "EGP", "1000.00", "White", "M", "25",
-            "https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg"
-        ])
-        writer.writerow([
-            "Linen Summer Trousers", "CONFIT-TROUSERS-002",
-            "Tailored breathable linen blend trousers", "bottoms",
-            "1200.00", "EGP", "1200.00", "Beige", "L", "12",
-            "https://images.pexels.com/photos/1598507/pexels-photo-1598507.jpeg"
-        ])
-        writer.writerow([
-            "Minimal Leather Belt", "CONFIT-BELT-003",
-            "Hand-stitched genuine leather belt with brass buckle", "accessories",
-            "650.00", "EGP", "650.00", "Black", "One Size", "18",
-            "https://images.pexels.com/photos/1598508/pexels-photo-1598508.jpeg"
-        ])
-        writer.writerow([
-            "Tailored Wool Blazer", "CONFIT-BLAZER-004",
-            "Single-breasted Italian virgin wool blazer", "outerwear",
-            "2450.00", "EGP", "2800.00", "Navy", "48", "8",
-            "https://images.pexels.com/photos/1342609/pexels-photo-1342609.jpeg"
-        ])
+        rows = [
+            (["Classic Cotton Shirt", "CONFIT-SHIRT-001",
+              "Regular-fit crisp cotton shirt with a classic collar",
+              # Priced in the PRICE BOOK denomination, not the display currency:
+              # see `_validate_row`'s currency rule. The storefront shows EGP.
+              "tops", "27.00", "USD", "33.50", "White", "M", "25",
+              "https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg",
+              "unisex", "قميص قطني كلاسيكي",
+              "قميص قطني بقصة مستقيمة وياقة كلاسيكية، مناسب للعمل والمناسبات اليومية",
+              "100% cotton", "Machine wash cold; do not tumble dry"]),
+            (["Straight-Leg Indigo Denim", "CONFIT-DENIM-002",
+              "Mid-rise straight-leg jeans in a rigid indigo denim",
+              "bottoms", "45.00", "USD", "", "Indigo", "32", "12",
+              "https://images.pexels.com/photos/1598507/pexels-photo-1598507.jpeg",
+              "unisex", "جينز مستقيم الساق",
+              "بنطال جينز بقصة مستقيمة وخصر متوسط، من قماش قطني متين بلون نيلي",
+              "100% cotton denim", "Machine wash 30C inside out; wash with similar colours"]),
+            (["Low-Top Canvas Sneaker", "CONFIT-SNEAKER-003",
+              "Low-top canvas trainer with a vulcanised rubber sole",
+              "footwear", "33.00", "USD", "", "Off-White", "42", "18",
+              "https://images.pexels.com/photos/1598508/pexels-photo-1598508.jpeg",
+              "unisex", "حذاء رياضي قماشي منخفض",
+              "حذاء رياضي قماشي بنعل مطاطي مريح للاستخدام اليومي",
+              "Cotton canvas, rubber sole", "Wipe clean with a damp cloth"]),
+            (["Tailored Wool Blazer", "CONFIT-BLAZER-004",
+              "Single-breasted blazer in Italian virgin wool",
+              "outerwear", "128.00", "USD", "152.00", "Navy", "48", "8",
+              "https://images.pexels.com/photos/1342609/pexels-photo-1342609.jpeg",
+              "mens", "بليزر صوف مفصل",
+              "بليزر صوف بقصة أحادية الصف وأزرار أمامية، مناسب للعمل والمناسبات",
+              "100% virgin wool", "Dry clean only"]),
+            (["Silk-Blend Maxi Dress", "CONFIT-DRESS-005",
+              "Fluid silk-blend maxi dress with a draped bodice",
+              "dresses", "97.00", "USD", "", "Crimson", "S", "6",
+              "https://images.pexels.com/photos/1755428/pexels-photo-1755428.jpeg",
+              "womens", "فستان ماكسي حريري",
+              "فستان طويل من مزيج الحرير بلون قرمزي بقصة انسيابية",
+              "Silk-viscose blend", "Hand wash cold; dry flat"]),
+        ]
+        for row in rows:
+            writer.writerow(row)
         return output.getvalue()
 
     @staticmethod
@@ -884,11 +1314,21 @@ class BrandCatalogService:
                 elif field in ("sku_code", "sku"):
                     suggestion = "Use 3-100 alphanumeric characters, hyphens or underscores (e.g. CONFIT-001)"
                 elif field in ("category_slug", "category"):
-                    suggestion = "Use an existing category slug like outerwear, shirts, trousers, knitwear, accessories"
+                    # These are the slugs the seeded catalogue actually creates.
+                    # The previous hint offered shirts/trousers/knitwear, none of
+                    # which exist, so the "corrective action" walked the reader
+                    # straight back into the same error.
+                    suggestion = ("Use an existing category slug: "
+                                  + ", ".join(BrandCatalogService.SEEDED_CATEGORY_SLUGS))
                 elif field in ("stock_level", "stock_quantity"):
                     suggestion = "Enter an integer between 0 and 100000"
                 elif field in ("thumbnail_url", "image_url"):
-                    suggestion = "Enter a valid public http(s) URL pointing to an image"
+                    suggestion = ("Use a public HTTPS image URL from images.unsplash.com or "
+                                  "images.pexels.com, or set image_source=own for your own photography")
+                elif field == "image_source":
+                    suggestion = "Leave blank for licensed stock photography, or set 'own' for your own images"
+                elif field == "gender":
+                    suggestion = "Use mens, womens or unisex"
                 else:
                     suggestion = f"Verify {field} matches the required catalog format"
             writer.writerow([row_num, field, val, msg, suggestion])

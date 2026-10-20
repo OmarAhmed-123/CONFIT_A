@@ -28,6 +28,16 @@ interface CSVProductImportModalProps {
   onSuccess: (result: CatalogImportResult) => void;
 }
 
+/**
+ * The five states the job table's CHECK constraint allows. Only three are
+ * terminal, so only those three stop the poller — a job that is still running
+ * must never be reported as finished.
+ */
+const TERMINAL_JOB_STATES = new Set(['completed', 'partially_completed', 'failed']);
+const POLL_INTERVAL_MS = 2500;
+/** Bounded so a stuck job cannot poll forever (25 x 2.5s ≈ 1 minute). */
+const MAX_POLLS = 25;
+
 export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
   isOpen,
   onClose,
@@ -43,7 +53,12 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [previewData, setPreviewData] = useState<CatalogImportPreviewResponse | null>(null);
   const [importResult, setImportResult] = useState<CatalogImportResult | null>(null);
-  const [sendNotifications, setSendNotifications] = useState(true);
+  // OFF by default, matching the API contract. `confirm-import` used to default
+  // to sending and was changed to an explicit opt-in, with the reasoning: a bulk
+  // catalog load of a thousand rows would fire a campaign nobody asked for. The
+  // modal still defaulted to `true`, so the one-click accident the API closed
+  // was re-opened by the UI. Notifications are now a deliberate choice.
+  const [sendNotifications, setSendNotifications] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,8 +84,64 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleDownloadTemplate = () => {
-    window.location.href = '/api/v1/partner/catalog/template.csv';
+  /**
+   * Follow a job the server accepted but has not finished.
+   *
+   * `confirm-import` answers with the job id before the rows are committed, so
+   * the result screen used to sit on a `processing` snapshot forever: the
+   * import had not failed, the UI had simply stopped asking. This polls the
+   * job row the worker writes to, so the counts on screen are the server's
+   * counts and the screen moves to a terminal state on its own.
+   */
+  useEffect(() => {
+    if (step !== 'result' || !importResult || TERMINAL_JOB_STATES.has(importResult.status)) return;
+    let cancelled = false;
+    let polls = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const tick = async () => {
+      polls += 1;
+      try {
+        const job = await brandService.getCatalogImportJob(importResult.job_id);
+        if (cancelled) return;
+        if (job) {
+          setImportResult(job);
+          if (TERMINAL_JOB_STATES.has(job.status)) return;
+        }
+      } catch {
+        // A transient poll failure is not a failed import: keep the last known
+        // server state on screen and try again until the bound is reached.
+      }
+      if (!cancelled && polls < MAX_POLLS) timer = setTimeout(tick, POLL_INTERVAL_MS);
+    };
+    timer = setTimeout(tick, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // Re-running on status is the point: a non-terminal status is what keeps
+    // the loop alive; a terminal one lets the cleanup below stop it.
+  }, [step, importResult?.job_id, importResult?.status]);
+
+  const saveBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // The template comes from the API that validates against it, so the header a
+  // brand downloads can never drift from the header the importer accepts.
+  const handleDownloadTemplate = async () => {
+    try {
+      const { blob, filename } = await brandService.downloadCatalogTemplate();
+      saveBlob(blob, filename || 'confit-catalog-template.csv');
+    } catch (err: any) {
+      setErrorMsg(err?.message || t('b2b.cat.err_template_download'));
+    }
   };
 
   const handleProcessFileForPreview = async (file: File) => {
@@ -131,24 +202,29 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
     onClose();
   };
 
+  /**
+   * Download the row errors as CSV — from the PREVIEW or from the IMPORT.
+   *
+   * The old implementation called a JSON parser on a text/csv response (so it
+   * always threw) and then "fell back" to `window.open` on an endpoint that
+   * only accepts POST (so it answered 405). Both downloads were broken; there
+   * was no working path at all. Single path now, and it reports failure instead
+   * of silently opening a blank tab.
+   */
   const handleDownloadErrorReport = async () => {
-    if (!previewData?.errors || previewData.errors.length === 0) return;
+    const errors = importResult?.errors?.length
+      ? importResult.errors
+      : previewData?.errors ?? [];
+    if (errors.length === 0) return;
     try {
-      const csvStr = await brandService.exportImportErrors(previewData.errors);
-      const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'confit-import-errors.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      // Fallback manual CSV trigger
-      window.open('/api/v1/partner/catalog/export-errors', '_blank');
+      const { blob, filename } = await brandService.exportImportErrors(errors);
+      saveBlob(blob, filename || 'confit-import-errors.csv');
+    } catch (err: any) {
+      setErrorMsg(err?.message || t('b2b.cat.err_report_download'));
     }
   };
+
+  const errorCount = importResult?.errors?.length ?? previewData?.errors?.length ?? 0;
 
   if (!isOpen) return null;
 
@@ -176,7 +252,10 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span className="text-[10px] font-semibold text-slate-500">
                   {step === 'upload' && t('b2b.cat.step_upload')}
-                  {step === 'preview' && t('b2b.cat.step_preview')}
+                  {step === 'preview' && !isImporting && t('b2b.cat.step_preview')}
+                  {/* While the rows commit, say so: the preview label claimed
+                      "Validate & Preview" during a write. */}
+                  {step === 'preview' && isImporting && t('b2b.cat.step_processing')}
                   {step === 'result' && t('b2b.cat.step_result')}
                 </span>
               </div>
@@ -363,6 +442,44 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 </div>
               </div>
 
+              {/* Warnings: real, non-blocking findings from the server. The
+                  counter badge above has existed since the first cut, but the
+                  API always returned `[]`, so this section was dead. */}
+              {(previewData.warnings?.length ?? 0) > 0 && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    {t('b2b.cat.warnings_title', { n: previewData.warnings?.length ?? 0 })}
+                  </div>
+                  <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-amber-900">
+                    {(previewData.warnings ?? []).slice(0, 8).map((w, i) => (
+                      <li key={`${w.field}-${i}`} className="flex gap-2">
+                        <span className="font-mono text-amber-700">
+                          {w.row > 1 ? t('b2b.cat.row_label', { row: w.row }) : t('b2b.cat.file_label')}
+                        </span>
+                        <span>{w.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {(previewData.warnings?.length ?? 0) > 8 && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-amber-800">
+                      {t('b2b.cat.warnings_more', { n: (previewData.warnings?.length ?? 0) - 8 })}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* A blocker is not a warning: nothing would land. Say why, and
+                  keep the confirm button disabled (can_import already reflects it). */}
+              {(previewData.blocked_reasons?.length ?? 0) > 0 && (
+                <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900">
+                  <div className="font-bold">{t('b2b.cat.blocked_title')}</div>
+                  <ul className="mt-1.5 list-disc space-y-1 ps-5">
+                    {previewData.blocked_reasons!.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              )}
+
               {/* Data Preview Table */}
               <div className="rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
@@ -382,21 +499,24 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 </div>
                 <div className="overflow-x-auto max-h-72">
                   <table className="w-full text-start text-xs">
+                    <caption className="sr-only">{t('b2b.cat.preview_table_caption')}</caption>
                     <thead>
                       <tr className="border-b border-slate-200 bg-white text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        <th className="py-2.5 px-3">#</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_status')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_action')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_product')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_sku')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_category')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_price')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_stock')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_variant')}</th>
+                        <th scope="col" className="py-2.5 px-3">#</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_status')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_action')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_product')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_sku')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_category')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_price')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_stock')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_variant')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
-                      {previewData.preview_records.map((r, i) => (
+                      {/* Defensive: a preview body without `preview_records` (older API, proxy
+                      error envelope) must render an empty table, not white-screen. */}
+                      {(previewData.preview_records ?? []).map((r, i) => (
                         <tr
                           key={i}
                           className={r.status === 'error' ? 'bg-rose-50/40' : 'hover:bg-slate-50/80'}
@@ -490,7 +610,12 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                   {t('b2b.cat.result_title')}
                 </h3>
                 <p className="mt-1 text-xs text-slate-600">
-                  Import Job #{importResult.job_id} ({importResult.status})
+                  {t('b2b.cat.result_job', {
+                    id: importResult.job_id,
+                    status: t(`b2b.cat.status_${importResult.status}`, {
+                      defaultValue: importResult.status,
+                    }),
+                  })}
                 </p>
               </div>
 
@@ -528,6 +653,60 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* The import returns facts the modal never showed: how many
+                  Arabic titles are missing, how many image assets were
+                  registered, and which rows were refused. Reporting "done"
+                  without them would be the summary lying by omission. */}
+              <div className="mx-auto max-w-2xl space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-start text-[11px] leading-relaxed text-slate-700">
+                <div className="flex justify-between gap-3">
+                  <span>{t('b2b.cat.result_media')}</span>
+                  <span className="font-mono font-bold text-brand-charcoal">
+                    {importResult.media_rows_registered ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>{t('b2b.cat.result_missing_ar')}</span>
+                  <span className="font-mono font-bold text-brand-charcoal">
+                    {importResult.rows_missing_title_ar ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>{t('b2b.cat.result_gender_inferred')}</span>
+                  <span className="font-mono font-bold text-brand-charcoal">
+                    {importResult.rows_gender_inferred ?? 0}
+                  </span>
+                </div>
+                {importResult.rows_missing_title_ar ? (
+                  <p className="pt-1 text-amber-800">{t('b2b.cat.result_missing_ar_hint')}</p>
+                ) : null}
+              </div>
+
+              {errorCount > 0 && (
+                <div className="mx-auto max-w-2xl rounded-2xl border border-rose-200 bg-rose-50 p-4 text-start">
+                  <div className="text-xs font-bold text-rose-900">
+                    {t('b2b.cat.result_rejected_title', { n: errorCount })}
+                  </div>
+                  <ul className="mt-1.5 space-y-1 text-[11px] text-rose-900">
+                    {(importResult.errors ?? []).slice(0, 5).map((e: any, i: number) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="font-mono text-rose-700">
+                          {e?.row > 1 ? t('b2b.cat.row_label', { row: e.row }) : t('b2b.cat.file_label')}
+                        </span>
+                        <span>{e?.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button data-motion="download"
+                    type="button"
+                    onClick={handleDownloadErrorReport}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-rose-800 hover:underline"
+                  >
+                    <Download size={13} />
+                    {t('b2b.cat.btn_download_error_report')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

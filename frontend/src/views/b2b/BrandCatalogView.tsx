@@ -7,6 +7,7 @@ import { useBrandViewModel, CatalogImportJob } from '../../viewmodels/useBrandVi
 import { Surface } from '../../components/common/Surface';
 import { HonestProductImage } from '../../components/common/HonestProductImage';
 import { request } from '../../services/apiClient';
+import { brandService } from '../../services/apiServices';
 import { CSVProductImportModal } from '../../components/brands/CSVProductImportModal';
 import { CatalogImportResult } from '../../models';
 
@@ -15,9 +16,20 @@ import { CatalogImportResult } from '../../models';
  * Boutique Branch Inventory Management, and Automated Notifications.
  */
 
+/**
+ * Illustrative row shown in the dialog. It is NOT the download any more — the
+ * download comes from `/partner/catalog/template.csv`, so the file a brand
+ * receives is produced by the code that validates it.
+ *
+ * It was also wrong: it named the category `shirts`, which the seeded catalogue
+ * does not contain (the seeded slugs are outerwear, tops, bottoms, dresses,
+ * footwear, accessories) and it priced in EGP while the price book is
+ * denominated in USD. A brand copying this example was guaranteed two
+ * validation errors. Kept here only as on-screen text, and kept correct.
+ */
 const SAMPLE_CSV = [
-  'product_name,sku,description,category,price,currency,original_price,color,size,stock_quantity,image_url',
-  '"Classic Cotton Shirt",CONFIT-SHIRT-001,"Regular fit crisp cotton shirt",shirts,850.00,EGP,1000.00,White,M,25,https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg',
+  'product_name,sku,description,category,price,currency,original_price,color,size,stock_quantity,image_url,gender',
+  '"Classic Cotton Shirt",CONFIT-SHIRT-001,"Regular fit crisp cotton shirt",tops,27.00,USD,33.50,White,M,25,https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg,unisex',
 ].join('\n') + '\n';
 
 const TERMINAL = new Set(['completed', 'partially_completed', 'failed']);
@@ -33,7 +45,7 @@ export const BrandCatalogView: React.FC = () => {
   const { t } = useTranslation();
   const {
     products, updateSKUInventory, isLoading, importJobs,
-    fetchErrors, refresh, getImportJobStatus, uploadCatalogCSV, isUploading,
+    fetchErrors, refresh,
   } = useBrandViewModel();
 
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
@@ -41,9 +53,6 @@ export const BrandCatalogView: React.FC = () => {
   const [editStock, setEditStock] = useState<number>(20);
   const [editPrice, setEditPrice] = useState<number | undefined>(undefined);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
   const [lastImportResult, setLastImportResult] = useState<CatalogImportResult | CatalogImportJob | null>(null);
   const [tag, setTag] = useState<Record<number, TagPhase>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,63 +62,57 @@ export const BrandCatalogView: React.FC = () => {
 
   useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
 
-  const closeBulkDialog = useCallback(() => { if (!isUploading) setBulkModalOpen(false); }, [isUploading]);
 
-  const downloadSampleCsv = useCallback(() => {
-    const blob = new Blob(['\ufeff' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'confit-catalog-template.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  /**
+   * Download the template the API validates against.
+   *
+   * There used to be two templates: this file's hardcoded string and the
+   * server's `generate_sample_csv()`. They disagreed on the category slugs, so
+   * "download sample" from this dialog produced a file the importer rejected
+   * while "download template" from the other dialog produced one it accepted.
+   * The server is the only authority now; the local string is display-only and
+   * is used as a fallback precisely because it is no longer a second contract.
+   */
+  const downloadSampleCsv = useCallback(async () => {
+    try {
+      const { blob, filename } = await brandService.downloadCatalogTemplate();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'confit-catalog-template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      const blob = new Blob(['\ufeff' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'confit-catalog-template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   }, []);
 
-  const handleFileUpload = async (file: File) => {
-    setFileError(null);
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setFileError(t('b2b.cat.file_err_type'));
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setFileError(t('b2b.cat.file_err_size'));
-      return;
-    }
-    try {
-      const result = await uploadCatalogCSV(file);
-      setLastImportResult(result);
-      if (result?.job_id != null && !TERMINAL.has(result.status)) {
-        followJob(result.job_id, Date.now());
-      } else {
-        refresh();
-      }
-    } catch (err) {
-      /* the view-model already toasts the failure; nothing to fabricate here */
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]);
-  };
-
-  const followJob = useCallback((jobId: number, startedAt: number) => {
-    const step = async () => {
-      const job = await getImportJobStatus(jobId);
-      if (!job) return;
-      setLastImportResult(job);
-      if (TERMINAL.has(job.status)) {
-        refresh();
-        return;
-      }
-      if (Date.now() - startedAt > 90_000) return;
-      pollTimer.current = setTimeout(step, 2500);
+  /**
+   * Keep the import ledger honest while a job is still running.
+   *
+   * The ledger used to be a snapshot: a job that was `queued` when the page
+   * loaded stayed `queued` on screen until a manual reload, even after the
+   * worker finished it. One refetch timer per open page is enough — the modal
+   * follows its own job, this covers "come back later" and parallel imports.
+   */
+  const activeJobs = importJobs.filter((j) => !TERMINAL.has(j.status)).length;
+  useEffect(() => {
+    if (activeJobs === 0) return;
+    pollTimer.current = setTimeout(() => refresh(), 3000);
+    return () => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
     };
-    pollTimer.current = setTimeout(step, 2500);
-  }, [getImportJobStatus, refresh]);
+  }, [activeJobs, refresh]);
 
   const handleSaveSku = async (skuId: number) => {
     if (saving) return;
@@ -121,6 +124,9 @@ export const BrandCatalogView: React.FC = () => {
 
   const handleImportComplete = (result: CatalogImportResult) => {
     setLastImportResult(result);
+    // The modal already followed a non-terminal job to a terminal state before
+    // it reported, so this is a refresh of settled truth — plus the ledger's
+    // own poller picks up anything still running.
     refresh();
   };
 
@@ -222,20 +228,18 @@ export const BrandCatalogView: React.FC = () => {
           <button
             data-motion="upload"
             type="button"
-            onClick={() => { setFileError(null); setBulkModalOpen(true); }}
-            className={btnPrimary}
-          >
-            <UploadIcon size={14} />
-            {t('b2b.cat.bulk_cta')}
-          </button>
-          <button
-            data-motion="upload"
-            type="button"
             onClick={() => setImportModalOpen(true)}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-coral px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#E76A52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral shadow-xs"
           >
-            <Upload size={14} aria-hidden="true" />
-            {t('b2b.cat.import_products_cta')}
+            {/* The design system's own "upload" verb glyph, not a generic
+                lucide icon: the button may only borrow the vocabulary the
+                brand sheets define, and the labelled text carries the meaning
+                so the glyph stays decorative. */}
+            <UploadIcon size={16} aria-hidden="true" />
+            {/* The established entry point (B03): the modal it opens is titled
+                "Import Products from CSV", but the button keeps its name so the
+                screen's contract — and the audit test that pins it — hold. */}
+            {t('b2b.cat.bulk_cta')}
           </button>
         </div>
       </header>
@@ -559,68 +563,6 @@ export const BrandCatalogView: React.FC = () => {
         onSuccess={handleImportComplete}
       />
 
-      {/* ------------------------------------------------------ bulk CSV modal */}
-      {bulkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.cat.modal_title')}</h2>
-            <div className="space-y-2 text-xs text-slate-600">
-              <p>{t('b2b.cat.modal_required', { cols: 'title, category_slug, base_price, color_family, thumbnail_url' })}</p>
-              <p>{t('b2b.cat.modal_optional', { cols: 'title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images' })}</p>
-              <p className="rounded-lg bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-700">{t('b2b.cat.modal_limits')}</p>
-            </div>
-
-            <div
-              role="button" tabIndex={0} aria-label={t('b2b.choose_csv')}
-              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isUploading) { e.preventDefault(); fileInputRef.current?.click(); } }}
-              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors duration-300 ease-luxury ${dragActive ? 'border-brand-charcoal bg-brand-charcoal/5' : 'border-slate-300 bg-brand-wash'} ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
-            >
-              <input ref={fileInputRef} type="file" accept=".csv" onChange={(e) => { if (e.target.files && e.target.files[0]) handleFileUpload(e.target.files[0]); }} className="hidden" />
-              {isUploading ? (
-                <div className="space-y-2">
-                  <RefreshCw size={22} className="mx-auto motion-safe:animate-spin text-brand-charcoal" aria-hidden="true" />
-                  <p className="text-xs font-semibold text-brand-charcoal">{t('b2b.cat.drop_processing')}</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <UploadIcon size={22} className="mx-auto text-brand-charcoal" />
-                  <p className="text-xs font-semibold text-slate-600">{t('b2b.cat.drop_cta')}</p>
-                  <p className="text-[11px] text-slate-500">{t('b2b.cat.drop_hint')}</p>
-                </div>
-              )}
-            </div>
-
-            {fileError && (
-              <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-2 text-xs font-semibold text-rose-700">
-                {fileError}
-              </p>
-            )}
-
-            <div className="flex justify-end gap-2 pt-1">
-              <button data-motion="neutral" type="button" onClick={() => setBulkModalOpen(false)} disabled={isUploading} className={btnGhost}>
-                {t('b2b.cat.modal_cancel')}
-              </button>
-              <button data-motion="upload" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={btnPrimary}>
-                {t('b2b.cat.modal_browse')}
-              </button>
-            </div>
-
-            <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-slate-700">{t('b2b.cat.sample_title')}</span>
-                <button data-motion="download" type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-brand-charcoal px-3 text-[11px] font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:bg-brand-charcoal hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
-                  {t('b2b.cat.sample_dl')}
-                </button>
-              </div>
-              <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-slate-50 p-2 text-[11px] leading-relaxed">{SAMPLE_CSV}</pre>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

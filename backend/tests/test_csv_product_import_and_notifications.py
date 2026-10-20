@@ -188,9 +188,9 @@ def test_preview_csv_validation_with_clean_and_error_rows(test_env):
 
     # CSV with 1 valid row, 1 row with negative price, 1 row with duplicate SKU
     csv_data = f"""product_name,sku,description,category,price,currency,color,size,stock_quantity,image_url,branch_id
-Linen Summer Shirt,SKU-TEST-001,Pure Italian linen shirt,shirts,950.00,EGP,White,M,15,https://images.pexels.com/photos/297933/shirt.jpg,{boutique.id}
-Invalid Price Pants,SKU-TEST-002,Pants with negative price,shirts,-50.00,EGP,Beige,L,10,https://images.pexels.com/photos/1598507/pants.jpg,{boutique.id}
-Duplicate SKU Belt,SKU-TEST-001,Duplicate SKU row,accessories,450.00,EGP,Black,One Size,5,https://images.pexels.com/photos/1598508/belt.jpg,{boutique.id}
+Linen Summer Shirt,SKU-TEST-001,Pure Italian linen shirt,shirts,950.00,USD,White,M,15,https://images.pexels.com/photos/297933/shirt.jpg,{boutique.id}
+Invalid Price Pants,SKU-TEST-002,Pants with negative price,shirts,-50.00,USD,Beige,L,10,https://images.pexels.com/photos/1598507/pants.jpg,{boutique.id}
+Duplicate SKU Belt,SKU-TEST-001,Duplicate SKU row,accessories,450.00,USD,Black,One Size,5,https://images.pexels.com/photos/1598508/belt.jpg,{boutique.id}
 """
 
     files = {"file": ("test_catalog.csv", csv_data.encode("utf-8"), "text/csv")}
@@ -218,7 +218,7 @@ def test_tenant_isolation_rejects_foreign_branch(test_env):
 
     # CSV attempting to assign stock to a branch belonging to another brand
     csv_data = f"""product_name,sku,description,category,price,currency,color,size,stock_quantity,image_url,branch_id
-Unauthorized Branch Item,SKU-ILLEGAL-01,Illegally assigning other brand store,shirts,1200.00,EGP,Navy,M,20,https://images.pexels.com/photos/297933/test.jpg,{other_boutique.id}
+Unauthorized Branch Item,SKU-ILLEGAL-01,Illegally assigning other brand store,shirts,1200.00,USD,Navy,M,20,https://images.pexels.com/photos/297933/test.jpg,{other_boutique.id}
 """
 
     files = {"file": ("test_tenant.csv", csv_data.encode("utf-8"), "text/csv")}
@@ -233,6 +233,15 @@ Unauthorized Branch Item,SKU-ILLEGAL-01,Illegally assigning other brand store,sh
     assert any("tenant isolation" in e["message"].lower() for e in data["errors"])
 
 
+# NOTE ON CURRENCY: these CSVs used to price in EGP. `products.currency` is not a
+# denomination — the price book has exactly one (`PRICING_CURRENCY`, USD) — and a
+# row that declared EGP made the product page render the raw number as EGP while
+# the cart converted the same number from the price book, quoting one product at
+# two prices ~53x apart. The importer now refuses a row whose currency is not the
+# price-book denomination (see test_catalog_csv_import_contract.py), so the
+# fixtures below price in USD and the storefront converts for display.
+
+
 def test_confirm_import_creates_products_and_branch_inventory(test_env):
     client = test_env["client"]
     token = test_env["token"]
@@ -241,8 +250,8 @@ def test_confirm_import_creates_products_and_branch_inventory(test_env):
     brand = test_env["brand"]
 
     csv_data = f"""product_name,sku,description,category,price,currency,original_price,color,size,stock_quantity,image_url
-Cashmere Knit Sweater,SKU-CASH-101,Luxurious 100% Mongolian cashmere,outerwear,3200.00,EGP,3800.00,Navy Blue,L,18,https://images.pexels.com/photos/1342609/sweater.jpg
-Silk Evening Scarf,SKU-SILK-202,Handcrafted pure silk scarf,accessories,850.00,EGP,1100.00,Burgundy,One Size,24,https://images.pexels.com/photos/1598508/scarf.jpg
+Cashmere Knit Sweater,SKU-CASH-101,Luxurious 100% Mongolian cashmere,outerwear,3200.00,USD,3800.00,Navy Blue,L,18,https://images.pexels.com/photos/1342609/sweater.jpg
+Silk Evening Scarf,SKU-SILK-202,Handcrafted pure silk scarf,accessories,850.00,USD,1100.00,Burgundy,One Size,24,https://images.pexels.com/photos/1598508/scarf.jpg
 """
 
     files = {"file": ("new_collection.csv", csv_data.encode("utf-8"), "text/csv")}

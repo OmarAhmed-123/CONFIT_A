@@ -321,8 +321,13 @@ def test_import_rejects_a_row_whose_image_cannot_resolve(seeded_product):
         assert result["accepted_rows"] == 0
         assert result["rejected_rows"] == 1
         messages = " ".join(e.get("message", "") for e in result["errors"])
-        assert "no resolvable media" in messages
-        assert "source_not_approved" in messages
+        # The refusal now happens during VALIDATION rather than at commit, so
+        # the preview table shows it on the same field the import would fail on
+        # (`thumbnail_url`) instead of approving the row and failing it later.
+        # Either wording proves the same property: the row was refused because
+        # its image could not be resolved, and the reason names the cause.
+        assert "not an approved stock source" in messages or "no resolvable media" in messages, messages
+        assert "source_not_approved" in messages or "approved stock source" in messages, messages
 
         # And nothing was created: a rejected row must leave no product behind,
         # not even a half-written one whose hero would 404.

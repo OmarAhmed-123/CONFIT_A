@@ -148,6 +148,27 @@ const EXTRACTED = [
   'b2b.cat.btn_view_catalog',
   'b2b.cat.search_placeholder',
   'b2b.cat.filter_all_categories',
+  // CSV-import honesty surface: the processing label, the warnings/blockers
+  // panels, the accessible table caption, the two download failures, and the
+  // result facts the API returns (media registered, missing Arabic, inferred
+  // gender). Reviewed: Arabic is a real translation (no English left), the
+  // digits are Arabic-Indic where the locale uses them, and each message says
+  // what actually happened rather than a generic "error".
+  'b2b.cat.step_processing',
+  'b2b.cat.warnings_title',
+  'b2b.cat.warnings_more',
+  'b2b.cat.blocked_title',
+  'b2b.cat.row_label',
+  'b2b.cat.file_label',
+  'b2b.cat.preview_table_caption',
+  'b2b.cat.err_template_download',
+  'b2b.cat.err_report_download',
+  'b2b.cat.result_job',
+  'b2b.cat.result_media',
+  'b2b.cat.result_missing_ar',
+  'b2b.cat.result_gender_inferred',
+  'b2b.cat.result_missing_ar_hint',
+  'b2b.cat.result_rejected_title',
 ];
 
 describe('extracted strings: presence and shape', () => {

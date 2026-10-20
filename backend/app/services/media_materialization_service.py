@@ -242,17 +242,14 @@ class MediaMaterializationService:
     def _get_fetch(self):
         if self._fetch is not None:
             return self._fetch
-        import httpx
+        from backend.app.core.net_guard import safe_get
 
         def fetch(url: str) -> bytes:
-            resp = httpx.get(
-                url,
-                timeout=30,
-                follow_redirects=True,
-                headers={"User-Agent": "CONFIT-catalog-materializer/1.0"},
-            )
-            resp.raise_for_status()
-            return resp.content
+            # `safe_get` validates the URL and EVERY redirect hop before it is
+            # requested. Stock hosts were safe by construction; first-party
+            # URLs typed into a CSV are not, and this is the one place in the
+            # catalogue that turns such a string into a server-side request.
+            return safe_get(url, timeout=30)
 
         return fetch
 

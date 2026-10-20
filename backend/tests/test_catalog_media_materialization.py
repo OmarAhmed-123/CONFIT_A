@@ -385,3 +385,66 @@ def test_legacy_label_keys_are_not_resolvable(seeded_product):
     verdict = verify_resolvable(db, product.id, storage=FakeStorage())
     assert verdict.resolvable is False
     assert verdict.reason == "legacy_label_key"
+
+
+def test_verify_reports_a_partial_ratio_ladder(seeded_product):
+    """`--verify` must catch a short ladder, not just a misnamed key.
+
+    MEASURED (2026-10-20, production, read-only): `products_with_media` was
+    12/12 and `rows_with_canonical_key` was 108/108 — both green — while
+    products 9 and 18 held only `4x5` and `master`. Every one of those four
+    rows is canonical, so the name check passed; four of the five design ratios
+    were simply absent. On the storefront those two products show a single
+    gallery frame, no thumbnail rail and no 1:1 swatch or editorial band.
+
+    The check has to be about COMPLETENESS, which a row count cannot express.
+    """
+    from backend.scripts.materialize_catalog_media import report_state
+
+    db, product = seeded_product
+    for ratio in ("4x5", "master"):
+        for fmt in ("jpeg", "webp"):
+            db.add(ProductImage(
+                product_id=product.id,
+                storage_key=f"products/{product.id}/{product.id}-{ratio}.{'jpg' if fmt == 'jpeg' else fmt}",
+                ratio=ratio, format=fmt,
+                public_url=f"/api/v1/media/products/{product.id}/{product.id}-{ratio}.jpg",
+                width=1200, height=1500, bytes=12345, role="hero",
+                checksum="deadbeef", source_type="stock", provider="pexels",
+                is_primary=(ratio == "4x5"),
+            ))
+    db.commit()
+
+    state = report_state(db, "verify")
+
+    assert state["rows_with_canonical_key"] == 4, "all four rows are canonical — the name check is green"
+    assert state["incomplete_ladder_count"] == 1
+    missing = state["products_with_incomplete_ladder"][0]["missing"]
+    assert "1x1.jpeg" in missing and "16x9.webp" in missing
+    assert not [m for m in missing if m.startswith("4x5")], "4x5 IS present"
+
+
+def test_verify_is_quiet_for_a_complete_ladder(seeded_product):
+    """No false positive: ten rows, five ratios, both formats."""
+    from backend.scripts.materialize_catalog_media import report_state
+    from backend.app.services.product_media_service import RATIO_ORDER
+
+    db, product = seeded_product
+    for ratio in RATIO_ORDER:
+        for fmt, ext in (("jpeg", "jpg"), ("webp", "webp")):
+            db.add(ProductImage(
+                product_id=product.id,
+                storage_key=f"products/{product.id}/{product.id}-{ratio}.{ext}",
+                ratio=ratio, format=fmt,
+                public_url=f"/api/v1/media/products/{product.id}/{product.id}-{ratio}.{ext}",
+                width=1200, height=1500, bytes=12345,
+                role="hero" if ratio == "4x5" else "gallery",
+                checksum="deadbeef", source_type="stock", provider="pexels",
+                is_primary=(ratio == "4x5" and fmt == "jpeg"),
+            ))
+    db.commit()
+
+    state = report_state(db, "verify")
+
+    assert state["incomplete_ladder_count"] == 0
+    assert state["products_with_incomplete_ladder"] == []

@@ -117,6 +117,40 @@ def report_state(db, label: str) -> dict:
 
     rows = db.query(ProductImage).all()
     canonical = sum(1 for r in rows if CANONICAL_KEY_RE.match(r.storage_key or ""))
+
+    # LADDER COMPLETENESS — the check the row count cannot make.
+    #
+    # `rows_with_canonical_key` is a NAME check: it proves every row points at a
+    # key the media route will accept. It said 108/108 while products 9 and 18
+    # held only 4x5 and master — four rows each instead of ten — because a short
+    # ladder is still entirely canonical. Four of the five design ratios were
+    # absent, so those two products render one gallery frame with no thumbnail
+    # rail and no 1:1 swatch or editorial band.
+    #
+    # A complete set is every non-master ratio in BOTH formats (8 rows) plus the
+    # master pair (2), so the expectation is derived from the service's own
+    # ladder rather than hard-coded here.
+    from backend.app.services.product_media_service import RATIO_ORDER
+
+    formats_by_product: dict[int, dict[str, set[str]]] = {}
+    for r in rows:
+        formats_by_product.setdefault(r.product_id, {}).setdefault(r.ratio, set()).add(
+            (r.format or "").lower()
+        )
+
+    incomplete = []
+    for product_id, ratios in sorted(formats_by_product.items()):
+        missing = [
+            f"{ratio}.{fmt}"
+            for ratio in RATIO_ORDER
+            for fmt in ("jpeg", "webp")
+            if fmt not in ratios.get(ratio, set())
+        ]
+        if missing:
+            incomplete.append(
+                {"product_id": product_id, "present_ratios": sorted(ratios), "missing": missing}
+            )
+
     state = {
         "label": label,
         "products": db.query(func.count(Product.id)).scalar(),
@@ -124,6 +158,8 @@ def report_state(db, label: str) -> dict:
         "rows_with_canonical_key": canonical,
         "rows_with_legacy_label_key": len(rows) - canonical,
         "distinct_products_with_media": db.query(func.count(func.distinct(ProductImage.product_id))).scalar(),
+        "products_with_incomplete_ladder": incomplete,
+        "incomplete_ladder_count": len(incomplete),
         "sample_keys": [r.storage_key for r in rows[:3]],
     }
     print(json.dumps(state, indent=2))

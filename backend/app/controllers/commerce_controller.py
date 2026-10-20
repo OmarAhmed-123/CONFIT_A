@@ -1,7 +1,7 @@
 import re
 import json
 import uuid
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
@@ -99,12 +99,27 @@ def get_payment_methods_for_market(
 @router.get("/cart", response_model=CartOut)
 def get_cart(
     x_session_token: str = Header(...),
+    shipping_method: Literal["standard", "express"] = Query(
+        "standard",
+        description=(
+            "Delivery method to quote. The cart prices shipping with the same "
+            "authority checkout charges with, so this must be the method the "
+            "shopper intends to check out with."
+        ),
+    ),
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
     fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = CommerceService(db)
-    return _present_cart(service.get_cart(x_session_token, user_id=user.id if user else None), fx)
+    return _present_cart(
+        service.get_cart(
+            x_session_token,
+            user_id=user.id if user else None,
+            shipping_method=shipping_method,
+        ),
+        fx,
+    )
 
 
 @router.post("/commerce/cart/items", response_model=CartOut, status_code=status.HTTP_201_CREATED)

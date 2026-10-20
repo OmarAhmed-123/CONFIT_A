@@ -284,11 +284,23 @@ def test_checkout_session_is_stamped_with_the_resolved_currency(
     r = client.post("/api/v1/commerce/cart/items",
                     json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
     assert r.status_code in (200, 201), r.text
-    created = client.post("/api/v1/checkout/sessions", headers=headers, json={
+    # A client-declared currency is now REFUSED at the boundary rather than
+    # accepted and dropped (CheckoutRequest sets extra="forbid"; this endpoint
+    # shares that schema, so both halves of the order path behave the same).
+    tampered = client.post("/api/v1/checkout/sessions", headers=headers, json={
         "payment_method": "cod", "fulfillment_type": "delivery",
         "recipient_name": "FX Buyer", "phone": "+201000000000",
         "address_line": "1 Tahrir", "city": "Cairo", "country": "EG",
         "currency": "JPY",  # tamper: a client-declared currency
+    })
+    assert tampered.status_code == 422, tampered.text
+    assert "currency" in tampered.text
+
+    # And the honest payload is still stamped by the SERVER, from the market.
+    created = client.post("/api/v1/checkout/sessions", headers=headers, json={
+        "payment_method": "cod", "fulfillment_type": "delivery",
+        "recipient_name": "FX Buyer", "phone": "+201000000000",
+        "address_line": "1 Tahrir", "city": "Cairo", "country": "EG",
     })
     assert created.status_code == 200, created.text
     assert created.json()["currency"] == "EGP"
@@ -300,10 +312,29 @@ def test_checkout_session_is_stamped_with_the_resolved_currency(
 def test_client_cannot_impose_the_settlement_currency(client: TestClient, monkeypatch):
     monkeypatch.setattr(settings, "MARKET_FX_RATES", '{"EGP": "48.5"}')
     token = _register(client)
-    order = _checkout(client, token, "EG", extra={
+    # Tightened: the tampered body is refused outright rather than having its
+    # currency silently discarded. `_checkout` asserts 200, so call the endpoint
+    # directly here.
+    headers = {"Authorization": f"Bearer {token}",
+               "X-Session-Token": f"fx_tamper_{uuid.uuid4().hex[:10]}"}
+    products = client.get("/api/v1/catalog/products").json()
+    detail = client.get(f"/api/v1/catalog/products/{products[0]['id']}").json()
+    sku = next(s for s in detail["skus"] if s["is_in_stock"])
+    added = client.post("/api/v1/commerce/cart/items",
+                        json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
+    assert added.status_code in (200, 201), added.text
+    tampered = client.post("/api/v1/commerce/checkout", headers=headers, json={
+        "payment_method": "cod", "fulfillment_type": "delivery",
+        "recipient_name": "FX Buyer", "phone": "+201000000000",
+        "address_line": "1 Tahrir", "city": "Cairo", "country": "EG",
         "currency": "JPY", "currency_code": "JPY", "total": 1,
         "total_amount": 1, "subtotal_amount": 1, "tax_amount": 0,
     })
+    assert tampered.status_code == 422, tampered.text
+    assert "currency" in tampered.text and "total" in tampered.text
+
+    # The untampered flow still settles in the server-resolved currency.
+    order = _checkout(client, token, "EG")
     rows = _money_rows(order["order_number"])
     assert order["currency"] == "EGP"
     assert rows["order"]["currency"] == "EGP"

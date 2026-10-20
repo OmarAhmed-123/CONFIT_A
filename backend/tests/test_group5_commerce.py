@@ -442,6 +442,21 @@ def test_client_cannot_set_paid_or_override_totals(client: TestClient) -> None:
         json={"product_sku_id": sku["id"], "quantity": 1},
         headers=headers,
     )
+    # DELIBERATE CONTRACT TIGHTENING (silent-ignore -> explicit reject):
+    # this request used to assert 200 while the server quietly recomputed and
+    # discarded `total`/`discount_amount`. That proved the amounts were
+    # server-authoritative but gave the caller no signal that its values meant
+    # nothing. CheckoutRequest now sets extra="forbid", so the same request is
+    # refused with a 422 that names the offending field — and no order exists
+    # afterwards. The money-authoritative assertions live on in
+    # test_checkout_rejects_tampered_amounts.py (valid payload still succeeds,
+    # total still equals the server-computed component sum).
+    db = TestingSessionLocal()
+    try:
+        orders_before = db.query(Order).count()
+    finally:
+        db.close()
+
     created = client.post(
         "/api/v1/commerce/checkout",
         json={
@@ -457,11 +472,17 @@ def test_client_cannot_set_paid_or_override_totals(client: TestClient) -> None:
         },
         headers=headers,
     )
-    assert created.status_code == 200, created.text
-    body = created.json()
-    assert body["payment_status"] != "paid"
-    assert body["total_amount"] > 1.0
-    assert body["discount_amount"] < 9999
+    assert created.status_code == 422, created.text
+    assert "total" in created.text and "discount_amount" in created.text
+
+    # Nothing was created, and the cart is untouched and still shoppable.
+    db = TestingSessionLocal()
+    try:
+        assert db.query(Order).count() == orders_before, "a rejected tamper created an order"
+    finally:
+        db.close()
+    still_there = client.get("/api/v1/commerce/cart", headers=headers).json()
+    assert still_there["items_count"] == 1
 
 
 def test_return_get_is_not_hardcoded_and_ineligible_is_rejected(client: TestClient) -> None:

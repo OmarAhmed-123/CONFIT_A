@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from decimal import Decimal, ROUND_HALF_UP
 from backend.app.core.config import settings
+from backend.app.core.shipping import compute_shipping_fee
 from backend.app.core.money import (
     to_decimal,
     validate_money,
@@ -125,10 +126,17 @@ class CommerceService:
         self.product_context = ProductContextService(db)
 
     # ------------------------------------------------------------------ cart
-    def get_cart(self, session_token: str, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_cart(
+        self,
+        session_token: str,
+        user_id: Optional[int] = None,
+        shipping_method: str = "standard",
+    ) -> Dict[str, Any]:
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
-        return self._format_cart(cart_full or cart, user_id=user_id)
+        return self._format_cart(
+            cart_full or cart, user_id=user_id, shipping_method=shipping_method
+        )
 
     def add_to_cart(
         self,
@@ -270,6 +278,16 @@ class CommerceService:
 
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
+
+        # Fail closed: a cart that belongs to a signed-in shopper may only be
+        # checked out by that shopper. The repository already refuses to hand
+        # an owned cart to a token-only caller; this is the second, independent
+        # gate for any other route a cart could arrive here by.
+        if cart_full is not None and cart_full.user_id is not None and cart_full.user_id != user_id:
+            raise AuthorizationError(
+                "This cart belongs to a signed-in shopper. Sign in to continue with it."
+            )
+
         if not cart_full or not cart_full.items:
             raise ValidationDomainError("Cannot checkout an empty cart.")
 
@@ -299,22 +317,26 @@ class CommerceService:
 
         subtotal, order_items_payload, brand_ids = self._line_items_from_cart(cart_full)
         promo_code = checkout_data.get("promo_code") or cart_full.promo_code
+        # One identity for promo bookkeeping: the guest email when checking out
+        # as a guest, the account email when signed in. Recorded on the
+        # redemption below so the allowance follows the same person across the
+        # sign-in boundary in BOTH directions.
+        identity_email = (guest_email or "").strip().lower() or None
+        if user_id is not None and not identity_email:
+            identity_email = (self.commerce_repo.get_user_email(user_id) or "").strip().lower() or None
         discount, promo = (Decimal("0.00"), None)
         if promo_code:
-            discount, promo = self._resolve_promo(promo_code, subtotal, cart_full, user_id)
+            discount, promo = self._resolve_promo(
+                promo_code, subtotal, cart_full, user_id, identity_email=identity_email
+            )
 
-        # Precise Decimal arithmetic for financial integrity
-        free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
-        express_fee = to_decimal(settings.EXPRESS_SHIPPING_FEE)
-        standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
+        # Precise Decimal arithmetic for financial integrity.
+        # CUS-01: the fee comes from the SAME authority the cart quote uses, so
+        # the order can never charge a shipping figure the cart did not show.
         tax_rate = to_rate(settings.TAX_RATE)  # rate, never money-quantized
-
-        if fulfillment == "bopis":
-            shipping = Decimal("0.00")
-        elif shipping_method == "express":
-            shipping = Decimal("0.00") if (subtotal - discount) >= free_threshold else express_fee
-        else:
-            shipping = Decimal("0.00") if (subtotal - discount) >= free_threshold else standard_fee
+        shipping = compute_shipping_fee(
+            subtotal, discount, fulfillment=fulfillment, shipping_method=shipping_method
+        )
 
         taxable = money_max(subtotal - discount, Decimal("0.00"))
         tax = money_mul(taxable, tax_rate)
@@ -431,7 +453,10 @@ class CommerceService:
                     promotion_id=promo.id,
                     order_id=order.id,
                     user_id=user_id,
-                    guest_email=guest_email,
+                    # Identity email, not strictly "guest" email: for a
+                    # signed-in redemption this is the account email, which is
+                    # what links it to that person's guest redemptions.
+                    guest_email=identity_email,
                     discount_amount=discount,
                 )
             )
@@ -1389,7 +1414,14 @@ class CommerceService:
             if not sku.is_in_stock:
                 raise InventoryUnavailableError(sku.sku_code, it.quantity, 0)
 
-    def _resolve_promo(self, code: str, subtotal: Decimal, cart: Cart, user_id: Optional[int]):
+    def _resolve_promo(
+        self,
+        code: str,
+        subtotal: Decimal,
+        cart: Cart,
+        user_id: Optional[int],
+        identity_email: Optional[str] = None,
+    ):
         promo = self.commerce_repo.get_promotion_by_code(code)
         now = datetime.now(timezone.utc)
         if not promo or not promo.is_active:
@@ -1405,9 +1437,15 @@ class CommerceService:
             used = self.commerce_repo.count_redemptions(promo.id)
             if used >= promo.max_redemptions:
                 raise PromoIneligibleError(code, "redemption limit reached")
-        if user_id and promo.max_per_user:
-            used_user = self.commerce_repo.count_redemptions(promo.id, user_id=user_id)
-            if used_user >= promo.max_per_user:
+        # max_per_user caps a PERSON, not a login. Counting by user_id alone
+        # let the same shopper spend their allowance again as a guest (their
+        # guest row has user_id = NULL), and the old `if user_id and ...` guard
+        # exempted guests from the cap altogether. Both identity links count.
+        if promo.max_per_user and (user_id is not None or identity_email):
+            used_identity = self.commerce_repo.count_redemptions_for_identity(
+                promo.id, user_id=user_id, guest_email=identity_email
+            )
+            if used_identity >= promo.max_per_user:
                 raise PromoIneligibleError(code, "you have already used this code")
 
         eligible_subtotal = Decimal("0.00")
@@ -1666,7 +1704,12 @@ class CommerceService:
             return f"Size {sku.size} matches your profile"
         return f"Size {sku.size} selected"
 
-    def _format_cart(self, cart: Cart, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def _format_cart(
+        self,
+        cart: Cart,
+        user_id: Optional[int] = None,
+        shipping_method: str = "standard",
+    ) -> Dict[str, Any]:
         items_out = []
         subtotal = Decimal("0.00")
         count = 0
@@ -1716,9 +1759,12 @@ class CommerceService:
         taxable = money_max(subtotal - discount, Decimal("0.00"))
         tax_rate = to_rate(settings.TAX_RATE)  # rate, never money-quantized
         tax = money_mul(taxable, tax_rate)
-        free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
-        standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
-        shipping = Decimal("0.00") if (taxable >= free_threshold or subtotal == Decimal("0.00")) else standard_fee
+        # CUS-01: this used to be a second, express-blind copy of the threshold
+        # rule — every cart quoted the standard fee no matter what the shopper
+        # would actually be charged. Same authority as checkout now.
+        shipping = compute_shipping_fee(
+            subtotal, discount, fulfillment="delivery", shipping_method=shipping_method
+        )
         total = money_max(taxable + tax + shipping, Decimal("0.00"))
         # Explicit NUMERIC(12,2) range enforcement — never truncate silently
         for _fname, _fval in (("subtotal", subtotal), ("discount", discount),
@@ -1765,6 +1811,9 @@ class CommerceService:
             "discount_amount": discount,
             "tax_amount": tax,
             "shipping_amount": shipping,
+            #: Which delivery method this quote priced — the cart now states
+            #: the assumption behind its own shipping figure.
+            "shipping_method": shipping_method,
             "total": total,
             "currency": cart_currency,
             "items_count": count,

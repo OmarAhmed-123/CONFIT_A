@@ -167,7 +167,12 @@ def report_state(db, label: str) -> dict:
 
 
 def apply_plan(
-    db, *, dry_run: bool, only_slug: str | None = None, complete_ladder: bool = False
+    db,
+    *,
+    dry_run: bool,
+    only_slug: str | list[str] | None = None,
+    complete_ladder: bool = False,
+    plan: dict | None = None,
 ) -> int:
     """Materialise plan products. ``complete_ladder`` re-renders the whole ladder.
 
@@ -195,11 +200,17 @@ def apply_plan(
         MediaMaterializationError, MediaMaterializationService,
     )
 
-    plan = load_plan()
+    plan = plan if plan is not None else load_plan()
     service = MediaMaterializationService(db)
     changed = 0
+    # only_slug may be one slug (str) or several (list); both are accepted so
+    # callers that pass a bare string keep working.
+    if isinstance(only_slug, str):
+        only_slug = [only_slug]
+    wanted = set(only_slug) if only_slug else None
+
     for slug, plan_product in plan["products"].items():
-        if only_slug and slug != only_slug:
+        if wanted is not None and slug not in wanted:
             continue
         product = db.query(Product).filter(Product.slug == slug).first()
         if product is None:
@@ -261,7 +272,13 @@ def main() -> int:
     ap.add_argument("--backup", help="path to write a JSON snapshot before applying")
     ap.add_argument("--rollback", help="restore from a snapshot written by --backup")
     ap.add_argument("--verify", action="store_true", help="read-only: report registry state")
-    ap.add_argument("--slug", help="restrict to one product slug")
+    ap.add_argument(
+        "--slug", action="append", default=None, metavar="SLUG",
+        help="restrict to this product slug; repeat the flag for several "
+             "(e.g. --slug a --slug b). Passing it twice used to keep only the "
+             "last value, which silently skipped the others while the operator "
+             "believed both were handled.",
+    )
     ap.add_argument("--complete-ladder", action="store_true",
                     help="render every ratio in RATIO_DIMENSIONS from the plan's master, "
                          "not only the ratios the plan selected")
@@ -288,6 +305,10 @@ def main() -> int:
                 return 2
             before = report_state(db, "before")
             Path(args.backup).write_text(json.dumps(snapshot(db), indent=2, default=str), encoding="utf-8")
+            unknown = set(args.slug or []) - set(load_plan()["products"])
+            if unknown:
+                print(f"note: not in plan (ignored): {', '.join(sorted(unknown))}",
+                      file=sys.stderr)
             print(f"backup written: {args.backup}")
             changed = apply_plan(db, dry_run=False, only_slug=args.slug,
                                  complete_ladder=args.complete_ladder)

@@ -540,3 +540,47 @@ def test_complete_ladder_registers_five_ratios_in_two_formats(seeded_product):
         assert row.storage_key.startswith(f"products/{product.id}/{product.id}-")
         assert row.width > 0 and row.height > 0 and row.bytes > 0
         assert row.checksum, "every registered row carries its digest"
+
+
+def test_repeated_slug_flags_all_scope_the_run(seeded_product, capsys):
+    """`--slug a --slug b` must cover BOTH, not silently keep the last one.
+
+    Measured footgun (2026-10-20): the argument held a single value, so an
+    operator repairing two products with two --slug flags saw one line of
+    output and could reasonably believe both were done — only the last slug
+    ran. A repair tool that silently narrows its own scope is a false success,
+    which is the exact class this project forbids.
+
+    The proof uses the real slug plus one that matches no product: under the
+    old single-value behaviour the real product would not be visited at all.
+    """
+    from backend.scripts.materialize_catalog_media import apply_plan
+
+    db, product = seeded_product
+    plan = {
+        "products": {
+            product.slug: {
+                "source": {"provider": "generated", "source_ref": "x"},
+                "renditions": [{"ratio": "master", "role": "gallery", "is_primary": False,
+                                "url": "https://example.test/master.jpg"}],
+            },
+            "no-such-product-anywhere": {
+                "source": {"provider": "generated", "source_ref": "y"},
+                "renditions": [{"ratio": "master", "role": "gallery", "is_primary": False,
+                                "url": "https://example.test/master.jpg"}],
+            },
+        }
+    }
+
+    apply_plan(db, dry_run=True, complete_ladder=True,
+               only_slug=[product.slug, "no-such-product-anywhere"], plan=plan)
+
+    out = capsys.readouterr().out
+    assert product.slug in out, f"real slug was skipped: {out}"
+    assert "no-such-product-anywhere" in out, out
+
+    # A bare string (the old calling convention) still scopes to one product.
+    apply_plan(db, dry_run=True, complete_ladder=True, only_slug=product.slug, plan=plan)
+    out2 = capsys.readouterr().out
+    assert product.slug in out2
+    assert "no-such-product-anywhere" not in out2, out2

@@ -35,6 +35,8 @@ vi.mock("../../services/apiServices", async (importOriginal) => {
   };
 });
 
+import { MemoryRouter } from "react-router-dom";
+
 import { BrandAnalyticsView } from "../b2b/BrandAnalyticsView";
 
 const PERIOD = {
@@ -100,7 +102,9 @@ const RESPONSE = (over: Partial<BiDashboardResponse> = {}): BiDashboardResponse 
 async function renderView() {
   render(
     <I18nextProvider i18n={i18n}>
-      <BrandAnalyticsView />
+      <MemoryRouter>
+        <BrandAnalyticsView />
+      </MemoryRouter>
     </I18nextProvider>,
   );
   await waitFor(() => expect(biMock).toHaveBeenCalled());
@@ -208,5 +212,37 @@ describe("BrandAnalyticsView — growth chip honesty", () => {
     const found = chips();
     expect(found.length).toBeGreaterThan(0);
     expect(found[0].textContent).toMatch(/لا توجد فترة سابقة/);
+  });
+
+  it("distinguishes an empty catalogue from products with no sales", async () => {
+    // No SKUs at all -> the brand has not added anything yet -> offer an action.
+    biMock.mockResolvedValue(
+      RESPONSE({
+        inventory: {
+          total_skus: 0,
+          total_warehouse_units: 0,
+          total_branch_bopis_units: 0,
+          in_stock_count: 0,
+          low_stock_count: 0,
+          out_of_stock_count: 0,
+          replenishment_items: [],
+        },
+      }),
+    );
+    await renderView();
+
+    expect(screen.getByTestId("empty-catalogue")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /add your first product/i })).toHaveAttribute(
+      "href",
+      "/b2b/catalog",
+    );
+  });
+
+  it("does not tell a trading brand its catalogue is empty", async () => {
+    biMock.mockResolvedValue(RESPONSE({ inventory: { ...(RESPONSE().inventory as object), total_skus: 9 } }));
+    await renderView();
+
+    expect(screen.getByTestId("no-sales-yet")).toBeInTheDocument();
+    expect(screen.queryByTestId("empty-catalogue")).toBeNull();
   });
 });

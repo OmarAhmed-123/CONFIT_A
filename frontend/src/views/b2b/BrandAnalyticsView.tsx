@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { brandService } from '../../services/apiServices';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
@@ -156,6 +157,7 @@ export const BrandAnalyticsView: React.FC = () => {
 
   const kpis = data?.kpis;
   const growth = data?.growth || {};
+  const inventory = data?.inventory;
   const currency = kpis?.currency || 'USD';
 
   /*
@@ -578,8 +580,34 @@ export const BrandAnalyticsView: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-400">
-                      No products sold in this period.
+                    <td colSpan={6} className="py-6 text-center text-slate-500">
+                      {/*
+                        These are two different facts and used to be one
+                        English sentence saying the same thing for both:
+                        "No products sold in this period."
+
+                        A brand with an EMPTY CATALOGUE has nothing to sell and
+                        needs to add products; a brand with products but no
+                        orders this month is trading normally and should not be
+                        told its catalogue is empty. `inventory.total_skus` is
+                        the catalogue size, so the distinction is made from
+                        served data rather than guessed.
+                      */}
+                      {inventory && inventory.total_skus > 0 ? (
+                        <span data-testid="no-sales-yet">
+                          {t('bi.no_sales_this_period')}
+                        </span>
+                      ) : (
+                        <span data-testid="empty-catalogue" className="space-y-1">
+                          <span className="block">{t('bi.no_products_in_catalogue')}</span>
+                          <Link
+                            to="/b2b/catalog"
+                            className="inline-block text-[11px] font-semibold text-brand-charcoal underline underline-offset-2 hover:no-underline"
+                          >
+                            {t('bi.go_to_catalog')}
+                          </Link>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )}

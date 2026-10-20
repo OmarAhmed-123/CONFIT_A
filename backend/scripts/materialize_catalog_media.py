@@ -166,8 +166,31 @@ def report_state(db, label: str) -> dict:
     return state
 
 
-def apply_plan(db, *, dry_run: bool, only_slug: str | None = None) -> int:
-    from backend.app.models.catalog import Product
+def apply_plan(
+    db, *, dry_run: bool, only_slug: str | None = None, complete_ladder: bool = False
+) -> int:
+    """Materialise plan products. ``complete_ladder`` re-renders the whole ladder.
+
+    WHY THE FLAG EXISTS
+    -------------------
+    A plan entry records the renditions that were *selected* for a product, and
+    two products (9, 18) were generated with only a 4:5 hero and a master. The
+    default path therefore materialises exactly those two ratios and can never
+    close the gap: `--verify` reports 4-of-5 ratios and `--apply` reports
+    success without changing it.
+
+    ``--complete-ladder`` derives every ratio in ``RATIO_DIMENSIONS`` from ONE
+    source, which is what ``MediaMaterializationService.materialize`` does for
+    every other product in the catalogue: centre-crop to the target aspect, then
+    resize. It is safe to re-run because ``materialize`` replaces a product's
+    rows atomically rather than appending to them.
+
+    The source is the plan's ``master`` rendition when one exists (the largest
+    frame the generator produced), falling back to ``4x5``. Deriving from the
+    master rather than from an already-cropped hero is the only way to get an
+    honest 16:9: cropping a 4:5 frame again would compound the crop.
+    """
+    from backend.app.models.catalog import Product, ProductImage
     from backend.app.services.media_materialization_service import (
         MediaMaterializationError, MediaMaterializationService,
     )
@@ -186,12 +209,28 @@ def apply_plan(db, *, dry_run: bool, only_slug: str | None = None) -> int:
         if not urls:
             print(f"  SKIP {slug}: no usable renditions in the plan")
             continue
+
+        if complete_ladder:
+            ratios = list(RATIOS)
+            source_url = urls.get("master") or urls["4x5"]
+            already = {r.ratio for r in db.query(ProductImage).filter(
+                ProductImage.product_id == product.id
+            ).all()}
+            missing = [r for r in RATIOS if r not in already]
+        else:
+            ratios = sorted(urls)
+            source_url = urls["4x5"]
+            missing = []
+
         if dry_run:
-            print(f"  WOULD materialise {slug} (product {product.id}): {', '.join(sorted(urls))}")
+            detail = f"{', '.join(ratios)} (source: {source_url.rsplit('/', 1)[-1]})"
+            if complete_ladder:
+                detail += f" — missing today: {', '.join(missing) or 'none'}"
+            print(f"  WOULD materialise {slug} (product {product.id}): {detail}")
             changed += 1
             continue
         try:
-            rows = service.materialize(product, urls["4x5"], ratios=sorted(urls), **provenance(plan_product))
+            rows = service.materialize(product, source_url, ratios=ratios, **provenance(plan_product))
         except MediaMaterializationError as exc:
             print(f"  FAIL {slug}: {exc}")
             continue
@@ -223,6 +262,9 @@ def main() -> int:
     ap.add_argument("--rollback", help="restore from a snapshot written by --backup")
     ap.add_argument("--verify", action="store_true", help="read-only: report registry state")
     ap.add_argument("--slug", help="restrict to one product slug")
+    ap.add_argument("--complete-ladder", action="store_true",
+                    help="render every ratio in RATIO_DIMENSIONS from the plan's master, "
+                         "not only the ratios the plan selected")
     args = ap.parse_args()
 
     if not os.environ.get("DATABASE_URL"):
@@ -247,13 +289,15 @@ def main() -> int:
             before = report_state(db, "before")
             Path(args.backup).write_text(json.dumps(snapshot(db), indent=2, default=str), encoding="utf-8")
             print(f"backup written: {args.backup}")
-            changed = apply_plan(db, dry_run=False, only_slug=args.slug)
+            changed = apply_plan(db, dry_run=False, only_slug=args.slug,
+                                 complete_ladder=args.complete_ladder)
             after = report_state(db, "after")
             print(json.dumps({"products_changed": changed, "before": before, "after": after}, indent=2))
             return 0
 
         print("DRY RUN (no writes). Planned changes:")
-        apply_plan(db, dry_run=True, only_slug=args.slug)
+        apply_plan(db, dry_run=True, only_slug=args.slug,
+                   complete_ladder=args.complete_ladder)
         return 0
     finally:
         db.close()

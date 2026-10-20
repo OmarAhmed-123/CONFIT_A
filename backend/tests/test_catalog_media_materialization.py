@@ -448,3 +448,95 @@ def test_verify_is_quiet_for_a_complete_ladder(seeded_product):
 
     assert state["incomplete_ladder_count"] == 0
     assert state["products_with_incomplete_ladder"] == []
+
+
+# ---------------------------------------------------------------------------
+# --complete-ladder: the only path that can close a 4-of-5 ratio gap
+# ---------------------------------------------------------------------------
+
+
+class _PlanningStorage:
+    """In-memory store; keys are the canonical keys the service registers."""
+
+    def __init__(self):
+        self.objects = {}
+
+    def store(self, key, data):
+        self.objects[key] = data
+        return key
+
+    def exists(self, key):
+        return key in self.objects
+
+    def read(self, key):
+        return self.objects.get(key)
+
+
+class _LocalMasterSource:
+    """Serves the plan's master JPEG for any URL, so no network is used."""
+
+    def __init__(self, data):
+        self.data = data
+
+    def __call__(self, url):
+        return self.data
+
+
+def _master_jpeg_bytes(width=928, height=1152):
+    from PIL import Image
+    img = Image.new("RGB", (width, height), (240, 238, 232))
+    from PIL import ImageDraw
+    d = ImageDraw.Draw(img)
+    d.rectangle([w := int(width * 0.3), int(height * 0.15), int(width * 0.7), int(height * 0.85)],
+                fill=(30, 30, 32))
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=90)
+    return buf.getvalue()
+
+
+def test_complete_ladder_dry_run_names_the_missing_ratios(seeded_product, capsys):
+    """The dry run must state which ratios it would add — not just 'success'."""
+    from backend.scripts.materialize_catalog_media import apply_plan
+
+    db, product = seeded_product
+    db.add(ProductImage(
+        product_id=product.id,
+        storage_key=f"products/{product.id}/{product.id}-4x5.jpg",
+        ratio="4x5", format="jpeg",
+        public_url=f"/api/v1/media/products/{product.id}/{product.id}-4x5.jpg",
+        width=1200, height=1500, bytes=12345, role="hero",
+        checksum="deadbeef", source_type="generated", provider="generated",
+        is_primary=True,
+    ))
+    db.commit()
+
+    apply_plan(db, dry_run=True, complete_ladder=True)
+
+    out = capsys.readouterr().out
+    assert "1x1, 3x2, 16x9" in out, out
+    assert "master" in out
+
+
+def test_complete_ladder_registers_five_ratios_in_two_formats(seeded_product):
+    """The service produces the full ladder from ONE source, all-or-nothing."""
+    from backend.app.services.media_materialization_service import (
+        MediaMaterializationService, RATIO_DIMENSIONS,
+    )
+
+    db, product = seeded_product
+    store = _PlanningStorage()
+    service = MediaMaterializationService(
+        db=db, storage=store, fetch=_LocalMasterSource(_master_jpeg_bytes())
+    )
+
+    rows = service.materialize(product, "https://example.invalid/master.jpg",
+                               source_type="generated", provider="generated",
+                               commit=False)
+
+    assert len(rows) == len(RATIO_DIMENSIONS) * 2
+    ratios = {r.ratio for r in rows}
+    assert ratios == set(RATIO_DIMENSIONS)
+    for row in rows:
+        assert row.storage_key.startswith(f"products/{product.id}/{product.id}-")
+        assert row.width > 0 and row.height > 0 and row.bytes > 0
+        assert row.checksum, "every registered row carries its digest"

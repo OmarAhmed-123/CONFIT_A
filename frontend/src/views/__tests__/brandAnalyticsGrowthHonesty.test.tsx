@@ -239,7 +239,19 @@ describe("BrandAnalyticsView — growth chip honesty", () => {
   });
 
   it("does not tell a trading brand its catalogue is empty", async () => {
-    biMock.mockResolvedValue(RESPONSE({ inventory: { ...(RESPONSE().inventory as object), total_skus: 9 } }));
+    biMock.mockResolvedValue(
+      RESPONSE({
+        inventory: {
+          total_skus: 9,
+          total_warehouse_units: 40,
+          total_branch_bopis_units: 12,
+          in_stock_count: 7,
+          low_stock_count: 1,
+          out_of_stock_count: 1,
+          replenishment_items: [],
+        },
+      }),
+    );
     await renderView();
 
     expect(screen.getByTestId("no-sales-yet")).toBeInTheDocument();

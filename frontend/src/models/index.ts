@@ -1635,6 +1635,10 @@ export interface BiDashboardResponse {
   kpis: BiKpis;
   comparison_kpis?: BiKpis | null;
   growth: Record<string, number | null>;
+  /** Why each growth figure is a number, or absent.
+   *  `ok` | `no_prior_baseline` (P=0, C>0) | `no_activity` (both 0) |
+   *  `not_comparable` (a period was not measured). Never render a null as 0%. */
+  growth_basis?: Record<string, 'ok' | 'no_prior_baseline' | 'no_activity' | 'not_comparable'>;
   trends: BiTrendPoint[];
   categories: BiCategoryItem[];
   products: BiProductItem[];
@@ -1668,6 +1672,10 @@ export interface AdminBiDashboardResponse {
   kpis: BiKpis;
   comparison_kpis?: BiKpis | null;
   growth: Record<string, number | null>;
+  /** Why each growth figure is a number, or absent.
+   *  `ok` | `no_prior_baseline` (P=0, C>0) | `no_activity` (both 0) |
+   *  `not_comparable` (a period was not measured). Never render a null as 0%. */
+  growth_basis?: Record<string, 'ok' | 'no_prior_baseline' | 'no_activity' | 'not_comparable'>;
   gmv_by_currency: Record<string, number>;
   brands_performance: AdminBiBrandPerformance[];
   trends: BiTrendPoint[];

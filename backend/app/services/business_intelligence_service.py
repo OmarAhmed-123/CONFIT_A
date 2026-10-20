@@ -150,6 +150,7 @@ class BusinessIntelligenceService:
         # 2. Comparison Metrics (Preceding Window)
         previous_kpis = None
         kpi_growth: Dict[str, Optional[float]] = {}
+        kpi_growth_basis: Dict[str, str] = {}
         if prev_from is not None:
             previous_kpis = self._compute_period_kpis(
                 brand_id=brand_id,
@@ -159,6 +160,7 @@ class BusinessIntelligenceService:
                 category_id=category_id,
             )
             kpi_growth = self._calculate_growth_rates(current_kpis, previous_kpis)
+            kpi_growth_basis = self._growth_basis(current_kpis, previous_kpis)
 
         # 3. Time Series Trends
         trend_series = self._compute_sales_trend(
@@ -212,6 +214,7 @@ class BusinessIntelligenceService:
             brand_name=brand.brand_name,
             current_kpis=current_kpis,
             growth=kpi_growth,
+            growth_basis=kpi_growth_basis,
             categories=categories_breakdown,
             branches=branches_breakdown,
             inventory=inventory_health,
@@ -244,6 +247,9 @@ class BusinessIntelligenceService:
             "kpis": current_kpis,
             "comparison_kpis": previous_kpis,
             "growth": kpi_growth,
+            #: key -> ok | no_prior_baseline | no_activity | not_comparable.
+            #: Lets the UI say WHY a ratio is absent instead of leaving a gap.
+            "growth_basis": kpi_growth_basis,
             "trends": trend_series,
             "categories": categories_breakdown,
             "products": products_breakdown,
@@ -378,21 +384,69 @@ class BusinessIntelligenceService:
             "currency": currency,
         }
 
+    #: The metrics the dashboard compares period over period.
+    GROWTH_METRICS = ("gross_sales", "net_sales", "orders_count", "units_sold", "average_order_value")
+
     @staticmethod
     def _calculate_growth_rates(current: Dict[str, Any], previous: Dict[str, Any]) -> Dict[str, Optional[float]]:
-        """Safely calculates period-over-period percentage changes with zero-baseline handling."""
-        growth = {}
-        for key in ("gross_sales", "net_sales", "orders_count", "units_sold", "average_order_value"):
+        """Period-over-period percentage change, with no invented baselines.
+
+        THE DEFECT THIS REPLACES (measured 2026-10-20)
+        ----------------------------------------------
+        ``prev_val == 0`` returned ``100.0`` whenever the current value was
+        positive. A brand in its first month, or one returning after a closed
+        month, was shown a green "+100%" on gross sales, net sales, orders,
+        units and AOV — five success claims derived from an empty baseline.
+        Percentage growth from zero is undefined: there is no denominator. The
+        only honest answer is "no comparable baseline", and the number has to be
+        absent, not large.
+
+        CONTRACT
+        --------
+        For current ``C`` and previous ``P``:
+
+        * ``P > 0``                      -> ``(C - P) / P * 100``, rounded to 0.1
+        * ``P == 0 and C > 0``           -> ``None``  (undefined; basis
+                                            ``no_prior_baseline``)
+        * ``P == 0 and C == 0``          -> ``None``  (nothing happened either
+                                            period; basis ``no_activity``)
+        * ``P is None or C is None``     -> ``None``  (the period was not
+                                            measured; basis ``not_comparable``)
+
+        ``None`` means "not calculable", never "zero". Callers must not render it
+        as a number, and ``growth_basis`` travels with it so the UI can say WHY
+        instead of showing a blank where a chip was expected.
+        """
+        growth: Dict[str, Optional[float]] = {}
+        for key in BusinessIntelligenceService.GROWTH_METRICS:
             curr_val = current.get(key)
             prev_val = previous.get(key)
-            if prev_val is None or curr_val is None:
+            if prev_val is None or curr_val is None or prev_val == 0:
                 growth[f"{key}_change_pct"] = None
-            elif prev_val == 0:
-                growth[f"{key}_change_pct"] = 100.0 if curr_val > 0 else 0.0
             else:
                 change = ((curr_val - prev_val) / prev_val) * 100.0
                 growth[f"{key}_change_pct"] = round(change, 1)
         return growth
+
+    @staticmethod
+    def _growth_basis(current: Dict[str, Any], previous: Dict[str, Any]) -> Dict[str, str]:
+        """Why each growth figure is a number, or absent. Never a guess.
+
+        Returned alongside ``growth`` rather than inside it: ``growth`` is a
+        numeric map that the CSV export and the chart layer both iterate, and a
+        string value in it would corrupt both.
+        """
+        basis: Dict[str, str] = {}
+        for key in BusinessIntelligenceService.GROWTH_METRICS:
+            curr_val = current.get(key)
+            prev_val = previous.get(key)
+            if prev_val is None or curr_val is None:
+                basis[key] = "not_comparable"
+            elif prev_val == 0:
+                basis[key] = "no_activity" if curr_val == 0 else "no_prior_baseline"
+            else:
+                basis[key] = "ok"
+        return basis
 
     # -------------------------------------------------------------------------
     # Time Series Trend
@@ -745,7 +799,18 @@ class BusinessIntelligenceService:
                     "color": s.color,
                     "stock_level": s.stock_level,
                     "status": "out_of_stock" if s.stock_level == 0 else "low_stock",
+                    # A RULE OF THUMB, not a forecast.
+                    #
+                    # This is `20` when the SKU is out and `15 - stock` otherwise:
+                    # no sales velocity, no lead time, no safety stock, no
+                    # seasonality. It is useful as a starting point and
+                    # misleading as a recommendation, so it travels with
+                    # `reorder_basis` and the dashboard labels it as an estimate
+                    # rather than printing a bare "+N units" that reads as
+                    # computed advice. Deriving a real reorder point needs
+                    # demand history these tables do not carry for every SKU.
                     "recommended_reorder": 20 if s.stock_level == 0 else (15 - s.stock_level),
+                    "reorder_basis": "rule_of_thumb",
                 })
 
         return {
@@ -846,13 +911,34 @@ class BusinessIntelligenceService:
         inventory: Dict[str, Any],
         period_label: str,
         comparison_label: Optional[str],
+        growth_basis: Optional[Dict[str, str]] = None,
     ) -> List[Dict[str, Any]]:
         """Synthesizes factual, rule-based operational insights without speculation."""
         insights = []
 
         # 1. Period Performance Insight
         rev_change = growth.get("gross_sales_change_pct")
-        if rev_change is not None and comparison_label:
+        # No comparable baseline is a FACT worth stating, not a gap to hide.
+        # Before this, a zero previous period produced "+100% surged" — an
+        # invented success. Now the dashboard says what actually happened.
+        if (
+            rev_change is None
+            and comparison_label
+            and (growth_basis or {}).get("gross_sales") == "no_prior_baseline"
+        ):
+            insights.append({
+                "type": "performance",
+                "severity": "info",
+                "title": f"First Sales Period ({period_label})",
+                "message": (
+                    f"{brand_name} recorded {current_kpis['currency']} "
+                    f"{current_kpis['gross_sales']:,.2f} in gross sales this period. "
+                    f"The preceding period ({comparison_label}) had none, so no "
+                    f"growth percentage is shown — a change from zero has no "
+                    f"percentage baseline."
+                ),
+            })
+        elif rev_change is not None and comparison_label:
             direction = "surged by" if rev_change > 0 else "decreased by" if rev_change < 0 else "remained steady compared to"
             insights.append({
                 "type": "performance",

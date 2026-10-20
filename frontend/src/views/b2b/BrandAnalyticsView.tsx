@@ -158,9 +158,49 @@ export const BrandAnalyticsView: React.FC = () => {
   const growth = data?.growth || {};
   const currency = kpis?.currency || 'USD';
 
+  /*
+   * A growth chip is a CLAIM. It may only be rendered from a real percentage.
+   *
+   * The server used to answer "+100%" for a metric whose previous-period value
+   * was zero, so this component rendered a green success chip for brands with
+   * no prior period at all. The server now sends null for those, plus
+   * `growth_basis` explaining why — and the chip says so in words instead of
+   * disappearing, because a silent gap reads as "no data" while the truth is
+   * "there is nothing to compare against yet".
+   */
   const renderGrowthChip = (key: string) => {
     const val = growth[key];
-    if (val === undefined || val === null || !data?.period?.comparison_label) return null;
+    if (!data?.period?.comparison_label) return null;
+
+    const basis = data?.growth_basis?.[key.replace(/_change_pct$/, '')];
+
+    if (val === undefined || val === null) {
+      // Absent because it cannot be calculated — say which case it is.
+      if (basis === 'no_prior_baseline') {
+        return (
+          <span
+            data-testid={`growth-basis-${key}`}
+            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200"
+            title={t('bi.no_prior_baseline_hint')}
+          >
+            {t('bi.no_prior_baseline')}
+          </span>
+        );
+      }
+      if (basis === 'no_activity') {
+        return (
+          <span
+            data-testid={`growth-basis-${key}`}
+            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600"
+            title={t('bi.no_activity_hint')}
+          >
+            {t('bi.no_activity')}
+          </span>
+        );
+      }
+      return null;
+    }
+
     const isPositive = val > 0;
     const isNeutral = val === 0;
     return (
@@ -172,7 +212,7 @@ export const BrandAnalyticsView: React.FC = () => {
             ? 'bg-slate-100 text-slate-600'
             : 'bg-rose-50 text-rose-700 border border-rose-200'
         }`}
-        title={`Compared to ${data.period.comparison_label}`}
+        title={t('bi.compared_to', { period: data.period.comparison_label })}
       >
         {isPositive ? `+${val}%` : `${val}%`}
       </span>

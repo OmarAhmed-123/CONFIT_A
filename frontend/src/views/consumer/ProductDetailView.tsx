@@ -5,6 +5,7 @@ import { Product, StoreInventoryLocation } from "../../models";
 import { useUIStore } from "../../stores/uiStore";
 import { formatMoney } from "../../i18n/format";
 import { buildVariantOptions, skuForColour } from "../../lib/productVariants";
+import { localizedTitle } from "../../lib/localizedText";
 import { useCartStore } from "../../stores/cartStore";
 import {
   TryOnIcon,
@@ -349,9 +350,8 @@ export const ProductDetailView: React.FC = () => {
   // next page can never inherit a product name.
   useEffect(() => {
     if (!product) return;
-    setRouteTitleOverride(
-      (lang === "ar" && product.title_ar) || product.title,
-    );
+    // One helper for both, so the tab and the page cannot disagree again.
+    setRouteTitleOverride(localizedTitle(product, lang));
     return () => setRouteTitleOverride(null);
   }, [product, lang]);
 
@@ -803,7 +803,14 @@ export const ProductDetailView: React.FC = () => {
               {product.brand_name}
             </span>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-brand-charcoal leading-tight">
-              {product.title}
+              {/*
+                The visible heading must be in the same language as the page.
+                It used to be English on an RTL Arabic page while the DOCUMENT
+                title (below, line ~353) was already Arabic: the tab said one
+                thing and the page said another. title_ar is populated for all
+                12 products, so the data was never the problem.
+              */}
+              {localizedTitle(product, lang)}
             </h1>
             <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mt-2">
               <span className="text-2xl font-serif font-black text-brand-charcoal">

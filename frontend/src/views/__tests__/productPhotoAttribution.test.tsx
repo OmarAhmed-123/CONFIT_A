@@ -130,12 +130,16 @@ function renderPdp() {
   );
 }
 
+/**
+ * Wait for the page, not for an English string.
+ *
+ * Since the visible H1 is now localized, an Arabic render shows the Arabic
+ * title — so anchoring the wait on the English name made the Arabic case time
+ * out for the right reason. Anchoring on the product page's own heading role
+ * works in both locales.
+ */
 async function settled() {
-  await waitFor(() =>
-    expect(
-      screen.getByRole("heading", { name: /silk slip column maxi dress/i }),
-    ).toBeInTheDocument(),
-  );
+  await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument());
 }
 
 const note = () => screen.queryByTestId("product-photo-attribution");

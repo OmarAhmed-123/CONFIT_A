@@ -15,6 +15,7 @@ import {
 import { RulerIcon, BagIcon, HeartIcon } from "../icons/ConfitIcons";
 import { TryOnButton } from "./TryOnButton";
 import { formatMoney } from "../../i18n/format";
+import { localizedTitle } from "../../lib/localizedText";
 
 /**
  * The ONE product card.
@@ -145,7 +146,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             <HonestProductImage
               src={product.thumbnail_url}
-              alt={product.title}
+              alt={localizedTitle(product, lang)}
               loading={priority ? "eager" : "lazy"}
               decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-luxury"
@@ -161,7 +162,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             <HonestProductImage
               src={product.thumbnail_url}
-              alt={product.title}
+              alt={localizedTitle(product, lang)}
               loading={priority ? "eager" : "lazy"}
               decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-luxury"
@@ -222,11 +223,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 onClick={openDetails}
                 className="text-left hover:underline text-brand-charcoal cursor-pointer"
               >
-                {product.title}
+                {localizedTitle(product, lang)}
               </button>
             ) : (
               <Link to={detailsHref} className="hover:underline text-brand-charcoal">
-                {product.title}
+                {localizedTitle(product, lang)}
               </Link>
             )}
           </h3>

@@ -589,3 +589,72 @@ def test_repeated_slug_flags_all_scope_the_run(seeded_product, capsys):
     out2 = capsys.readouterr().out
     assert product.slug in out2
     assert "no-such-product-anywhere" not in out2, out2
+
+
+def test_rollback_restores_the_snapshot_exactly(seeded_product, tmp_path, capsys):
+    """The escape hatch for the production ladder run must actually work.
+
+    `--rollback` deletes EVERY product_images row and re-inserts the snapshot,
+    so its correctness is not a detail: if it is wrong, the repair cannot be
+    undone. This pins the contract it promises — same keys, same ratios, same
+    checksums, no extra rows, and the product's own columns back as they were.
+    """
+    import json as _json
+
+    from backend.scripts.materialize_catalog_media import rollback, snapshot
+
+    db, product = seeded_product
+
+    def fingerprint():
+        return sorted(
+            (r.storage_key, r.ratio, r.format, r.checksum)
+            for r in db.query(ProductImage).order_by(ProductImage.id).all()
+        )
+
+    before = fingerprint()
+    original_thumb = product.thumbnail_url
+
+    backup = tmp_path / "backup.json"
+    backup.write_text(_json.dumps(snapshot(db), indent=2, default=str), encoding="utf-8")
+
+    # Now make the kind of mess a half-finished repair would leave behind.
+    db.add(ProductImage(
+        product_id=product.id, storage_key="products/999999/999999-16x9.jpg",
+        ratio="16x9", format="jpeg", public_url="/api/v1/media/products/999999/999999-16x9.jpg",
+        width=1280, height=720, bytes=1, role="gallery", checksum="invented",
+        source_type="generated", provider="generated", is_primary=False,
+    ))
+    product.thumbnail_url = "/api/v1/media/products/999999/999999-16x9.jpg"
+    db.commit()
+    assert fingerprint() != before
+
+    rollback(db, str(backup))
+    db.expire_all()
+
+    assert fingerprint() == before, "rollback did not reproduce the snapshot exactly"
+    assert db.query(Product).get(product.id).thumbnail_url == original_thumb
+    out = capsys.readouterr().out
+    assert "restored" in out and "product_images rows" in out
+
+
+def test_apply_refuses_local_storage_against_a_shared_database():
+    """A registry that describes files only this machine can see is a false success.
+
+    Measured on 2026-10-20: a repair wrote to the production database while the
+    process resolved STORAGE_PROVIDER=local. Rows were inserted, exists() was
+    true, the counts matched, and the run reported success — but the objects
+    were on the operator's disk, so the deployment kept serving whatever its
+    bucket already held (in that case, unrelated stock photographs). The guard
+    exists so the failure cannot look like a pass.
+    """
+    from backend.scripts.materialize_catalog_media import storage_refusal
+
+    msg = storage_refusal("local", allow_local=False)
+    assert msg is not None
+    assert "REFUSING" in msg
+    assert "STORAGE_PROVIDER=s3" in msg
+
+    # An explicit opt-in is honoured, and a real backend is never blocked.
+    assert storage_refusal("local", allow_local=True) is None
+    assert storage_refusal("s3", allow_local=False) is None
+    assert storage_refusal("s3", allow_local=True) is None

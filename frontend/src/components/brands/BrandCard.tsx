@@ -50,9 +50,26 @@ export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3.5">
             {showLogo ? (
+              /*
+               * DECORATIVE, AND DELIBERATELY NOT CAPTIONED AS A LOGO.
+               *
+               * `logo_url` is a free-text column: nothing in the schema proves
+               * the file is an official brand mark, and measured on 2026-10-20
+               * all four live values are Unsplash photographs (a flat-lay, a
+               * clothes rack, a shop window, a shop interior). Rendering them
+               * with alt="<Brand> logo" asserted a trademark the asset is not.
+               *
+               * Until the owners supply approved marks, the honest options are
+               * "no claim" or "a fabricated logo", and fabricating a trademark
+               * is not an option. The brand name is already an <h3> beside this
+               * tile, so the image carries an empty alt and is hidden from the
+               * accessibility tree: a screen reader hears the brand once, and
+               * no caption says "logo".
+               */
               <img
                 src={brand.logo_url as string}
-                alt={`${brand.brand_name} logo`}
+                alt=""
+                aria-hidden="true"
                 data-testid="brand-logo"
                 onError={() => setLogoFailed(true)}
                 className="h-14 w-14 rounded-xl object-cover border border-neutral-100 shadow-xs"

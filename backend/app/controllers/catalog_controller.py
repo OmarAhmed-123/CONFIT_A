@@ -234,11 +234,23 @@ def get_product_detail(
 
     context = ProductContextService(db).enrich_product(p, user)
 
+    # `sku_code` is deliberately NOT serialised here.
+    #
+    # The storefront never displays it — `ProductDetailView` reads id, size,
+    # colour, price_override and stock only — while the code itself is an
+    # internal inventory identifier that embeds the brand's historical initials
+    # ("REISS-DRS-GLD-6", "MD-BLZ-NVY-S"). This endpoint is public and
+    # unauthenticated: measured 2026-10-20 it was serving
+    # "sku_code": "REISS-DRS-GLD-6" on a page about a product now sold under a
+    # different brand name, which is both an information leak of internal
+    # inventory keys and a remnant of the retired trademarks.
+    #
+    # Brand-owner and admin surfaces keep their sku_code: those callers need it
+    # to operate the catalogue, and they are scoped to their own tenant.
     skus_out = [
         {
             "id": s.id,
             "product_id": s.product_id,
-            "sku_code": s.sku_code,
             "size": s.size,
             "color": s.color,
             "color_hex": s.color_hex,
@@ -766,7 +778,6 @@ def get_store_inventory_catalog(
         sku_list = [
             BranchSKUAvailabilityOut(
                 sku_id=s["sku_id"],
-                sku_code=s["sku_code"],
                 size=s["size"],
                 color=s["color"],
                 color_hex=s["color_hex"],

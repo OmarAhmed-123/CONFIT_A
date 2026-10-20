@@ -97,7 +97,13 @@ export interface ProductMedia {
 export interface ProductSKU {
   id: number;
   product_id: number;
-  sku_code: string;
+  /**
+   * Internal inventory key. WITHHELD on the public product page since
+   * 2026-10-20: it embeds historical brand initials ("REISS-DRS-GLD-6") and the
+   * endpoint is unauthenticated. The brand-owner and admin surfaces still
+   * receive it, and no consumer-side view reads it for a shopper.
+   */
+  sku_code?: string | null;
   size: string;
   color: string;
   color_hex: string;

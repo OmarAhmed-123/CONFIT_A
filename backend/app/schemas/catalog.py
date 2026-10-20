@@ -36,12 +36,22 @@ class ProductSKUOut(BaseModel):
 
     A missing decorative hex is not a server error. The field now carries the
     same default the model declares, so the contract degrades gracefully instead
-    of failing closed on cosmetics. Genuinely required identifiers (id,
-    sku_code, size) stay strict — those really are errors if absent.
+    of failing closed on cosmetics. Genuinely required identifiers (id, size)
+    stay strict — those really are errors if absent.
+
+    `sku_code` is OPTIONAL AT THIS BOUNDARY (2026-10-20). It is a required
+    identifier for the brand-owner and admin surfaces, which populate it and
+    need it to operate the catalogue, but it is not part of what a shopper's
+    product page may publish: the code is an internal inventory key that embeds
+    each brand's historical initials ("REISS-DRS-GLD-6", "MD-BLZ-NVY-S"), and
+    the public product endpoint is unauthenticated. Measured before this change,
+    GET /catalog/products/{slug} served those strings on pages for products now
+    sold under different brand names. The public serializer omits the field;
+    every tenant-scoped serializer keeps setting it.
     """
     id: int
     product_id: int
-    sku_code: str
+    sku_code: Optional[str] = None
     size: str
     color: str
     color_hex: Optional[str] = None
@@ -325,8 +335,15 @@ class CustomerBrandDetailOut(CustomerBrandOut):
 
 
 class BranchSKUAvailabilityOut(BaseModel):
+    """Per-branch stock for one SKU on the public store-locator surface.
+
+    `sku_code` is optional for the same reason as in `ProductSKUOut`: this
+    endpoint is unauthenticated and the code is an internal identifier that
+    embeds historical brand initials. The branch page groups availability by
+    size and colour, which it still receives in full.
+    """
     sku_id: int
-    sku_code: str
+    sku_code: Optional[str] = None
     size: str
     color: str
     color_hex: str

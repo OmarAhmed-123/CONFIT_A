@@ -61,6 +61,21 @@ describe("BrandCard — asset honesty", () => {
     expect(screen.queryByTestId("brand-monogram")).toBeNull();
   });
 
+  it("never captions an unverifiable image as an official logo", () => {
+    /*
+     * `logo_url` is free text and nothing in the schema proves it is a brand
+     * mark. Measured 2026-10-20: all four live values are Unsplash photographs.
+     * The tile must therefore make NO claim that the image is a logo — the
+     * brand name is already the adjacent <h3>, so the image is decorative.
+     */
+    renderCard();
+
+    const img = screen.getByTestId("brand-logo");
+    expect(img.getAttribute("alt")).toBe("");
+    expect(img.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.queryByAltText(/logo/i)).toBeNull();
+  });
+
   it("falls back to the monogram when the logo fails to load", () => {
     renderCard();
 

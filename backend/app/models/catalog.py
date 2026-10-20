@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -137,6 +137,13 @@ class ProductImage(Base):
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
     bytes = Column(Integer, nullable=False)
+    #: WHICH source photograph this row is a rendition of (migration 0041).
+    #: 0 is the hero photograph — every row that existed before the column did
+    #: is photograph 0, which is why the server default needs no backfill. The
+    #: gallery is the set of distinct ``photo_index`` values, ordered; ``ratio``
+    #: alone cannot express it, and conflating the two is what made a second
+    #: supplied photo overwrite the first one's files.
+    photo_index = Column(Integer, nullable=False, default=0, server_default="0", index=False)
     #: hero (the primary card/first-frame asset) | gallery | detail
     role = Column(String(20), nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
@@ -147,6 +154,10 @@ class ProductImage(Base):
     attribution = Column(String(200), nullable=True)
     checksum = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (
+        Index("ix_product_images_product_photo", "product_id", "photo_index"),
+    )
 
     product = relationship("Product", back_populates="media")
 

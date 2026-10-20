@@ -155,6 +155,30 @@ class ProductMediaOut(BaseModel):
     source_type: str
     provider: Optional[str] = None
     attribution: Optional[str] = None
+    #: Which source photograph this rendition belongs to (0 = hero). Additive:
+    #: a client that ignores it sees exactly the old payload.
+    photo_index: int = 0
+
+
+class ProductPhotoOut(BaseModel):
+    """ONE source photograph of a product, with its own rendition ladder.
+
+    ``ProductDetailOut.images``/``media`` stay exactly what they were (the hero
+    photograph's frames), because that contract is pinned by an existing test
+    and consumed by the storefront. ``photos`` is the additive gallery: one
+    entry per image the brand supplied, in the order supplied, primary first.
+    """
+
+    position: int
+    is_primary: bool = False
+    url: str
+    #: ratio -> URL for this photograph's own renditions (no ``master``).
+    images: Dict[str, str] = {}
+    source_ref: Optional[str] = None
+    source_type: str = "stock"
+    provider: Optional[str] = None
+    attribution: Optional[str] = None
+    frames: List[ProductMediaOut] = []
 
 
 class ProductDetailOut(ProductSummaryOut):
@@ -169,6 +193,9 @@ class ProductDetailOut(ProductSummaryOut):
     images: List[str]
     #: Metadata for every registered asset (additive; older clients ignore it).
     media: List[ProductMediaOut] = []
+    #: Every supplied photograph, ordered (additive). Empty for a product whose
+    #: media predates the gallery contract; the UI then falls back to ``images``.
+    photos: List[ProductPhotoOut] = []
     size_chart: Dict[str, Any]
     skus: List[ProductSKUOut]
     bnpl_monthly_installment: Optional[float] = None

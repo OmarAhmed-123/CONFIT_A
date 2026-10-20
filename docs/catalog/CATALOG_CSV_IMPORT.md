@@ -86,7 +86,7 @@ Valid `category_slug` values are exactly the slugs the seeded catalogue creates
 | `gender` | `sex`, `audience`, `target_gender` | `products.gender` | `mens` \| `womens` \| `unisex`; synonyms (`men`, `women`, `ladies`, `رجالي`, `نسائي`, `للجنسين`, …) are folded; **inferred from the title when absent** (§7) |
 | `style_tags` | — | `products.style_tags` | JSON array or comma-separated; ≤ 100 items |
 | `occasion_tags` | — | `products.occasion_tags` | idem |
-| `images` | — | `products.images` | JSON array or comma-separated; first entry becomes the materialisation source |
+| `images` | — | `products.images` + `product_images` (photographs 1..n) | JSON array or comma-separated list of **additional photographs**; see §5a |
 | `dominant_hex` | — | `products.dominant_hex` | `#RRGGBB` |
 | `image_source` | `img_source`, `image_source_type` | provenance | `stock` (default) or `own` (§5) |
 | `store_id` / `branch_id` | `branch_id` | store inventory target | must belong to **your** brand |
@@ -145,6 +145,44 @@ source URL** re-uses it: no re-download, no re-render, no delete-then-write. A
 stock-level correction is therefore cheap and cannot take a live product's
 imagery down.
 
+### 5a. Multiple photographs (gallery)
+
+`image_url` is the **hero** and is always gallery position 0 — it is the picture
+product cards render, so it cannot be displaced by a gallery entry. The `images`
+column adds the **rest** of the gallery:
+
+```csv
+image_url,images
+https://images.pexels.com/photos/front.jpeg,"[""https://images.pexels.com/photos/back.jpeg"",""https://images.pexels.com/photos/detail.jpeg""]"
+```
+
+Comma-separated works too: `back.jpeg,detail.jpeg`. Rules, all enforced server-side:
+
+* **Order is preserved.** The order in the cell is the order on the page.
+* **The hero is never duplicated.** Repeating `image_url` inside `images` collapses.
+* **Every entry passes the same host rules as the hero** (§5). An entry from an
+  unapproved host is dropped, the rest of the gallery still imports, and the
+  brand gets one warning per dropped image. It does **not** reject the row — one
+  bad cell must not cost the brand the whole product.
+* **Each photograph gets its own storage keys and its own ratio ladder**:
+  photograph 0 is `products/{id}/{id}-{ratio}.{ext}` (unchanged since the media
+  pass), photograph *n* is `products/{id}/{id}-p{n}-{ratio}.{ext}`. That is what
+  stops a second photo overwriting the hero's bytes.
+* **Exactly one hero.** Only photograph 0's 4:5 JPEG sets `products.thumbnail_url`.
+* **Partial failures are reported, never silent.** `process_csv_import` returns
+  `photos_not_imported` (count) and `media_warnings` (one actionable message per
+  dropped image) alongside the row counters.
+* **Re-import is idempotent across the whole gallery**: if the product already
+  holds exactly these photographs, nothing is re-fetched or re-rendered.
+
+**API contract.** `GET /catalog/products/{slug}` gains `photos[]`, one entry per
+photograph: `position`, `is_primary`, `url`, `images` (that photograph's own
+ratio→URL map), `source_ref`, `source_type`, `provider`, `attribution`, `frames`.
+`images` and `media` keep their existing meaning — the **hero's** rendition
+ladder, one frame per ratio, which
+`backend/tests/test_product_gallery_uniqueness.py` pins. The PDP renders the rail
+from `photos[]` and falls back to `images` when the payload has none.
+
 **Owner decision — first-party photography.** `CATALOG_IMPORT_ALLOW_OWN_IMAGES`
 defaults to `false`. With it off, a row declaring `image_source=own` is refused
 with a message telling the brand owner to upload through the dashboard instead.
@@ -198,8 +236,9 @@ matches it (it previously defaulted to `true` and re-opened the accident).
 
 ## 9. Known limitations (honest list)
 
-1. **One photo per product.** `images` accepts a list, but only its first entry is
-   materialised; the gallery is the derived ratio ladder, not extra shots.
+1. ~~One photo per product.~~ **Fixed:** `images` is now a real gallery (§5a), up
+   to 100 references per row. Photographs are imported, ordered, attributed and
+   served through `photos[]`.
 2. **Currency must be the price-book currency** (§6). Import-time conversion from
    EGP is not implemented.
 3. **First-party image ingestion is off by default** (§5).

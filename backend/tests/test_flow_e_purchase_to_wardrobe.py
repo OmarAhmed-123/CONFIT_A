@@ -637,7 +637,16 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     #    wizard reappeared. Adds the completion instant and the wizard
     #    revision that was satisfied (both nullable; the instant is
     #    deliberately NOT backfilled — it was never recorded).
-    assert expected_head_revision() == "0040_onboarding_completion_metadata"
+    # -> 0041 (product_images.photo_index). The head moved consciously: the
+    # registry could describe renditions of exactly ONE photograph, and the
+    # importer therefore kept only the first of a brand's supplied images. A
+    # second photograph had nowhere to live — same storage key, same ratio rows
+    # — so importing a gallery either overwrote the hero or lost the images
+    # silently while reporting success. The column adds the missing dimension;
+    # every existing row is photograph 0 via the server default, so no data
+    # moves and `images` keeps its pinned "one frame per ratio" meaning.
+    assert expected_head_revision() == "0041_photo_index"
+    assert chain["0041_photo_index"] == "0040_onboarding_completion_metadata"
     assert chain["0040_onboarding_completion_metadata"] == "0039_brand_memberships"
     assert chain["0039_brand_memberships"] == "0038_vton_job_retention"
     assert chain["0036_recently_viewed_unique"] == "0035_product_images"

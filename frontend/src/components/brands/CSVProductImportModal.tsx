@@ -680,6 +680,32 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 {importResult.rows_missing_title_ar ? (
                   <p className="pt-1 text-amber-800">{t('b2b.cat.result_missing_ar_hint')}</p>
                 ) : null}
+                {/* Images the server refused or could not fetch. The import can
+                    be "completed" with a smaller gallery than the CSV asked
+                    for, and saying so is the difference between a usable
+                    report and a lie by omission. */}
+                {(importResult.photos_not_imported ?? 0) > 0 && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <div className="flex justify-between gap-3">
+                      <span>{t('b2b.cat.result_photos_not_imported')}</span>
+                      <span className="font-mono font-bold text-rose-700">
+                        {importResult.photos_not_imported}
+                      </span>
+                    </div>
+                    <ul className="mt-1 space-y-1 text-[11px] text-rose-800">
+                      {(importResult.media_warnings ?? []).slice(0, 5).map((w, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="font-mono">
+                            {w.row != null && w.row > 1
+                              ? t('b2b.cat.row_label', { row: w.row })
+                              : t('b2b.cat.file_label')}
+                          </span>
+                          <span>{w.message}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {errorCount > 0 && (

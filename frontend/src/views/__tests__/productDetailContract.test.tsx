@@ -199,6 +199,78 @@ describe("ProductDetailView — C03 contract", () => {
     ).toBeNull();
   });
 
+  it("renders ONE gallery frame per supplied photograph, not per rendition", async () => {
+    /**
+     * `images` is the hero photograph's ratio ladder (one URL per aspect
+     * ratio), so a product with one photo advertises four frames that are all
+     * the same picture. `photos[]` is the gallery: one entry per photograph.
+     * Before this change the rail was driven by `images`, so a brand that
+     * supplied front/back/detail showed one photo four ways.
+     */
+    catalogMock.mockResolvedValue(
+      DETAIL({
+        images: [
+          "https://img.example/hero-4x5.jpg",
+          "https://img.example/hero-1x1.jpg",
+          "https://img.example/hero-3x2.jpg",
+          "https://img.example/hero-16x9.jpg",
+        ],
+        photos: [
+          {
+            position: 0,
+            is_primary: true,
+            url: "https://img.example/hero-4x5.jpg",
+            images: { "4x5": "https://img.example/hero-4x5.jpg" },
+            source_type: "stock",
+            attribution: "Photo: Pexels",
+          },
+          {
+            position: 1,
+            is_primary: false,
+            url: "https://img.example/back-4x5.jpg",
+            images: { "4x5": "https://img.example/back-4x5.jpg" },
+            source_type: "stock",
+            attribution: "Photo: Pexels",
+          },
+          {
+            position: 2,
+            is_primary: false,
+            url: "https://img.example/detail-4x5.jpg",
+            images: { "4x5": "https://img.example/detail-4x5.jpg" },
+            source_type: "stock",
+            attribution: "Photo: Pexels",
+          },
+        ],
+      }),
+    );
+    renderPdp();
+    await settled();
+
+    const rail = await screen.findByRole("group", {
+      name: i18n.t("a11y.select_image") as string,
+    });
+    const frames = within(rail).getAllByRole("button");
+    expect(frames).toHaveLength(3);
+
+    // Order is the order the brand supplied: the back view is frame 2.
+    expect(frames[1].querySelector("img")?.getAttribute("src")).toBe(
+      "https://img.example/back-4x5.jpg",
+    );
+    expect(frames[2].querySelector("img")?.getAttribute("src")).toBe(
+      "https://img.example/detail-4x5.jpg",
+    );
+  });
+
+  it("falls back to `images` when the payload carries no gallery", async () => {
+    catalogMock.mockResolvedValue(DETAIL());
+    renderPdp();
+    await settled();
+    const rail = await screen.findByRole("group", {
+      name: i18n.t("a11y.select_image") as string,
+    });
+    expect(within(rail).getAllByRole("button")).toHaveLength(2);
+  });
+
   it("breadcrumb category deep-links with the SLUG Discover filters by", async () => {
     renderPdp();
     await settled();

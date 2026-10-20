@@ -16,6 +16,7 @@ from backend.app.services.product_context_service import ProductContextService
 from backend.app.services.product_media_service import (
     gallery_images,
     media_payload,
+    photos_payload,
     primary_url,
 )
 from backend.app.schemas.catalog import (
@@ -23,6 +24,7 @@ from backend.app.schemas.catalog import (
     ProductSummaryOut,
     ProductDetailOut,
     ProductMediaOut,
+    ProductPhotoOut,
     StoreInventoryOut,
     SearchResponseOut,
     AutocompleteResponse,
@@ -291,6 +293,9 @@ def get_product_detail(
     media_rows = repo.images_for_product(p.id)
     media_out = [ProductMediaOut(**m) for m in media_payload(media_rows)]
     registered_images = gallery_images(media_rows)
+    # The gallery: one entry per supplied photograph. ``registered_images``
+    # above remains the hero photograph's ratio ladder, unchanged.
+    photos_out = [ProductPhotoOut(**ph) for ph in photos_payload(media_rows)]
     primary_media_url = primary_url(media_rows)
     legacy_images = []
     if p.images:
@@ -335,6 +340,7 @@ def get_product_detail(
         care_instructions=p.care_instructions,
         images=registered_images or legacy_images,
         media=media_out,
+        photos=photos_out,
         size_chart=size_chart,
         skus=skus_out,
         bnpl_monthly_installment=installment,

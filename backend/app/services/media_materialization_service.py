@@ -89,19 +89,40 @@ class MediaMaterializationError(RuntimeError):
     """Nothing was registered; the caller must not claim an image exists."""
 
 
-def canonical_storage_key(product_id: int, ratio: str, fmt: str) -> str:
+def canonical_storage_key(product_id: int, ratio: str, fmt: str, photo_index: int = 0) -> str:
     """``products/{id}/{id}-{ratio}.{ext}`` — the ONE object-key shape.
 
     The product id doubles as the row prefix, which is what the bucket already
     contains and what the media route's whitelist accepts.
+
+    PHOTOGRAPH n > 0 gets ``{id}-p{n}-{ratio}.{ext}``. The suffix is what makes
+    a second photograph possible at all: without it, photograph 1 would be
+    written to photograph 0's exact keys and silently replace the hero the
+    storefront is already serving. Photograph 0 keeps the historical shape
+    unchanged, so no existing object, row, cached URL or test moves.
     """
     ext = _EXT_BY_FORMAT.get((fmt or "").lower())
     if not ext:
         raise MediaMaterializationError(f"unsupported image format: {fmt!r}")
-    key = f"products/{int(product_id)}/{int(product_id)}-{ratio}.{ext}"
+    idx = int(photo_index or 0)
+    if idx < 0:
+        raise MediaMaterializationError(f"photo index must be >= 0, got {idx}")
+    stem = f"{int(product_id)}" if idx == 0 else f"{int(product_id)}-p{idx}"
+    key = f"products/{int(product_id)}/{stem}-{ratio}.{ext}"
     if not CANONICAL_KEY_RE.match(key):
         raise MediaMaterializationError(f"derived key violates the media contract: {key}")
     return key
+
+
+def photo_index_of(row) -> int:
+    """The photograph a registry row belongs to, defaulting to the hero.
+
+    Rows written before migration 0041 carry the server default; a row object
+    that has not been refreshed from the database yet may present ``None``, and
+    treating that as "not the hero" would drop it from ``images``.
+    """
+    idx = getattr(row, "photo_index", 0)
+    return 0 if idx is None else int(idx)
 
 
 def provider_for_url(url: str) -> str:
@@ -266,12 +287,21 @@ class MediaMaterializationService:
         ratios: Sequence[str] = tuple(RATIO_DIMENSIONS),
         formats: Sequence[str] = ("jpeg", "webp"),
         commit: bool = True,
+        photo_index: int = 0,
+        replace_existing: bool = True,
     ) -> List[ProductImage]:
         """Upload every rendition and register a row per (ratio, format).
 
-        All-or-nothing: if any rendition fails to store, nothing is committed
-        and the product is left with no rows rather than with a partial set that
-        would silently 404 for the missing ones.
+        All-or-nothing PER PHOTOGRAPH: if any rendition of THIS photograph fails
+        to store, none of its rows are registered — a partial ladder would
+        advertise frames that 404. Other photographs already registered are
+        untouched, which is what makes a partially failed gallery reportable
+        instead of fatal.
+
+        ``photo_index`` selects the photograph (0 = the hero, preserving the
+        historical keys). ``replace_existing=False`` keeps the product's existing
+        rows, so a gallery can be built photograph by photograph; the caller is
+        then responsible for clearing the set before the first photograph.
         """
         if source_type not in ("stock", "own", "partner", "generated"):
             raise MediaMaterializationError(f"invalid source_type: {source_type!r}")
@@ -304,7 +334,7 @@ class MediaMaterializationService:
             for ratio, img in rendered.items():
                 for fmt in formats:
                     data = encode(img, fmt)
-                    key = canonical_storage_key(product.id, ratio, fmt)
+                    key = canonical_storage_key(product.id, ratio, fmt, photo_index)
                     returned = storage.store(key, data) or key
 
                     # Backends differ: the local one returns the relative path,
@@ -330,7 +360,8 @@ class MediaMaterializationService:
             ) from exc
 
         # Every byte is in place; only now does the registry learn about it.
-        self._unregister(product, flush=True)
+        if replace_existing:
+            self._unregister(product, flush=True)
         rows: List[ProductImage] = []
         for key, ratio, fmt, width, height, nbytes, checksum in written:
             row = ProductImage(
@@ -343,7 +374,12 @@ class MediaMaterializationService:
                 height=height,
                 bytes=nbytes,
                 role=ROLE_BY_RATIO.get(ratio, "gallery"),
-                is_primary=(ratio == "4x5" and _EXT_BY_FORMAT.get(fmt) == "jpg"),
+                # Exactly one hero across the whole gallery: the first
+                # photograph's 4:5 JPEG. A second photograph that also claimed
+                # ``is_primary`` would make ``primary_url`` depend on row order.
+                is_primary=(int(photo_index or 0) == 0 and ratio == "4x5"
+                            and _EXT_BY_FORMAT.get(fmt) == "jpg"),
+                photo_index=int(photo_index or 0),
                 source_type=source_type,
                 provider=provider,
                 source_ref=source_ref or source_url,
@@ -354,9 +390,11 @@ class MediaMaterializationService:
             rows.append(row)
 
         # The legacy column must agree with the registry, otherwise a caller
-        # that still reads it shows a different picture than the card.
-        hero = next((r for r in rows if r.is_primary), rows[0])
-        product.thumbnail_url = hero.public_url
+        # that still reads it shows a different picture than the card. Only
+        # photograph 0 may write it: a later photograph must not move the hero.
+        if int(photo_index or 0) == 0:
+            hero = next((r for r in rows if r.is_primary), rows[0])
+            product.thumbnail_url = hero.public_url
 
         try:
             if commit:
@@ -375,6 +413,83 @@ class MediaMaterializationService:
             source_type=source_type,
         )
         return rows
+
+    def materialize_photos(
+        self,
+        product,
+        photos: Sequence[dict],
+        *,
+        commit: bool = True,
+    ) -> Tuple[List[ProductImage], List[dict]]:
+        """Register EVERY supplied photograph, reporting the ones that failed.
+
+        ``photos`` is an ordered sequence of
+        ``{"url", "source_type", "provider", "attribution", "source_ref"}``.
+        Position in the sequence IS the photograph's index, so the gallery keeps
+        the order the brand submitted instead of the order the network happened
+        to answer in.
+
+        Returns ``(rows, failures)``. A failure is
+        ``{"position", "url", "reason"}`` and does NOT abort the remaining
+        photographs — a brand whose third image 404s must still get the other
+        two, and must be told which one was dropped. The caller is required to
+        surface ``failures``: silently importing "some of" a gallery while
+        reporting success is the defect this method exists to end.
+        """
+        rows: List[ProductImage] = []
+        failures: List[dict] = []
+        if not photos:
+            return rows, failures
+
+        # Clear once, then append: each photograph registers into the set that
+        # the previous one built.
+        self._unregister(product, flush=True)
+
+        for position, photo in enumerate(photos):
+            url = (photo.get("url") or "").strip()
+            if not url:
+                failures.append({"position": position, "url": url, "reason": "empty_url"})
+                continue
+            try:
+                rows.extend(
+                    self.materialize(
+                        product,
+                        url,
+                        source_type=photo.get("source_type") or "stock",
+                        provider=photo.get("provider"),
+                        source_ref=photo.get("source_ref") or url,
+                        attribution=photo.get("attribution"),
+                        commit=False,
+                        photo_index=position,
+                        replace_existing=False,
+                    )
+                )
+            except (MediaMaterializationError, MediaSourceNotApproved) as exc:
+                failures.append({"position": position, "url": url, "reason": str(exc)[:200]})
+                logger.warning(
+                    "photo_materialization_failed",
+                    product_id=getattr(product, "id", None),
+                    position=position,
+                    reason=type(exc).__name__,
+                )
+            except Exception as exc:  # network/decode: one photo, not the gallery
+                failures.append({"position": position, "url": url, "reason": f"{type(exc).__name__}"})
+                logger.warning(
+                    "photo_materialization_error",
+                    product_id=getattr(product, "id", None),
+                    position=position,
+                    reason=type(exc).__name__,
+                )
+
+        try:
+            if commit:
+                self.db.commit()
+            else:
+                self.db.flush()
+        except Exception as exc:
+            self.db.rollback()
+            raise MediaMaterializationError(f"gallery write failed for product {product.id}: {exc}") from exc
+        return rows, failures
 
     def _unregister(self, product, flush: bool = False) -> None:
         """Drop this product's registered rows (used before a re-registration)."""

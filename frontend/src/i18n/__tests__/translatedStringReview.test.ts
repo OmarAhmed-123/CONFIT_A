@@ -169,6 +169,9 @@ const EXTRACTED = [
   'b2b.cat.result_gender_inferred',
   'b2b.cat.result_missing_ar_hint',
   'b2b.cat.result_rejected_title',
+  // Gallery honesty: the import can complete with fewer photographs than the
+  // CSV asked for, and the result screen states how many were not imported.
+  'b2b.cat.result_photos_not_imported',
 ];
 
 describe('extracted strings: presence and shape', () => {

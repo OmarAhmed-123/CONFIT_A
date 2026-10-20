@@ -92,6 +92,31 @@ export interface ProductMedia {
   attribution?: string | null;
   is_primary: boolean;
   bytes?: number | null;
+  /** Which supplied photograph this rendition belongs to (0 = hero). */
+  photo_index?: number;
+}
+
+/**
+ * ONE photograph of a product, with its own rendition ladder.
+ *
+ * `images`/`media` describe renditions of the hero only — a list keyed by
+ * ratio cannot hold a second photograph, which is why a brand's back and
+ * detail shots had no way onto the page. `photos` is the gallery: one entry per
+ * supplied image, in the order supplied. Optional, because list payloads and
+ * products whose media predates the gallery contract do not carry it.
+ */
+export interface ProductPhoto {
+  position: number;
+  is_primary: boolean;
+  /** Best single frame for this photograph (its 4:5 portrait). */
+  url: string;
+  /** ratio -> URL for this photograph's own renditions. */
+  images: Record<string, string>;
+  source_ref?: string | null;
+  source_type: "stock" | "own" | "partner" | string;
+  provider?: string | null;
+  attribution?: string | null;
+  frames?: ProductMedia[];
 }
 
 export interface ProductSKU {
@@ -167,6 +192,8 @@ export interface Product {
    * optional because list payloads do not carry the full registry.
    */
   media?: ProductMedia[];
+  /** Every supplied photograph, ordered. Empty/absent for legacy products. */
+  photos?: ProductPhoto[];
   size_chart?: Record<string, any>;
   skus?: ProductSKU[];
   bnpl_monthly_installment?: number | null;
@@ -1520,6 +1547,9 @@ export interface CatalogImportResult {
   rows_missing_title_ar?: number;
   rows_missing_description_ar?: number;
   rows_gender_inferred?: number;
+  /** Photographs supplied but not imported (one entry per dropped image). */
+  photos_not_imported?: number;
+  media_warnings?: Array<{ row?: number | null; field?: string; message: string }>;
   errors?: any[];
 }
 

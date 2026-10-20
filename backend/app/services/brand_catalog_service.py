@@ -131,6 +131,10 @@ class BrandCatalogService:
     def __init__(self, db: Session):
         self.db = db
         self.brand_repo = BrandRepository(db)
+        #: Per-run record of photographs that could not be imported. Reset at
+        #: the start of every import so a job never reports another job's
+        #: failures (the service instance is reused by the caller).
+        self._photo_warnings: list = []
 
     def _sanitize_csv_value(self, value):
         # Defence for text that may later be opened by a spreadsheet. Numeric
@@ -941,6 +945,96 @@ class BrandCatalogService:
         return (accepted, rejected, errors, new_products_created, missing_title_ar,
                 media_registered, missing_description_ar, gender_inferred)
 
+    def _photo_sources(self, row, *, hero_url, default_source_type, default_provider,
+                       default_attribution):
+        """The ordered list of photographs to register for one row.
+
+        Contract (documented in docs/catalog/CATALOG_CSV_IMPORT.md):
+
+        * ``image_url`` (aliases ``thumbnail_url``/``image``) is the HERO and is
+          always position 0 — it is the picture the card renders, so it may not
+          be displaced by a gallery entry;
+        * the ``images`` column adds the REST of the gallery, in the order the
+          brand wrote them, as a JSON array or a comma-separated list;
+        * duplicates (the hero repeated in ``images``) collapse, and order is
+          preserved so the brand's front/back/detail sequence survives;
+        * every entry is subject to the same host allowlist as the hero, so a
+          gallery cannot smuggle in a source the hero path would refuse.
+        """
+        from backend.app.services.media_materialization_service import (
+            MediaSourceNotApproved, provider_for_url,
+        )
+
+        ordered: list = []
+        refused: list = []
+        seen: set = set()
+
+        def _add(url: str) -> None:
+            url = (url or '').strip()
+            if not url or url in seen:
+                return
+            seen.add(url)
+            ordered.append(url)
+
+        _add(hero_url)
+
+        raw = row.get('images')
+        if isinstance(raw, str) and raw.strip():
+            parsed = None
+            if raw.strip().startswith('['):
+                try:
+                    parsed = json.loads(raw)
+                except (TypeError, ValueError):
+                    parsed = None
+            if isinstance(parsed, list):
+                candidates = parsed
+            else:
+                candidates = raw.split(',')
+            for candidate in candidates:
+                if isinstance(candidate, str):
+                    _add(candidate)
+
+        photos = []
+        for url in ordered:
+            if url == hero_url:
+                source_type, provider, attribution = (
+                    default_source_type, default_provider, default_attribution)
+            else:
+                if default_source_type == 'own':
+                    # An ``image_source=own`` row is a statement about the whole
+                    # row, not just its hero: a brand's own shoot is one set.
+                    source_type, provider, attribution = 'own', 'own', 'Image supplied by the brand'
+                else:
+                    try:
+                        provider = provider_for_url(url)
+                    except MediaSourceNotApproved:
+                        # An unapproved HOST is refused per photograph, not per
+                        # row: the hero already passed the same gate, the rest of
+                        # the gallery is fine, and rejecting the whole product
+                        # over one bad URL would lose rows the brand can fix by
+                        # editing a single cell.
+                        refused.append(url)
+                        continue
+                    source_type, attribution = 'stock', f"Photo: {provider.capitalize()}"
+            photos.append({
+                'url': url,
+                'source_type': source_type,
+                'provider': provider,
+                'attribution': attribution,
+                'source_ref': url,
+            })
+
+        for url in refused:
+            host = url.split('://', 1)[-1].split('/', 1)[0]
+            self._photo_warnings.append({
+                'row': row.get('row_number'),
+                'field': 'images',
+                'message': (f"Image from {host or 'an unapproved host'} was not imported: "
+                            f"not an approved image source. Use images.unsplash.com or "
+                            f"images.pexels.com, or set image_source=own for your own photography."),
+            })
+        return photos
+
     def _materialize_media(self, product, row):
         """Register product_images for an imported product. Returns a verdict.
 
@@ -987,13 +1081,6 @@ class BrandCatalogService:
                 logger.warning('catalog_import_media_storage_unavailable', product_id=product.id, reason=type(exc).__name__)
                 return MediaResolvability(0, False, 'storage_unavailable')
 
-            existing = self.db.query(ProductImage).filter(ProductImage.product_id == product.id).all()
-            same_source = [r for r in existing if (r.source_ref or '') == source_url]
-            if same_source and any(CANONICAL_KEY_RE.match(r.storage_key or '') for r in same_source):
-                verdict = verify_resolvable(self.db, product.id, storage=storage)
-                if verdict.resolvable:
-                    return verdict
-
             if declared == 'own':
                 provider, source_type = 'own', 'own'
                 attribution = 'Image supplied by the brand'
@@ -1001,28 +1088,58 @@ class BrandCatalogService:
                 provider = provider_for_url(source_url)
                 source_type, attribution = 'stock', f"Photo: {provider.capitalize()}"
 
-            images = row.get('images') or ''
-            source_ref = source_url
-            if isinstance(images, str) and images.startswith('['):
-                try:
-                    parsed = json.loads(images)
-                    if isinstance(parsed, list) and parsed:
-                        source_ref = str(parsed[0])
-                except (TypeError, ValueError):
-                    pass
-            service.materialize(
+            # EVERY supplied photograph, in the order supplied — not just the
+            # hero. The old code parsed the array and used parsed[0], so a brand
+            # that supplied front/back/detail had two of the three discarded
+            # without a word while the job reported success. Each entry is
+            # host-checked here, so a gallery cannot smuggle in a source the
+            # hero path would refuse.
+            photos = self._photo_sources(row, hero_url=source_url,
+                                          default_source_type=source_type,
+                                          default_provider=provider,
+                                          default_attribution=attribution)
+
+            # IDEMPOTENCY, over the whole gallery: skip only when this product
+            # already holds exactly these source photographs, all canonical and
+            # resolvable. Comparing the hero alone (the old check) would have
+            # declared a two-of-three gallery "already done".
+            existing = self.db.query(ProductImage).filter(ProductImage.product_id == product.id).all()
+            expected_refs = [p['source_ref'] for p in photos]
+            existing_refs = []
+            for pos, photo in enumerate(photos):
+                rows_for_pos = [r for r in existing if (r.photo_index or 0) == pos]
+                if not rows_for_pos:
+                    existing_refs = []
+                    break
+                if not any(CANONICAL_KEY_RE.match(r.storage_key or '') for r in rows_for_pos):
+                    existing_refs = []
+                    break
+                existing_refs.append(rows_for_pos[0].source_ref)
+            if existing_refs == expected_refs:
+                verdict = verify_resolvable(self.db, product.id, storage=storage)
+                if verdict.resolvable:
+                    return verdict
+            _, failures = service.materialize_photos(
                 product,
-                source_url,
-                source_type=source_type,
-                provider=provider,
-                source_ref=source_ref,
-                attribution=attribution,
+                photos,
                 # The caller owns the transaction. If verification below fails,
                 # the product, its SKUs and its media rows must all disappear
                 # together — a committed-then-rejected row would be the worst
                 # of both worlds: reported as rejected, yet live in the catalog.
                 commit=False,
             )
+            if failures:
+                # A dropped photograph is recorded, never silently skipped: the
+                # preview/result payload carries one warning per failed image.
+                logger.warning('catalog_import_photos_partial', product_id=product.id,
+                               failed=len(failures), supplied=len(photos))
+                for failure in failures:
+                    self._photo_warnings.append({
+                        'row': row.get('row_number'),
+                        'field': 'images',
+                        'message': (f"Image {failure['position'] + 1} of {len(photos)} was not "
+                                    f"imported ({failure['reason']}); the rest of the gallery was."),
+                    })
             self.db.flush()
             return verify_resolvable(self.db, product.id, storage=storage)
         except MediaSourceNotApproved as exc:
@@ -1040,6 +1157,7 @@ class BrandCatalogService:
         job_id = job.id
         try:
             job.status, job.started_at = 'processing', datetime.now(timezone.utc)
+            self._photo_warnings = []
             self.db.commit()
             valid, validation_errors, stats = prepare()
             (accepted, rejected, import_errors, new_prods, missing_ar, media_rows,
@@ -1077,7 +1195,12 @@ class BrandCatalogService:
                 media_rows_registered=media_rows,
                 rows_gender_inferred=len(gender_inferred),
                 missing_title_ar_rows=[m['row'] for m in missing_ar][:50],
-                errors=errors[:50]
+                errors=errors[:50],
+                # Photographs that were supplied but not imported. Additive and
+                # deliberately separate from `errors`: the row landed, the
+                # gallery is incomplete, and the two must not be conflated.
+                media_warnings=self._photo_warnings[:50],
+                photos_not_imported=len(self._photo_warnings),
             )
         except Exception:
             self.db.rollback()

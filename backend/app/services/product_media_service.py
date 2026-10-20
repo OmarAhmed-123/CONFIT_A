@@ -84,7 +84,8 @@ def gallery_images(rows: Sequence[ProductImage]) -> List[str]:
     reads it there. This list is the plain ``images`` contract: one decodable
     URL per photograph, in ladder order, master excluded.
     """
-    ordered = order_media(rows)
+    hero = _hero_photo_rows(rows)
+    ordered = order_media(hero)
     out: List[str] = []
     seen_ratios: set[str] = set()
     for row in ordered:
@@ -105,6 +106,74 @@ def primary_url(rows: Sequence[ProductImage]) -> Optional[str]:
         if row.ratio != "master":
             return media_url_for_key(row.storage_key)
     return None
+
+
+def photo_index_of(row: ProductImage) -> int:
+    """Which source photograph a row is a rendition of (0 = hero)."""
+    idx = getattr(row, "photo_index", 0)
+    return 0 if idx is None else int(idx)
+
+
+def _hero_photo_rows(rows: Sequence[ProductImage]) -> List[ProductImage]:
+    """The rows of the FIRST photograph, and nothing else.
+
+    ``images`` is pinned to "one frame per ratio" by
+    ``test_product_gallery_uniqueness.py``, and that contract is about the hero
+    photograph's format ladder. With a gallery in the table, de-duplicating on
+    ratio across ALL photographs would silently mix frames from different
+    pictures into one list. Scoping to photograph 0 keeps the old contract
+    exactly true for single-photograph products (every row is 0) and keeps it
+    meaningful for multi-photograph products.
+    """
+    indices = sorted({photo_index_of(r) for r in rows})
+    if not indices:
+        return []
+    hero = indices[0]
+    return [r for r in rows if photo_index_of(r) == hero]
+
+
+def photos_payload(rows: Sequence[ProductImage]) -> List[dict]:
+    """The product's photographs, ordered, primary first.
+
+    ONE ENTRY PER SUPPLIED IMAGE — the additive half of the media contract.
+    ``images``/``media`` describe renditions of the hero; they cannot describe a
+    gallery, because a second photograph has no place in a list that is keyed by
+    ratio. This payload is what the product page's thumbnail rail iterates, so
+    every photograph a brand supplied is addressable and none is invisible.
+
+    Each entry carries its own attribution: photograph 2 may be the brand's own
+    back view while photograph 1 is licensed stock, and a caption about "whose
+    picture this is" cannot be borrowed from a sibling.
+    """
+    by_photo: dict = {}
+    for row in rows:
+        by_photo.setdefault(photo_index_of(row), []).append(row)
+
+    out: List[dict] = []
+    for position in sorted(by_photo):
+        group = by_photo[position]
+        ordered = order_media(group)
+        # jpg before webp per ratio: the plain <img> src needs a decodable format.
+        ratios: dict = {}
+        for row in ordered:
+            if row.ratio == "master":
+                continue
+            ratios.setdefault(row.ratio, media_url_for_key(row.storage_key))
+        lead = next((r for r in ordered if r.ratio != "master"), ordered[0])
+        out.append(
+            {
+                "position": position,
+                "is_primary": any(bool(r.is_primary) for r in group) or position == 0,
+                "url": media_url_for_key(lead.storage_key),
+                "images": ratios,
+                "source_ref": lead.source_ref,
+                "source_type": lead.source_type,
+                "provider": lead.provider,
+                "attribution": lead.attribution,
+                "frames": media_payload(group),
+            }
+        )
+    return out
 
 
 def media_payload(rows: Sequence[ProductImage]) -> List[dict]:
@@ -129,6 +198,7 @@ def media_payload(rows: Sequence[ProductImage]) -> List[dict]:
             "source_type": r.source_type,
             "provider": r.provider,
             "attribution": r.attribution,
+            "photo_index": photo_index_of(r),
         }
         for r in order_media(rows)
     ]

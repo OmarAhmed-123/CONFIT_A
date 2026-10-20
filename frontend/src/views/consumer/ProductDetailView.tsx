@@ -367,7 +367,12 @@ export const ProductDetailView: React.FC = () => {
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.title,
-      image: product.images?.length ? product.images : [product.thumbnail_url],
+      image:
+        (product.photos ?? []).length > 0
+          ? (product.photos ?? []).map((p) => p.url)
+          : product.images?.length
+            ? product.images
+            : [product.thumbnail_url],
       brand: { "@type": "Brand", name: product.brand_name },
       offers: {
         "@type": "Offer",
@@ -451,10 +456,24 @@ export const ProductDetailView: React.FC = () => {
   const { colours, selectedColour, sizesForColour, totalStock } =
     buildVariantOptions(product, selectedSkuId);
 
+  /*
+   * The gallery: ONE FRAME PER PHOTOGRAPH.
+   *
+   * `product.images` is the hero photograph's ratio ladder (one URL per aspect
+   * ratio) — it is not a gallery, and a brand's back/detail shots cannot live
+   * in it. `product.photos` is the ordered set of supplied photographs, each
+   * already reduced to its portrait frame by the server. When it is present the
+   * rail shows every photograph the brand supplied; when it is absent (older
+   * payloads, or a product whose media predates the gallery contract) the page
+   * behaves exactly as it did before.
+   */
+  const galleryPhotos = (product.photos ?? []).filter((p) => !!p?.url);
   const images =
-    product.images && product.images.length > 0
-      ? product.images
-      : [product.thumbnail_url];
+    galleryPhotos.length > 0
+      ? galleryPhotos.map((p) => p.url)
+      : product.images && product.images.length > 0
+        ? product.images
+        : [product.thumbnail_url];
 
   /*
    * Whose photograph is on screen.

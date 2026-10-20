@@ -901,7 +901,8 @@
       "result_missing_ar": "منتجات بدون عنوان عربي",
       "result_gender_inferred": "منتجات تم استنتاج جنسها",
       "result_missing_ar_hint": "ستعرض الواجهة العربية العنوان الإنجليزي لهذه المنتجات حتى تتم إضافة عنوان عربي.",
-      "result_rejected_title": "لم يتم استيراد {{n}} سطرًا"
+      "result_rejected_title": "لم يتم استيراد {{n}} سطرًا",
+      "result_photos_not_imported": "صور لم يتم استيرادها"
     },
     "inv_heading": "شبكة متاجر BOPIS والمخزون المباشر — فعلي",
     "inv_heading_note": "مواقع متاجر حقيقية من جدول StoreLocation، والمخزون من StoreInventory بمستوى SKU ومستوى الموقع، مع تتبع المحجوز/المتاح. معزولة لكل مستأجر، وتُنفَّذ في معاملات.",

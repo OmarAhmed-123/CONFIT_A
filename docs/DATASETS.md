@@ -154,7 +154,7 @@ Measured read-only against production Neon on 2026-10-20 (§6.2 for the method):
 | `categories` | 6 — outerwear, tops, bottoms, dresses, footwear, accessories |
 | `brand_profiles` | 4 |
 | price range | 75.00 – 395.00, **all `USD`** |
-| `alembic_version` | `0040_onboarding_completion_metadata` |
+| `alembic_version` | `0041_photo_index` |
 
 Two consequences:
 

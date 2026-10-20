@@ -89,7 +89,7 @@ export const authService = {
       },
     ),
 
-  getMe: () => request<User>("/auth/me"),
+  getMe: (opts?: { authProbe?: boolean }) => request<User>("/auth/me", opts ?? {}),
 
   logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
 

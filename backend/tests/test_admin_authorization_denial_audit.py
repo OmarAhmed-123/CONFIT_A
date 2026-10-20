@@ -62,7 +62,7 @@ def test_consumer_direct_admin_request_is_denied_and_audited_without_secrets():
 def test_brand_partner_direct_admin_request_is_denied():
     response = client.get(
         "/api/v1/admin/analytics",
-        headers=_login("brand@massimodutti.com"),
+        headers=_login("brand@ateliersable.com"),
     )
     assert response.status_code == 403
 

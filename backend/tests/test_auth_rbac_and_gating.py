@@ -116,33 +116,33 @@ def test_customer_cannot_access_brand_or_admin_endpoints():
 
 
 def test_brand_tenant_isolation_cross_brand_mutation_rejected():
-    # 1. Login as Massimo Dutti Brand Manager
+    # 1. Login as Atelier Sable Brand Manager
     login_md = client.post("/api/v1/auth/login", json={
-        "email": "brand@massimodutti.com",
+        "email": "brand@ateliersable.com",
         "password": "Password123!"
     })
     assert login_md.status_code == 200
     token_md = login_md.json()["access_token"]
     headers_md = {"Authorization": f"Bearer {token_md}"}
 
-    # 2. Massimo Dutti manager can update their own SKU (Product ID #1 -> SKU #1)
+    # 2. Atelier Sable manager can update their own SKU (Product ID #1 -> SKU #1)
     sku_res = client.put("/api/v1/brand/skus/1?stock_level=30", headers=headers_md)
     assert sku_res.status_code == 200
     assert sku_res.json()["stock_level"] == 30
 
-    # 3. Find an SKU belonging to a DIFFERENT brand (e.g. Reiss, SKU #3)
+    # 3. Find an SKU belonging to a DIFFERENT brand (e.g. Riven Studio)
     db = TestingSessionLocal()
     other_sku = (
         db.query(ProductSKU)
         .join(Product)
         .join(BrandProfile)
-        .filter(BrandProfile.brand_name == "Reiss")
+        .filter(BrandProfile.brand_name == "Riven Studio")
         .first()
     )
     db.close()
 
     assert other_sku is not None
-    # 4. Massimo Dutti manager attempting to mutate Reiss's SKU must be rejected with 403
+    # 4. Atelier Sable manager attempting to mutate Riven Studio's SKU must be rejected with 403
     cross_res = client.put(f"/api/v1/brand/skus/{other_sku.id}?stock_level=99", headers=headers_md)
     assert cross_res.status_code == 403
     msg = get_error_message(cross_res)

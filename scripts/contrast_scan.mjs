@@ -23,7 +23,7 @@ const UI_LANG = process.env.UI_LANG || '';
 const GROUPS = {
   guest: { user: null, routes: ['/', '/discover', '/products', `/product/${PRODUCT}`, '/builder', '/outfits', '/try-on', '/fit', '/wardrobe', '/cart', '/orders', '/privacy', '/terms', '/gdpr', '/reset-password', '/verify-email', '/email/unsubscribe', '/looks/invalid-token', '/this-route-does-not-exist', '/b2b', '/admin'] },
   consumer: { user: 'shopper@confit.io', routes: ['/', '/discover', `/product/${PRODUCT}`, '/builder', '/my-looks', '/try-on', '/fit', '/wardrobe', '/cart', '/checkout', '/orders', `/orders/${ORDER}`, '/returns', '/profile', '/settings', '/notifications', '/b2b', '/admin'] },
-  brand: { user: 'brand@cos.com', routes: ['/b2b', '/b2b/catalog', '/b2b/inventory', '/b2b/orders', '/b2b/analytics', '/b2b/placements', '/partner', '/admin'] },
+  brand: { user: 'brand@casalumen.com', routes: ['/b2b', '/b2b/catalog', '/b2b/inventory', '/b2b/orders', '/b2b/analytics', '/b2b/placements', '/partner', '/admin'] },
   admin: { user: 'admin@confit.io', routes: ['/admin', '/admin/analytics', '/admin/catalog', '/admin/partners', '/admin/audit'] },
 };
 const VIEWPORTS = [{ name: 'desk', w: 1280, h: 800 }, { name: 'mob', w: 390, h: 844 }];

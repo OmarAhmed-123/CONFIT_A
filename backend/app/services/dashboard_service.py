@@ -53,7 +53,7 @@ class DashboardService:
             usp = self.profiles.create_or_update_profile(user_id, {
                 "style_archetypes": ["Smart Casual", "Quiet Luxury"],
                 "preferred_colors": ["Navy", "Beige", "Black", "White"],
-                "preferred_brands": ["Massimo Dutti", "COS", "Reiss", "Arket"],
+                "preferred_brands": ["Atelier Sable", "Casa Lumen", "Riven Studio", "Nordhaus"],
             })
 
         # --- Today's Style Picks (personalized by style + color + occasion) ---

@@ -223,7 +223,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     const attempt = async () => {
-      const user = await authService.getMe();
+      // Marked as the bootstrap probe: a 401 here is "no session", not an
+      // expiry, so it must not open the login modal (see apiClient.authProbe).
+      const user = await authService.getMe({ authProbe: true });
       localStorage.setItem('confit_user', JSON.stringify(user));
       set({ user, isAuthenticated: true, hasAttemptedBootstrap: true });
       // Bootstrap refresh of tenant identity; gated consumers re-render

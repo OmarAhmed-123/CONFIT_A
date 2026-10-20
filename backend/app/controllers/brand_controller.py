@@ -471,7 +471,11 @@ def export_catalog_import_errors(
 async def upload_catalog_csv(
     file: UploadFile = File(...),
     target_store_id: Optional[int] = Query(None),
-    send_notifications: bool = Query(True),
+    # Bulk catalog import must not email the customer base by default. A
+    # dataset load of a thousand rows would fire a campaign nobody asked for,
+    # and the previous default (True) made that a one-click accident. Emailing
+    # is now an explicit opt-in.
+    send_notifications: bool = Query(False),
     user: User = Depends(brand_catalog),
     db: Session = Depends(get_db)
 ):

@@ -47,6 +47,12 @@ class BrandCatalogService:
     MAX_ROWS = 1000
     MAX_BYTES = 10 * 1024 * 1024
     REQUIRED_FIELDS = ['title', 'category_slug', 'base_price', 'color_family', 'thumbnail_url']
+    #: The category slugs the seeded catalogue actually creates
+    #: (``backend/app/seed_data.py``). The CSV template and the validation hint
+    #: used to name ``shirts``/``trousers``/``knitwear``, which do not exist, so
+    #: two of the template's own four sample rows failed validation and a user
+    #: who followed the hint was led straight back into the error.
+    SEEDED_CATEGORY_SLUGS = ('outerwear', 'tops', 'bottoms', 'dresses', 'footwear', 'accessories')
     OPTIONAL_FIELDS = ['title_ar', 'description', 'description_ar', 'material', 'currency',
                        'style_tags', 'occasion_tags', 'images', 'sku_code', 'size', 'color',
                        'stock_level', 'price_override', 'dominant_hex', 'color_hex',
@@ -87,6 +93,19 @@ class BrandCatalogService:
         if isinstance(value, str) and value.lstrip().startswith(tuple(self.DANGEROUS_PREFIXES)):
             return "'" + value
         return value
+
+    @staticmethod
+    def _arabic_or_blank(value) -> str:
+        """Arabic column value, or ``''`` — never English dressed as Arabic.
+
+        ``title_ar`` is NOT NULL, so "missing" has to be stored as the empty
+        string. The storefront already resolves that honestly with
+        ``(lang === 'ar' && title_ar) || title``; what it cannot resolve is an
+        English string sitting in an Arabic field, which is what the previous
+        ``row.get('title_ar') or row['title']`` produced.
+        """
+        text = (value or '').strip() if isinstance(value, str) else ''
+        return text
 
     def _normalize(self, source, target_store_id=None):
         # Remap aliases to canonical field names
@@ -170,7 +189,8 @@ class BrandCatalogService:
 
         slug = row.get('category_slug')
         if isinstance(slug, str) and slug and not self.db.query(Category.id).filter(Category.slug == slug).first():
-            error('category_slug', f'Category "{slug}" not found', 'Select a valid category such as outerwear, shirts, trousers, knitwear, accessories')
+            error('category_slug', f'Category "{slug}" not found',
+                          'Select a seeded category: ' + ', '.join(self.SEEDED_CATEGORY_SLUGS))
 
         url = row.get('thumbnail_url')
         if isinstance(url, str) and url:
@@ -411,6 +431,11 @@ class BrandCatalogService:
     def import_products(self, valid_rows, brand_id, target_store_id=None):
         accepted, rejected, errors = 0, 0, []
         new_products_created = []
+        # Rows accepted without an Arabic title. Reported, never hidden: the
+        # column stays empty (see _arabic_or_blank), so the storefront falls
+        # back to English visibly rather than claiming a translation exists.
+        missing_title_ar = []
+        media_registered = 0
 
         for fallback_number, row in enumerate(valid_rows, 2):
             number = row.get('_row_number', fallback_number)
@@ -435,8 +460,16 @@ class BrandCatalogService:
                     raise ValueError('SKU already assigned to another product; reassignment is not allowed')
                 if not product:
                     slug = 'brand-' + str(brand_id) + '-' + hashlib.sha256(row['title'].encode()).hexdigest()[:24]
+                    # The Arabic columns are NOT NULL, and the previous code
+                    # copied the English title into them when no translation was
+                    # supplied. That is a silent falsehood: the row then claims
+                    # an Arabic title exists, and an English string renders
+                    # inside an RTL storefront with nothing marking it as
+                    # untranslated. Missing Arabic is stored as MISSING (empty),
+                    # which the storefront already resolves honestly with
+                    # `(lang === 'ar' && title_ar) || title`.
                     product = Product(brand_id=brand_id, category_id=category.id, title=row['title'], slug=slug,
-                                      title_ar=row.get('title_ar') or row['title'], description=row.get('description') or row['title'],
+                                      title_ar=self._arabic_or_blank(row.get('title_ar')), description=row.get('description') or row['title'],
                                       description_ar=row.get('description_ar') or row.get('description') or row['title'],
                                       rating=0, review_count=0, style_compatibility_base=0)
                     self.db.add(product)
@@ -501,7 +534,20 @@ class BrandCatalogService:
                         st_inv.quantity = sku.stock_level
 
                 self.db.commit()
+
+                # Close the gap this turn exists for: an imported product used
+                # to get a thumbnail_url and NOTHING in product_images, so the
+                # storefront had no registered hero and the card fell back to a
+                # hotlink (or to "Image unavailable"). Best-effort by design —
+                # the product is already committed, so a media failure must not
+                # reject a valid catalogue row; it is logged and counted.
+                media_rows = self._materialize_media(product, row)
+                if media_rows:
+                    media_registered += media_rows
+
                 accepted += 1
+                if is_brand_new and not (row.get('title_ar') or '').strip():
+                    missing_title_ar.append({'row': number, 'title': product.title})
                 if is_brand_new:
                     new_products_created.append({
                         "id": product.id,
@@ -520,16 +566,72 @@ class BrandCatalogService:
                 self.db.rollback()
                 logger.error('catalog_import_row_failed', row=number)
                 raise
-        return accepted, rejected, errors, new_products_created
+        return accepted, rejected, errors, new_products_created, missing_title_ar, media_registered
 
-    def _process(self, brand_id, file_name, file_size, prepare, actor_id=None, target_store_id=None, send_notifications=True):
+    def _materialize_media(self, product, row) -> int:
+        """Register product_images for an imported product. Returns rows written.
+
+        Returns 0 — never raises — when the import cannot lawfully or physically
+        materialise a picture:
+          * no thumbnail_url on the row;
+          * the host is not an approved commercial source (Unsplash/Pexels);
+          * object storage is not configured in this environment (the test
+            suite and local dev run without a bucket).
+        A caller can therefore tell "registered N assets" from "registered
+        nothing" via the job result, and the storefront falls back to the legacy
+        URL instead of being told a registered image exists when it does not.
+        """
+        source_url = (row.get('thumbnail_url') or '').strip()
+        if not source_url:
+            return 0
+        try:
+            from backend.app.services.media_materialization_service import (
+                MediaMaterializationService, MediaMaterializationError,
+                MediaSourceNotApproved, provider_for_url,
+            )
+            provider = provider_for_url(source_url)
+            service = MediaMaterializationService(self.db)
+            try:
+                service._get_storage()
+            except Exception as exc:  # unconfigured storage is a skip, not a failure
+                logger.info('catalog_import_media_skipped', product_id=product.id, reason=type(exc).__name__)
+                return 0
+            images = row.get('images') or ''
+            source_ref = source_url
+            if isinstance(images, str) and images.startswith('['):
+                try:
+                    parsed = json.loads(images)
+                    if isinstance(parsed, list) and parsed:
+                        source_ref = str(parsed[0])
+                except (TypeError, ValueError):
+                    pass
+            rows = service.materialize(
+                product,
+                source_url,
+                source_type='stock',
+                provider=provider,
+                source_ref=source_ref,
+                attribution=f"Photo: {provider.capitalize()}",
+            )
+            return len(rows)
+        except MediaSourceNotApproved as exc:
+            logger.info('catalog_import_media_not_approved', product_id=product.id, reason=str(exc))
+            return 0
+        except MediaMaterializationError as exc:
+            logger.error('catalog_import_media_failed', product_id=product.id, reason=str(exc))
+            return 0
+        except Exception as exc:  # defensive: media must never break an import
+            logger.error('catalog_import_media_error', product_id=getattr(product, 'id', None), reason=type(exc).__name__)
+            return 0
+
+    def _process(self, brand_id, file_name, file_size, prepare, actor_id=None, target_store_id=None, send_notifications=False):
         job = self.brand_repo.create_import_job(brand_id, file_name, file_size)
         job_id = job.id
         try:
             job.status, job.started_at = 'processing', datetime.now(timezone.utc)
             self.db.commit()
             valid, validation_errors, stats = prepare()
-            accepted, rejected, import_errors, new_prods = self.import_products(valid, brand_id, target_store_id=target_store_id)
+            accepted, rejected, import_errors, new_prods, missing_ar, media_rows = self.import_products(valid, brand_id, target_store_id=target_store_id)
             errors = [e.to_dict() for e in validation_errors] + import_errors
             job.total_rows, job.accepted_rows = stats['total'], accepted
             job.rejected_rows = stats['rejected'] + rejected
@@ -554,6 +656,10 @@ class BrandCatalogService:
                 duplicate_rows=job.duplicate_rows,
                 notifications_queued=notif_result.get("queued", 0),
                 notification_recipients_count=notif_result.get("recipients_count", 0),
+                # Honest completeness signal: rows created without Arabic copy.
+                rows_missing_title_ar=len(missing_ar),
+                media_rows_registered=media_rows,
+                missing_title_ar_rows=[m['row'] for m in missing_ar][:50],
                 errors=errors[:50]
             )
         except Exception:
@@ -565,7 +671,7 @@ class BrandCatalogService:
                 self.db.commit()
             raise
 
-    def process_csv_import(self, csv_content, brand_id, file_name=None, actor_id=None, target_store_id=None, send_notifications=True):
+    def process_csv_import(self, csv_content, brand_id, file_name=None, actor_id=None, target_store_id=None, send_notifications=False):
         return self._process(
             brand_id,
             file_name,
@@ -576,7 +682,7 @@ class BrandCatalogService:
             send_notifications=send_notifications,
         )
 
-    def process_json_import(self, products, brand_id, actor_id=None, target_store_id=None, send_notifications=True):
+    def process_json_import(self, products, brand_id, actor_id=None, target_store_id=None, send_notifications=False):
         return self._process(
             brand_id,
             'api_import.json',
@@ -710,13 +816,13 @@ class BrandCatalogService:
         ])
         writer.writerow([
             "Classic Cotton Shirt", "CONFIT-SHIRT-001",
-            "Regular fit crisp cotton shirt with spread collar", "shirts",
+            "Regular fit crisp cotton shirt with spread collar", "tops",
             "850.00", "EGP", "1000.00", "White", "M", "25",
             "https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg"
         ])
         writer.writerow([
             "Linen Summer Trousers", "CONFIT-TROUSERS-002",
-            "Tailored breathable linen blend trousers", "trousers",
+            "Tailored breathable linen blend trousers", "bottoms",
             "1200.00", "EGP", "1200.00", "Beige", "L", "12",
             "https://images.pexels.com/photos/1598507/pexels-photo-1598507.jpeg"
         ])

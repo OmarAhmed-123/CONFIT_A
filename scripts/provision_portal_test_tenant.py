@@ -5,7 +5,7 @@ WHY THIS EXISTS
 ---------------
 Verifying the B2B portal end to end requires authenticating as a brand manager
 and proving BOTH that a tenant sees its own data AND that it cannot see another
-tenant's. Doing that with the real seeded accounts (brand@massimodutti.com etc.)
+tenant's. Doing that with the real seeded accounts (brand@ateliersable.com etc.)
 would mean rewriting a real account's password and creating test rows inside a
 real brand's tenant. That is exactly the "uncontrolled test data in real
 customer tenants" this project forbids.

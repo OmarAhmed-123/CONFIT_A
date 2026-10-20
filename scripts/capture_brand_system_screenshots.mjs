@@ -9,7 +9,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 
 const mockUser = {
   id: 42,
-  email: 'director@massimodutti.com',
+  email: 'director@ateliersable.com',
   full_name: 'Massimo Dutti Brand Director',
   role: 'brand_owner',
   preferred_language: 'en',
@@ -36,7 +36,7 @@ const mockStores = [
     latitude: 30.0561,
     longitude: 31.2215,
     phone: '+20 2 2735 0000',
-    email: 'zamalek@massimodutti.com',
+    email: 'zamalek@ateliersable.com',
     google_maps_url: 'https://www.google.com/maps/search/?api=1&query=30.0561,31.2215',
     is_bopis_enabled: true,
     is_active: true,
@@ -60,7 +60,7 @@ const mockStores = [
     latitude: 30.0074,
     longitude: 30.9733,
     phone: '+20 2 3826 0000',
-    email: 'mallofarabia@massimodutti.com',
+    email: 'mallofarabia@ateliersable.com',
     google_maps_url: 'https://www.google.com/maps/search/?api=1&query=30.0074,30.9733',
     is_bopis_enabled: true,
     is_active: true,

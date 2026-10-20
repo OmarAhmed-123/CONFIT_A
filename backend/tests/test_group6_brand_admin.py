@@ -34,19 +34,19 @@ def create_test_user_and_brand(db, email_suffix=""):
         db.commit()
         db.refresh(cat)
 
-    # Use existing seeded brand user for reliability (seed creates brand@massimodutti.com etc)
+    # Use existing seeded brand user for reliability (seed creates brand@ateliersable.com etc)
     # For isolation tests, we still need two brands - use seeded ones
     if email_suffix in ["isolation1", "isolation2"]:
         if email_suffix == "isolation1":
-            email = "brand@massimodutti.com"
+            email = "brand@ateliersable.com"
         else:
-            email = "brand@cos.com"
+            email = "brand@casalumen.com"
         user = db.query(User).filter(User.email == email).first()
         brand = db.query(BrandProfile).filter(BrandProfile.user_id == user.id).first()
         return user, brand, cat
 
     # For other tests, use existing brand user
-    email = "brand@massimodutti.com"
+    email = "brand@ateliersable.com"
     user = db.query(User).filter(User.email == email).first()
     brand = db.query(BrandProfile).filter(BrandProfile.user_id == user.id).first()
     if not user or not brand:
@@ -100,12 +100,12 @@ def get_auth_token(email, password="Password123!"):
 def get_brand_token(db, suffix="test"):
     """Helper to get token for brand user"""
     _, brand, _ = create_test_user_and_brand(db, suffix)
-    user = db.query(User).filter(User.email == "brand@massimodutti.com").first()
+    user = db.query(User).filter(User.email == "brand@ateliersable.com").first()
     if not user:
         user = db.query(User).filter(User.email.like("brand_test_%")).first()
     if user:
         return get_auth_token(user.email)
-    return get_auth_token("brand@massimodutti.com")
+    return get_auth_token("brand@ateliersable.com")
 
 
 class TestBrandTenantIsolation:

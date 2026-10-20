@@ -2,7 +2,7 @@
 """Securely reset a CONFIT account password directly in the database.
 
 WHY THIS EXISTS (2026-09-06 audit, P0-05): the production demo accounts
-(admin@confit.io / shopper@confit.io / brand@massimodutti.com) had drifted to
+(admin@confit.io / shopper@confit.io / brand@ateliersable.com) had drifted to
 unknown passwords, no email provider is configured (forgot-password honestly
 returns 501 FEATURE_NOT_CONFIGURED), so operator lockout had no recovery
 path. This script is that path.

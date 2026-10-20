@@ -173,3 +173,120 @@ pasted into chat or a log is compromised → rotate it; never reuse it in commit
 ### 6.5 Living status
 The audit status matrix lives at **`docs/STATUS_MATRIX.md`** — one row per feature/role with functional
 and non-functional status, evidence (file/test/repro) and next action. Update it in every workstream.
+
+---
+
+## 7. Agent skills (`.claude/skills/`)
+
+### 7.1 What they are, and the rule that governs them
+
+**24 skills vendored from [mattpocock/skills](https://github.com/mattpocock/skills)** (MIT,
+© Matt Pocock) at upstream commit `5beb35b`, so every agent and human here shares one copy.
+Licence and provenance: **[`.claude/skills/LICENSE`](.claude/skills/LICENSE)** and
+**[`.claude/skills/NOTICE.md`](.claude/skills/NOTICE.md)** (what was vendored, what was not,
+and how to update).
+
+**These skills ASSIST the work. They NEVER override:**
+
+- the **Constitution** (§1) and its five principles;
+- the **one-branch protocol** and PR conventions (§5);
+- the **evidence rule** — "verified by running" is not "reviewed by reading" (§6.4);
+- **server-authoritative money**, **real server-side authorization**, and **honest
+  integration** (Principles II–IV).
+
+**If a skill's suggestion conflicts with a project rule, the project rule wins.** Stop and
+say so rather than following the skill.
+
+### 7.2 Precedence: speckit owns the spec process
+
+`.cursor/commands/speckit.*` + `.specify/memory/constitution.md` remain **the authoritative
+spec / plan / tasks process** for every CONFIT_A workstream. Five vendored skills overlap
+with it and are **kept for ad-hoc use only**:
+
+| Overlapping skill | Status on CONFIT_A |
+|---|---|
+| `to-spec` | **Ad-hoc only.** For a quick throwaway note. The real spec is `speckit.specify`. |
+| `to-tickets` | **Ad-hoc only.** Workstream task breakdown is `speckit.tasks`. |
+| `implement-spec` | **Ad-hoc only.** Workstream execution is `speckit.implement`. |
+| `implement` | **Ad-hoc only.** Same rule. |
+| `wizard` | General-purpose; not a spec tool. No conflict. |
+
+**No two skills claim spec authority.** For a CONFIT_A workstream: speckit, always. Kept
+rather than omitted because they are useful for scratch work and one-off questions, where
+standing up a full speckit workstream would be ceremony; but a workstream that produces
+committed code, a PR, or a status row in `docs/STATUS_MATRIX.md` goes through speckit.
+**Never run both for the same workstream.**
+
+### 7.3 The skills
+
+Model-invoked skills can also be called by name; user-invoked ones only run when a human
+types them.
+
+| Skill | Invoked by | Use it when |
+|---|---|---|
+| `research` | both | Mapping the code or evidence **before** changing it; primary sources only. |
+| `wayfinder` | user | The work is bigger than one session — build a shared map of decision tickets. |
+| `tdd` | both | Building or fixing test-first. This **is** our failing-first rule; keep red→green evidence. |
+| `diagnosing-bugs` | both | A hard bug or perf regression: reproduce, find root cause, then fix the cause. |
+| `code-review` | both | Reviewing your own diff **before** opening the PR (standards + spec axes). |
+| `pr` | both | Writing the PR body: scope, diff summary, evidence, gates. |
+| `domain-modeling` | both | Sharpening the vocabulary/domain model before designing anything. |
+| `codebase-design` | both | Designing deep modules; interfaces before implementation. |
+| `improve-codebase-architecture` | user | Scanning for deepening opportunities; it will grill you on the result. |
+| `prototype` | both | A throwaway spike to answer a design question — never merged as-is. |
+| `handoff` | user | Compacting a session into a handoff doc for the next turn or agent. |
+| `retro` | user | Closing a slice: what worked, what to change next time. |
+| `writing-for-agents` | both | Writing or editing `AGENTS.md`, skills, or any agent-facing doc. |
+| `teach` | user | Learning a concept or skill inside this workspace. |
+| `grill-me` | user | Stress-testing a plan by being interviewed before committing to it (a shim for `grilling`). |
+| `grilling` | both | The interview engine itself — the relentless design-tree questioning behind `grill-me`. |
+| `wait-what` | user | The last message did not land — re-pitch it. |
+| `to-spec` | user | **Ad-hoc only** — see §7.2. |
+| `to-tickets` | user | **Ad-hoc only** — see §7.2. |
+| `implement-spec` | user | **Ad-hoc only** — see §7.2. |
+| `implement` | user | **Ad-hoc only** — see §7.2. |
+| `wizard` | both | Generating an interactive bash wizard for steps only a human can perform (credentials, DNS, console clicks). Never for anything that mutates production unattended. |
+| `triage` | user | Moving GitHub issues through the five triage roles (§7.5). Reads/writes issues **only when a human asks** — never as a background action. |
+| `setup-matt-pocock-skills` | user | Re-running setup only — to re-point the issue tracker or domain-doc layout. |
+
+### 7.4 Use them per phase, not as decoration
+
+- **UNDERSTAND first** — `research` / `wayfinder` to map the code before touching it. This
+  is how you avoid fixing a symptom.
+- **SPEC** — speckit (§7.2). `to-spec` only for scratch.
+- **DESIGN** before anything non-trivial — `domain-modeling`, `codebase-design`,
+  `improve-codebase-architecture`.
+- **IMPLEMENT test-first** — `tdd`; the failing test comes first and its red output is
+  evidence.
+- **DEBUG** with `diagnosing-bugs` — reproduce, root cause, then fix.
+- **REVIEW before the PR** — `code-review` on your own diff, then write the body with `pr`.
+- **COMMUNICATE** — `handoff` between turns; `writing-for-agents` and `teach` for
+  agent-facing docs; `grill-me` and `wait-what` to stress-test a plan.
+- **CLOSE** a slice with `retro`.
+
+### 7.5 Repo configuration recorded for these skills
+
+| Setting | Value |
+|---|---|
+| Issue tracker | **GitHub Issues** on `OmarAhmed-123/CONFIT_A` (via `gh`) |
+| Domain docs | `docs/` (no `GLOSSARY.md` or `docs/adr/` yet — single-context) |
+| Triage labels (vocabulary) | `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix` |
+
+**These are recorded values, not standing permissions.** No skill is wired to post to
+GitHub, open or close issues, push branches, or mutate production automatically. An agent
+may read issues; creating or commenting requires an explicit human instruction, and
+anything touching production follows §1 and §5 as usual. The five labels above are the
+vocabulary the `triage` skill applies; they are **documented here, not created on GitHub** —
+creating them (`gh label create`) is a separate, explicitly authorized action.
+
+> `grilling` and `triage` were vendored as dependency closure rather than because they were
+> named in the integration scope: `grill-me` is a shim that calls `grilling`, and
+> `triage` is what consumes the label vocabulary above. See `.claude/skills/NOTICE.md`.
+
+### 7.6 Updating the skills
+
+`npx skills@latest add mattpocock/skills -a claude-code -y` (needs Node ≥ 22.20), then
+re-prune to the list in `.claude/skills/NOTICE.md`, **delete the generated
+`skills-lock.json`**, update the commit SHA in the NOTICE, and review the diff. Skills run
+with the agent's own permissions, so a silently changed instruction file is a real change
+in agent behaviour — treat it like code.

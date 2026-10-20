@@ -266,6 +266,35 @@ def rollback(db, backup_path: str) -> None:
     print(f"restored {len(data['product_images'])} product_images rows and {len(data['products'])} products")
 
 
+def storage_refusal(provider: str, allow_local: bool) -> str | None:
+    """Why an --apply against non-production storage must not proceed.
+
+    MEASURED FAILURE THIS PREVENTS (2026-10-20)
+    ------------------------------------------
+    A repair pointed at the production database while the process resolved
+    STORAGE_PROVIDER=local, so every rendition was written into the operator's
+    own filesystem. The run reported success: rows were inserted, ``exists()``
+    was true (for the local files), and the row count matched. But the objects
+    registered were NOT the objects a running deployment reads, so the registry
+    described bytes that nothing served — the storefront went on serving
+    whatever the bucket already held.
+
+    A registry that describes files only the operator can see is a false
+    success, and it is indistinguishable from a good run in the output. The
+    provider is therefore checked before the first write, not after.
+    """
+    if (provider or "local").lower() != "local" or allow_local:
+        return None
+    return (
+        "REFUSING to --apply with STORAGE_PROVIDER=local: the rows would "
+        "describe files on this machine, while a deployment reads its own "
+        "bucket and keeps serving whatever it already holds.\n"
+        "Set STORAGE_PROVIDER=s3 (with AWS_S3_BUCKET and credentials) so the "
+        "objects land where the application reads them, or pass "
+        "--allow-local-storage if this is genuinely a local database."
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="write to the database (default: dry run)")
@@ -279,6 +308,9 @@ def main() -> int:
              "last value, which silently skipped the others while the operator "
              "believed both were handled.",
     )
+    ap.add_argument("--allow-local-storage", action="store_true",
+                    help="permit --apply while STORAGE_PROVIDER=local; only for a "
+                         "database whose media is genuinely local")
     ap.add_argument("--complete-ladder", action="store_true",
                     help="render every ratio in RATIO_DIMENSIONS from the plan's master, "
                          "not only the ratios the plan selected")
@@ -302,6 +334,13 @@ def main() -> int:
             if not args.backup:
                 print("REFUSING to write without --backup <path>: a production media "
                       "repair must be reversible.", file=sys.stderr)
+                return 2
+            from backend.app.core.config import settings as _settings
+            refusal = storage_refusal(
+                getattr(_settings, "STORAGE_PROVIDER", "local"), args.allow_local_storage
+            )
+            if refusal:
+                print(refusal, file=sys.stderr)
                 return 2
             before = report_state(db, "before")
             Path(args.backup).write_text(json.dumps(snapshot(db), indent=2, default=str), encoding="utf-8")

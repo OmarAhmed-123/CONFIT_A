@@ -630,3 +630,26 @@ def test_rollback_restores_the_snapshot_exactly(seeded_product, tmp_path, capsys
     assert db.query(Product).get(product.id).thumbnail_url == original_thumb
     out = capsys.readouterr().out
     assert "restored" in out and "product_images rows" in out
+
+
+def test_apply_refuses_local_storage_against_a_shared_database():
+    """A registry that describes files only this machine can see is a false success.
+
+    Measured on 2026-10-20: a repair wrote to the production database while the
+    process resolved STORAGE_PROVIDER=local. Rows were inserted, exists() was
+    true, the counts matched, and the run reported success — but the objects
+    were on the operator's disk, so the deployment kept serving whatever its
+    bucket already held (in that case, unrelated stock photographs). The guard
+    exists so the failure cannot look like a pass.
+    """
+    from backend.scripts.materialize_catalog_media import storage_refusal
+
+    msg = storage_refusal("local", allow_local=False)
+    assert msg is not None
+    assert "REFUSING" in msg
+    assert "STORAGE_PROVIDER=s3" in msg
+
+    # An explicit opt-in is honoured, and a real backend is never blocked.
+    assert storage_refusal("local", allow_local=True) is None
+    assert storage_refusal("s3", allow_local=False) is None
+    assert storage_refusal("s3", allow_local=True) is None

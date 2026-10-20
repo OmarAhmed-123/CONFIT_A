@@ -53,13 +53,21 @@ layout possible — existed but was invisible to every consumer.
 
 ## The ratio ladder
 
-| ratio | pixels (current set) | used for | master? |
+| ratio | pixels | used for | master? |
 |---|---|---|---|
 | `4x5` | 1200x1500 | product cards, portrait frames, the primary/hero asset | hero |
-| `1x1` | 1200x1200 | thumbnails, swatch frames, cart lines | gallery |
-| `3x2` | 1500x1000 | editorial bands | gallery |
-| `16x9` | 1600x900 | cinematic bands, open-graph cards | gallery |
-| `master` | 2000x2000 | zoom / detail inspection only — never a card, never in `gallery_images()` | zoom source |
+| `1x1` | 800x800 | thumbnails, swatch frames, cart lines | gallery |
+| `3x2` | 1200x800 | editorial bands | gallery |
+| `16x9` | 1280x720 | cinematic bands, open-graph cards | gallery |
+| `master` | 1600x1600 | zoom / detail inspection only — never a card, never in `gallery_images()` | zoom source |
+
+These are `RATIO_DIMENSIONS` in `services/media_materialization_service.py`, and
+that dict is the authority. This table previously listed 1200x1200 / 1500x1000 /
+1600x900 / 2000x2000 — the *earlier* set — and the prose outlived the code.
+Measured against production on 2026-10-20, all five ratios carry exactly one
+dimension across all 12 products (24 rows each: 12 products x 2 formats), which
+is the signature of a single render pass at the values above. If you change
+`RATIO_DIMENSIONS`, change this table in the same commit.
 
 `order_media()` puts the primary row first and then walks this ladder, so the
 first gallery frame, the card thumbnail and the list endpoint's hero are the
@@ -94,6 +102,53 @@ python -m backend.scripts.verify_product_media --skip-http
 Exit code 1 means at least one of: a missing object, a size/digest/pixel
 mismatch, an API payload that does not expose the registered set, or a media URL
 that is not a 200 image. The failure list is printed (first 40).
+
+## Repairing an incomplete ladder
+
+`product_images` is the access-control list AND the completeness record, so a
+product whose rows stop at `4x5` and `master` serves two frames and 404s the
+other six URLs — even when the bucket holds objects for them. That is the
+correct, restrictive behaviour: an unregistered object is invisible.
+
+```bash
+# what is missing, read-only
+python -m backend.scripts.materialize_catalog_media --verify
+
+# what a repair WOULD do (no writes)
+python -m backend.scripts.materialize_catalog_media \
+  --complete-ladder --slug <slug> --slug <slug>
+
+# the repair itself — reversible, and refuses without a snapshot
+python -m backend.scripts.materialize_catalog_media \
+  --complete-ladder --apply --backup /path/snapshot.json --slug <slug>
+
+# undo
+python -m backend.scripts.materialize_catalog_media --rollback /path/snapshot.json
+```
+
+Three things this tooling learned the hard way, all of them now enforced:
+
+1. **`--slug` repeats.** It used to hold a single value, so `--slug a --slug b`
+   repaired only `b` while printing one line and exiting 0.
+2. **`--apply` requires a real storage backend.** With `STORAGE_PROVIDER=local`
+   the rows describe files on the operator's machine while the deployment reads
+   its own bucket — a silent, total mismatch that still reports success. The
+   tool refuses unless the provider is `s3`/`r2`, or you pass
+   `--allow-local-storage` for a genuinely local database.
+3. **A corrected object needs a new key.** Responses carry
+   `s-maxage=31536000, immutable`, so the CDN keeps serving the old bytes for
+   that URL for up to a year; rewriting the object at the same key changes
+   nothing a browser can see. Re-publish under a new key
+   (`products/9/9-1x1-20261020.jpg`) and repoint the row. This is the same rule
+   the "no transformation at request time" decision implies: the key names a
+   *shoot*, not a slot.
+
+**Restore guarantee.** `--backup` writes every `product_images` row (all 16
+columns) plus each product's `thumbnail_url`/`images`; `--rollback` restores that
+snapshot exactly (pinned by `test_rollback_restores_the_snapshot_exactly`). The
+*objects* are reproducible from the first-party sources in
+`frontend/public/product-media/<slug>/` — verified on 2026-10-20 by re-rendering
+all 8 objects of products 9 and 18 and matching their registered digests 8/8.
 
 ## What is deliberately NOT here
 

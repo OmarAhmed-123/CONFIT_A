@@ -290,8 +290,14 @@ def test_catalog_import_registers_product_images(seeded_product, monkeypatch):
             db.commit()
 
 
-def test_import_skips_media_honestly_when_the_host_is_not_approved(seeded_product):
-    """A catalogue row from an unapproved host still imports; it just gets no media."""
+def test_import_rejects_a_row_whose_image_cannot_resolve(seeded_product):
+    """An unapproved host is a REJECTED row, not a product that quietly ships blank.
+
+    Tightened contract (owner decision, turn 18): a catalogue row that cannot
+    end up with servable media must not be created at all. The previous
+    behaviour — import it, register nothing, report success — is precisely how
+    an imageless catalogue got certified as fine.
+    """
     db, product = seeded_product
     from backend.app.services.brand_catalog_service import BrandCatalogService
 
@@ -310,13 +316,72 @@ def test_import_skips_media_honestly_when_the_host_is_not_approved(seeded_produc
     }
     try:
         result = service.process_json_import([row], product.brand_id, send_notifications=False)
-        created = db.query(Product).filter(Product.title == row["title"]).first()
-        assert created is not None, "the row is still valid catalogue data"
-        assert result["media_rows_registered"] == 0, "no bytes were stored, so no row may claim any"
-        assert db.query(ProductImage).filter(ProductImage.product_id == created.id).count() == 0
+
+        # The row is rejected, and the reason names the actual problem.
+        assert result["accepted_rows"] == 0
+        assert result["rejected_rows"] == 1
+        messages = " ".join(e.get("message", "") for e in result["errors"])
+        assert "no resolvable media" in messages
+        assert "source_not_approved" in messages
+
+        # And nothing was created: a rejected row must leave no product behind,
+        # not even a half-written one whose hero would 404.
+        assert db.query(Product).filter(Product.title == row["title"]).first() is None
+        assert result["media_rows_registered"] == 0
+
+        # One bad row out of one: the job fails rather than reporting success.
+        assert result["status"] == "failed"
     finally:
         created = db.query(Product).filter(Product.title == row["title"]).first()
         if created:
             db.query(ProductImage).filter(ProductImage.product_id == created.id).delete()
             db.query(Product).filter(Product.id == created.id).delete()
             db.commit()
+
+
+def test_a_registered_row_without_a_backing_object_is_not_resolvable(seeded_product):
+    """The original bug, reproduced deliberately: 54 rows, every one a 404.
+
+    "Resolvable" must mean the object is in the store. If it only meant "a row
+    exists", the check would re-certify the exact defect this turn fixed.
+    """
+    from backend.app.services.media_materialization_service import verify_resolvable
+
+    db, product = seeded_product
+    db.add(ProductImage(
+        product_id=product.id,
+        storage_key=f"products/{product.id}/{product.id}-4x5.jpg",
+        ratio="4x5", format="jpeg", public_url=f"/api/v1/media/products/{product.id}/{product.id}-4x5.jpg",
+        width=1200, height=1500, bytes=12345, role="hero", checksum="deadbeef",
+        source_type="stock", provider="pexels", is_primary=True,
+    ))
+    db.commit()
+
+    empty_store = FakeStorage()  # holds nothing
+    verdict = verify_resolvable(db, product.id, storage=empty_store)
+    assert verdict.rows == 1, "the row is there — that is the point"
+    assert verdict.resolvable is False, "a row with no object behind it is a 404 waiting to happen"
+    assert verdict.reason == "object_missing"
+
+    # Same row, object actually stored: now it resolves.
+    empty_store.objects[f"products/{product.id}/{product.id}-4x5.jpg"] = source_image_bytes()
+    ok = verify_resolvable(db, product.id, storage=empty_store)
+    assert ok.resolvable is True and ok.reason == "ok"
+
+
+def test_legacy_label_keys_are_not_resolvable(seeded_product):
+    """`pexels:2096476:4x5:hero` was never a key; the route rejects it at parse time."""
+    from backend.app.services.media_materialization_service import verify_resolvable
+
+    db, product = seeded_product
+    db.add(ProductImage(
+        product_id=product.id, storage_key="pexels:2096476:4x5:hero", ratio="4x5",
+        format="jpeg", public_url="/api/v1/media/pexels:2096476:4x5:hero",
+        width=1200, height=1500, bytes=12345, role="hero", checksum="deadbeef",
+        source_type="stock", provider="pexels", is_primary=True,
+    ))
+    db.commit()
+
+    verdict = verify_resolvable(db, product.id, storage=FakeStorage())
+    assert verdict.resolvable is False
+    assert verdict.reason == "legacy_label_key"

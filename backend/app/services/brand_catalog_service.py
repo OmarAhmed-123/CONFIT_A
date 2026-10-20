@@ -533,17 +533,28 @@ class BrandCatalogService:
                     else:
                         st_inv.quantity = sku.stock_level
 
-                self.db.commit()
-
                 # Close the gap this turn exists for: an imported product used
                 # to get a thumbnail_url and NOTHING in product_images, so the
                 # storefront had no registered hero and the card fell back to a
-                # hotlink (or to "Image unavailable"). Best-effort by design —
-                # the product is already committed, so a media failure must not
-                # reject a valid catalogue row; it is logged and counted.
-                media_rows = self._materialize_media(product, row)
-                if media_rows:
-                    media_registered += media_rows
+                # hotlink (or to "Image unavailable").
+                #
+                # This runs BEFORE the commit on purpose. If the row cannot end
+                # up with media that actually resolves, the whole row rolls back
+                # — a product whose hero 404s is the defect, so importing one
+                # and reporting success would re-certify the bug. "Resolvable"
+                # means a registered row AND an object present in the store AND
+                # a key the media route will accept; a DB row alone is not
+                # evidence (all 54 legacy rows existed and all 54 404'd).
+                media = self._materialize_media(product, row)
+                if not media.resolvable:
+                    raise ValueError(
+                        f"product '{row['title']}' created with no resolvable media "
+                        f"({media.reason}); fix the image URL or provide one from "
+                        f"an approved source"
+                    )
+                self.db.commit()
+                if media.rows:
+                    media_registered += media.rows
 
                 accepted += 1
                 if is_brand_new and not (row.get('title_ar') or '').strip():
@@ -568,7 +579,7 @@ class BrandCatalogService:
                 raise
         return accepted, rejected, errors, new_products_created, missing_title_ar, media_registered
 
-    def _materialize_media(self, product, row) -> int:
+    def _materialize_media(self, product, row):
         """Register product_images for an imported product. Returns rows written.
 
         Returns 0 — never raises — when the import cannot lawfully or physically
@@ -581,9 +592,12 @@ class BrandCatalogService:
         nothing" via the job result, and the storefront falls back to the legacy
         URL instead of being told a registered image exists when it does not.
         """
+        from backend.app.services.media_materialization_service import (
+            MediaResolvability, verify_resolvable,
+        )
         source_url = (row.get('thumbnail_url') or '').strip()
         if not source_url:
-            return 0
+            return MediaResolvability(0, False, 'no_source')
         try:
             from backend.app.services.media_materialization_service import (
                 MediaMaterializationService, MediaMaterializationError,
@@ -594,8 +608,8 @@ class BrandCatalogService:
             try:
                 service._get_storage()
             except Exception as exc:  # unconfigured storage is a skip, not a failure
-                logger.info('catalog_import_media_skipped', product_id=product.id, reason=type(exc).__name__)
-                return 0
+                logger.warning('catalog_import_media_storage_unavailable', product_id=product.id, reason=type(exc).__name__)
+                return MediaResolvability(0, False, 'storage_unavailable')
             images = row.get('images') or ''
             source_ref = source_url
             if isinstance(images, str) and images.startswith('['):
@@ -612,17 +626,23 @@ class BrandCatalogService:
                 provider=provider,
                 source_ref=source_ref,
                 attribution=f"Photo: {provider.capitalize()}",
+                # The caller owns the transaction. If verification below fails,
+                # the product, its SKUs and its media rows must all disappear
+                # together — a committed-then-rejected row would be the worst
+                # of both worlds: reported as rejected, yet live in the catalog.
+                commit=False,
             )
-            return len(rows)
+            self.db.flush()
+            return verify_resolvable(self.db, product.id, storage=service._get_storage())
         except MediaSourceNotApproved as exc:
-            logger.info('catalog_import_media_not_approved', product_id=product.id, reason=str(exc))
-            return 0
+            logger.warning('catalog_import_media_not_approved', product_id=product.id, reason=str(exc))
+            return MediaResolvability(0, False, 'source_not_approved')
         except MediaMaterializationError as exc:
             logger.error('catalog_import_media_failed', product_id=product.id, reason=str(exc))
-            return 0
-        except Exception as exc:  # defensive: media must never break an import
+            return MediaResolvability(0, False, 'materialization_failed')
+        except Exception as exc:  # defensive: media must never break an import silently
             logger.error('catalog_import_media_error', product_id=getattr(product, 'id', None), reason=type(exc).__name__)
-            return 0
+            return MediaResolvability(0, False, 'materialization_failed')
 
     def _process(self, brand_id, file_name, file_size, prepare, actor_id=None, target_store_id=None, send_notifications=False):
         job = self.brand_repo.create_import_job(brand_id, file_name, file_size)

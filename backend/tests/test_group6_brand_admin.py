@@ -130,7 +130,7 @@ class TestBrandTenantIsolation:
                     description_ar="اختبار",
                     base_price=100.0,
                     color_family="Navy",
-                    thumbnail_url="https://example.com/img.jpg",
+                    thumbnail_url="https://images.pexels.com/photos/1040945/img.jpg",
                     is_active=True
                 )
                 db.add(prod)
@@ -206,8 +206,8 @@ class TestCatalogCSVImport:
             assert token is not None
 
             csv_content = f"""title,category_slug,base_price,color_family,thumbnail_url,size,color,stock_level
-Test Product CSV,outerwear,199.99,Navy,https://example.com/test.jpg,M,Navy,15
-Another Product,outerwear,299.99,Black,https://example.com/another.jpg,L,Black,20
+Test Product CSV,outerwear,199.99,Navy,https://images.pexels.com/photos/996329/test.jpg,M,Navy,15
+Another Product,outerwear,299.99,Black,https://images.pexels.com/photos/1183266/another.jpg,L,Black,20
 """
 
             # Use API import first (simpler)
@@ -220,7 +220,7 @@ Another Product,outerwear,299.99,Black,https://example.com/another.jpg,L,Black,2
                             "category_slug": "outerwear",
                             "base_price": 199.99,
                             "color_family": "Navy",
-                            "thumbnail_url": "https://example.com/test.jpg",
+                            "thumbnail_url": "https://images.pexels.com/photos/996329/test.jpg",
                             "size": "M",
                             "color": "Navy",
                             "stock_level": 15
@@ -266,7 +266,7 @@ Another Product,outerwear,299.99,Black,https://example.com/another.jpg,L,Black,2
                             "title": "Invalid Product",
                             "category_slug": "outerwear",
                             "color_family": "Navy",
-                            "thumbnail_url": "https://example.com/test.jpg"
+                            "thumbnail_url": "https://images.pexels.com/photos/996329/test.jpg"
                         }
                     ]
                 },
@@ -295,7 +295,7 @@ Another Product,outerwear,299.99,Black,https://example.com/another.jpg,L,Black,2
                 "category_slug": "outerwear",
                 "base_price": 150.0,
                 "color_family": "Navy",
-                "thumbnail_url": "https://example.com/idempotent.jpg",
+                "thumbnail_url": "https://images.pexels.com/photos/1124465/idempotent.jpg",
                 "size": "M",
                 "color": "Navy",
                 "stock_level": 10,
@@ -419,7 +419,7 @@ class TestInventoryManagement:
                 description_ar="اختبار",
                 base_price=100.0,
                 color_family="Navy",
-                thumbnail_url="https://example.com/img.jpg",
+                thumbnail_url="https://images.pexels.com/photos/1040945/img.jpg",
                 is_active=True
             )
             db.add(prod)
@@ -484,7 +484,7 @@ class TestSponsoredPlacements:
                 description_ar="اختبار",
                 base_price=100.0,
                 color_family="Navy",
-                thumbnail_url="https://example.com/img.jpg",
+                thumbnail_url="https://images.pexels.com/photos/1040945/img.jpg",
                 is_active=True
             )
             db.add(prod)
@@ -536,7 +536,7 @@ class TestSponsoredPlacements:
                 description_ar="اختبار",
                 base_price=100.0,
                 color_family="Navy",
-                thumbnail_url="https://example.com/img.jpg",
+                thumbnail_url="https://images.pexels.com/photos/1040945/img.jpg",
                 is_active=True
             )
             db.add(prod2)
@@ -589,7 +589,7 @@ class TestSponsoredPlacements:
                 description_ar="اختبار",
                 base_price=100.0,
                 color_family="Navy",
-                thumbnail_url="https://example.com/img.jpg",
+                thumbnail_url="https://images.pexels.com/photos/1040945/img.jpg",
                 is_active=True
             )
             db.add(prod)

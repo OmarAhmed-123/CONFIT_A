@@ -42,7 +42,7 @@ import hashlib
 import io
 import os
 import re
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, NamedTuple
 
 from backend.app.core.logging import logger
 from backend.app.models.catalog import ProductImage
@@ -179,6 +179,49 @@ def storage_key_for_row(row: ProductImage) -> Optional[str]:
     """
     key = (row.storage_key or "").strip()
     return key if CANONICAL_KEY_RE.match(key) else None
+
+
+class MediaResolvability(NamedTuple):
+    """The honest answer to "will this product's hero actually render?".
+
+    A row in ``product_images`` is NOT the answer. The original defect was
+    exactly that: 54 rows existed and every one of them 404'd, because the row
+    named a key that had never been written to the bucket. So ``resolvable``
+    requires all three of:
+      1. at least one registered row,
+      2. whose ``storage_key`` is a canonical key (i.e. what the media route
+         will accept rather than reject at parse time),
+      3. whose backing object is actually present in the store.
+    ``reason`` says which of those failed, so an import can report something
+    specific instead of a shrug.
+    """
+
+    rows: int
+    resolvable: bool
+    reason: str
+
+
+def verify_resolvable(db, product_id: int, storage=None) -> MediaResolvability:
+    """Measure — never assume — whether a product has servable media."""
+    rows = db.query(ProductImage).filter(ProductImage.product_id == product_id).all()
+    canonical = [r for r in rows if r.storage_key and CANONICAL_KEY_RE.match(r.storage_key)]
+    if not canonical:
+        return MediaResolvability(len(rows), False, "no_source" if not rows else "legacy_label_key")
+    if storage is None:
+        try:
+            storage = MediaMaterializationService(db)._get_storage()
+        except Exception:
+            return MediaResolvability(len(rows), False, "storage_unavailable")
+    for row in canonical:
+        key = row.storage_key
+        try:
+            exists = getattr(storage, "exists", None)
+            present = exists(key) if callable(exists) else storage.read(key) is not None
+        except Exception:
+            continue
+        if present:
+            return MediaResolvability(len(rows), True, "ok")
+    return MediaResolvability(len(rows), False, "object_missing")
 
 
 class MediaMaterializationService:

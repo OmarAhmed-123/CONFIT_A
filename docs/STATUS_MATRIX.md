@@ -226,3 +226,52 @@ Full analysis, verbatim licence quotes and the sign-off block live in
 7. **Three provider read-only surfaces are unusable from here** — Cerebrium 502, FitRoom 503, DNSHE 404. Nothing established about those keys in either direction.
 8. **PR #358** remains open by the owner's instruction.
 9. **Model slugs were not individually validated** — that requires a billed inference call per model, which is not read-only.
+
+---
+
+## 9. Accessibility phase 3 — portals, preferences, reflow (2026-10-21)
+
+**Appended, not substituted.** Sections 0–8 above are the state at their own
+dates and are left as they were; several are now superseded (the branch ledger
+in the header, for instance — `main` has moved to `eb02668` and PR #365 is
+merged and deployed). This section records only what phase 3 measured.
+
+**Tested candidate:** `1db39b2` on `work/production-hardening`, rebased onto the
+integration head `43377d8`. **Environment:** local build served from
+`127.0.0.1:43124` with `/api` proxied to a local API on the **verify database**
+(`confit_fixverify`, revision `0045_brand_verified_domains`) — not production.
+Engines: Chromium 156.0.8078.4, Firefox 157.0, WebKit 27.2.
+
+| Area | State | Evidence |
+|---|---|---|
+| Portal reflow at 320×640, en+ar, 3 engines, 8 brand + 4 admin routes + guest gateway + refusal | **VERIFIED** — 90 loads, 0 horizontal overflow, dir correct per locale, exactly one `h1` | `a11y/p3.final.{ff,wk,cr}320.reflow.json`; a 48px overflow on `/b2b` was found and fixed in `a89c1e8` |
+| Portal target geometry (SC 2.5.8) | **VERIFIED** — 1,644 controls across those loads; **0** failures. 84 nodes are under 24px and rely on the spacing exception; three distinct controls account for them, each identified (`p3.undersized-nodes.json`) | `a11y/p3.final.*.targets.json`, `evidence/target-size-summary.json` |
+| Reduced motion (`prefers-reduced-motion: reduce`) | **VERIFIED by emulation** — 8 routes: 9 animated elements and 11 running animations at `no-preference` → **0 / 0** at `reduce`; no content hidden | `a11y/p3.preferences.json` |
+| Forced colours (`forced-colors: active`) | **VERIFIED by emulation only** — 4 routes, focus ring survives system colours (solid outline 2–3px). **No real Windows High Contrast run.** | `a11y/shots/p3-prefs/forced-colors-*.png` |
+| 200% zoom on a portal dialog | **VERIFIED** — 640×400 CSS viewport, dialog opens, 11 controls reachable, no horizontal overflow | `a11y/shots/p3-prefs/zoom200-dialog.png` |
+| Public axe matrix (15 routes × en/ar × desktop/mobile × 3 engines) | **VERIFIED** — 180 loads, **0** WCAG A/AA violations; 180 keyboard probes with no step missing a focus ring | `a11y/results.p3.{chromium,firefox,webkit}.json` |
+| Authenticated axe matrix (12 routes + 2 negative controls) | **VERIFIED** — 14/14 clean, one `h1` each, no heading-level skips | `evidence/auth-routes.json` |
+| Browser journeys: catalogue/empty state, PDP, wishlist | **VERIFIED** — 13/13 steps | `a11y/p3.journeys.json` |
+| Screen reader (NVDA / JAWS / VoiceOver) | **BLOCKED** — no display server (`DISPLAY` unset), no AT-SPI, no dbus, no Orca; NVDA/JAWS need Windows, VoiceOver needs macOS/iOS. Not attempted, not passed. | `orca: not installed`; environment probe |
+| Real iOS / Android devices | **BLOCKED** — no physical device and no device-farm credentials | — |
+| Workers Builds: confit-a | **FAIL** — fails in **0 s** with 0 annotations (no compilation occurs), on the integration base `43377d8` as well as on this branch; succeeds on `main` `eb02668`. Cause not established: the Cloudflare build log needs credentials this workspace does not have. **Not attributable to this PR; unresolved.** | check-run `output`, `annotations_count: 0` |
+
+**Defects found and fixed in phase 3**
+
+1. `a89c1e8` — `/b2b` scrolled horizontally 48px at 320px (WCAG 1.4.10). Root
+   cause in two layers: `grid-cols-12` unprescribed below `lg` (eleven 32px gaps
+   = 352px in a 320px viewport) **and** `col-span-12` children, which create
+   twelve implicit columns of their own. Both fixed; the regression test fails
+   on the previous commit and pins both layers.
+2. `1db39b2` — `/b2b/analytics` rendered "Reset Filters" in English on the
+   Arabic page, although `bi.reset_filters` existed in both locales unused; the
+   control was also a 72×16 target relying on the spacing exception.
+
+**Measurement corrections made in this phase** (recorded because each one
+briefly produced a wrong number): horizontal overflow must be measured against
+`window.innerWidth`, not `clientWidth` (a scrollbar made WebKit report a
+phantom 5px with no offending element); the accessible name must be read from
+the computed tree, not `aria-label || textContent` (the card image link's name
+comes from its `img alt`); and the wishlist is device-local by design, so
+asserting 401 on a wishlist endpoint tested an endpoint the product
+deliberately does not have.

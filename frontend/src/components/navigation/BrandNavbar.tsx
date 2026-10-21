@@ -225,7 +225,7 @@ const NavLinks: React.FC<{
       {sections.map((section) => (
         <div key={section.id} role="group" aria-label={t(section.labelKey)}>
           <p
-            className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-brand-muted ${
+            className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-300 ${
               collapsed ? 'sr-only' : ''
             }`}
           >
@@ -492,7 +492,7 @@ export const BrandNavbar: React.FC = () => {
           <Link
             to={isAdmin ? '/admin' : '/b2b'}
             className={`flex min-h-11 min-w-0 items-center gap-2 rounded-lg ${focusRing}`}
-            aria-label={t('b2b.dashboard_link_label')}
+            aria-label={portalTitle}
           >
             <ConfitLogo variant="compact" theme="light" size="sm" />
             <span className="truncate text-xs font-bold text-white">{portalTitle}</span>
@@ -528,7 +528,7 @@ export const BrandNavbar: React.FC = () => {
           <Link
             to={isAdmin ? '/admin' : '/b2b'}
             className={`flex min-h-11 min-w-0 items-center gap-3 rounded-lg ${focusRing}`}
-            aria-label={t('b2b.dashboard_link_label')}
+            aria-label={portalTitle}
           >
             <ConfitLogo variant="compact" theme="light" size="sm" />
             {!collapsed && (
@@ -557,7 +557,7 @@ export const BrandNavbar: React.FC = () => {
 
         <div className="space-y-1 border-t border-white/10 px-3 py-3">
           {!collapsed && (
-            <p className="truncate px-3 pb-1 text-[10px] text-brand-muted">
+            <p className="truncate px-3 pb-1 text-[10px] text-neutral-300">
               {user?.full_name || 'Partner'}
             </p>
           )}

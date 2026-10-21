@@ -1101,6 +1101,7 @@
     "add_to_wishlist": "أضف إلى المفضلة",
     "open": "افتح {{name}}",
     "view_product": "اعرض {{name}}",
+    "image_unavailable": "الصورة غير متاحة",
     "view_image": "اعرض الصورة {{index}}",
     "remove_photo": "إزالة الصورة",
     "close_dialog": "إغلاق النافذة",

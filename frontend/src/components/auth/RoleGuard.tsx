@@ -117,9 +117,12 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
             <span className="text-[10px] font-bold tracking-widest text-brand-muted uppercase">
               {t('partner.governance_label')}
             </span>
-            <h2 className="font-serif text-2xl font-bold text-brand-charcoal">
+            {/* This card REPLACES the whole portal shell (both call sites wrap
+                BrandLayout), so it is the page and needs the page's h1. It was
+                an h2, which left guarded pages with no h1 at all. */}
+            <h1 className="font-serif text-2xl font-bold text-brand-charcoal">
               {fallbackTitle || t('partner.auth_required')}
-            </h2>
+            </h1>
             <p className="text-xs text-brand-muted font-light leading-relaxed">
               {fallbackMessage || t('partner.auth_required_body')}
             </p>
@@ -183,9 +186,11 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
             <span className="text-[10px] font-bold tracking-widest text-rose-600 uppercase">
               {t('guard.forbidden_badge')}
             </span>
-            <h2 className="font-serif text-2xl font-bold text-brand-charcoal">
+            {/* Same as the sign-in gate: this card replaces the shell, so it
+                carries the page's single h1. */}
+            <h1 className="font-serif text-2xl font-bold text-brand-charcoal">
               {t('guard.access_restricted')}
-            </h2>
+            </h1>
             <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('guard.registered_as')}{' '}
               {/* Email and role codes are Latin identifiers — keep them LTR

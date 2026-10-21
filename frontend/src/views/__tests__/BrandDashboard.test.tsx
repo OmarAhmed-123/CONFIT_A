@@ -73,6 +73,45 @@ const ui = () => (
   </I18nextProvider>
 );
 
+describe('D12 reflow at 320 CSS pixels (WCAG 1.4.10)', () => {
+  /*
+   * MEASURED DEFECT (phase 3, Firefox 157 + WebKit 27.2, 320x640):
+   * the dashboard's 12-column grids were `grid-cols-12` at EVERY width, and
+   * their children carried `col-span-12`. At 320px the eleven 32px gaps alone
+   * are 352px, so the content was 352px wide inside a 320px viewport — 48px of
+   * document-level horizontal scrolling on /b2b, in both languages. A
+   * single-column grid with a `col-span-12` child is worse: the child
+   * overflows the implicit track and its own content overflows with it.
+   *
+   * The fix is the pattern BrandAnalyticsView already used: one column by
+   * default, twelve from `lg`, with the spans also behind `lg`. This test pins
+   * both halves, because either one alone reintroduces the overflow.
+   */
+  it('12-column grids collapse to one column below lg', () => {
+    const { container } = render(ui());
+    const twelve = [...container.querySelectorAll('[class*="grid-cols-12"]')];
+    expect(twelve.length).toBeGreaterThan(0);
+    for (const el of twelve) {
+      const cls = el.className;
+      expect(cls, `unprefixed grid-cols-12: ${cls}`).not.toMatch(/(^|\s)grid-cols-12(\s|$)/);
+      expect(cls).toMatch(/lg:grid-cols-12/);
+    }
+  });
+
+  it('no child claims a 12-column span outside the lg breakpoint', () => {
+    const { container } = render(ui());
+    const spans = [...container.querySelectorAll('[class*="col-span"]')];
+    expect(spans.length).toBeGreaterThan(0);
+    for (const el of spans) {
+      const cls = el.className;
+      for (const token of cls.split(/\s+/).filter((t) => /^col-span-\d+$/.test(t))) {
+        // a bare col-span-12 is only harmless when the parent is 12 columns wide
+        expect(token, `bare span on a collapsing grid: ${cls}`).not.toBe('col-span-12');
+      }
+    }
+  });
+});
+
 describe('B02 partner command center', () => {
   it('D9: loading renders a geometry skeleton announced politely, not a bare spinner', async () => {
     mocks.vm = baseVm({ isLoading: true });

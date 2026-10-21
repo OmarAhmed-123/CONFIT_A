@@ -1298,6 +1298,13 @@ export const commerceService = {
     return request<Order>(`/commerce/orders/${orderNumber}${qs}`);
   },
 
+  reconcileOrderPayment: (orderNumber: string, guestEmail?: string) => {
+    const qs = guestEmail ? `?guest_email=${encodeURIComponent(guestEmail)}` : "";
+    return request<Order>(`/commerce/orders/${orderNumber}/reconcile-payment${qs}`, {
+      method: "POST",
+    });
+  },
+
   getOrderTracking: (orderNumber: string, guestEmail?: string) => {
     const qs = guestEmail ? `?guest_email=${encodeURIComponent(guestEmail)}` : "";
     return request<OrderTrackingTimeline>(`/commerce/orders/${orderNumber}/tracking${qs}`);

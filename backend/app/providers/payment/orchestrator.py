@@ -8,7 +8,34 @@ from backend.app.core.money import quantize_money, to_float
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
+from backend.app.providers.payment.fawaterak import (
+    FawaterakAdapter,
+    fawaterak_credentials_present,
+)
 from backend.app.providers.payment.schemas import MarketPaymentCapabilitiesResponse
+
+
+def _invoke_fawaterak_live(
+    *,
+    method_id: str,
+    amount_minor: int,
+    currency_code: str,
+    customer_email: str,
+    order_number: str,
+    country_code: str = "EG",
+    tx_id: str = "",
+    customer_phone: str | None = None,
+    metadata: Dict[str, Any] | None = None,
+) -> Any:
+    adapter = PaymentOrchestrator.LIVE_PSP_ADAPTERS["fawaterak"]
+    return adapter.create_payment_intent(
+        amount_minor=amount_minor,
+        currency_code=currency_code,
+        customer_email=customer_email,
+        customer_phone=customer_phone,
+        order_number=order_number,
+        metadata={**(metadata or {}), "method_id": method_id, "country_code": country_code, "tx_id": tx_id},
+    )
 
 
 class PaymentOrchestrator:
@@ -19,25 +46,25 @@ class PaymentOrchestrator:
 
     * ``demo`` (``PAYMENTS_LIVE=false``, the default): orders are authorised by
       the local demo adapter and labelled as such. No money moves.
-    * ``live`` (``PAYMENTS_LIVE=true``): a real PSP charge is REQUIRED. No live
-      PSP adapter is implemented in this codebase yet (``LIVE_PSP_ADAPTERS`` is
-      empty), so live card/wallet/BNPL/instapay payments FAIL CLOSED with
-      ``reason="live_psp_adapter_not_implemented"`` — the previous behaviour
-      returned ``status="authorized"``/``provider="stripe"`` without calling
-      any gateway, i.e. a fabricated live authorisation. Cash on delivery does
-      not involve a PSP and stays valid in both modes.
+    * ``live`` (``PAYMENTS_LIVE=true``): a real PSP charge is REQUIRED.
+      Fawaterak (Egypt & MENA) is registered in ``LIVE_PSP_ADAPTERS`` and backed
+      by OAuth2/HMAC verification; methods with no configured live PSP adapter
+      FAIL CLOSED with ``reason="live_psp_adapter_not_implemented"`` or
+      ``reason="live_credentials_missing"`` — never a fabricated authorisation.
+      Cash on delivery does not involve a PSP and stays valid in both modes.
     """
 
-    # provider key -> live adapter callable. Empty until a real PSP
-    # integration (Stripe / Paymob / Tabby / Tamara) is implemented and
-    # verified against the provider's sandbox; see PRODUCTION_DEPENDENCIES.md.
-    LIVE_PSP_ADAPTERS: Dict[str, Any] = {}
+    LIVE_PSP_ADAPTERS: Dict[str, Any] = {
+        "fawaterak": FawaterakAdapter(),
+    }
 
     def __init__(self):
         self.registry = MarketPaymentCapabilityRegistry()
 
     @classmethod
     def live_adapter_for(cls, method_id: str):
+        if method_id in ("card", "apple_pay", "vodafone_cash", "instapay_bridge") and fawaterak_credentials_present():
+            return "fawaterak", _invoke_fawaterak_live
         key = (
             "stripe" if method_id in ("card", "apple_pay", "google_pay")
             else "tabby" if "tabby" in method_id
@@ -108,7 +135,9 @@ class PaymentOrchestrator:
         currency_code: str,
         customer_email: str,
         order_number: str,
-        country_code: str = "EG"
+        country_code: str = "EG",
+        customer_phone: str | None = None,
+        metadata: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         logger.info(
             "Initiating payment transaction",
@@ -138,9 +167,11 @@ class PaymentOrchestrator:
             }
 
         if live and method_id in ("card", "apple_pay", "google_pay") and not (
-            settings.STRIPE_SECRET_KEY or os.environ.get("STRIPE_SECRET_KEY")
+            fawaterak_credentials_present()
+            or settings.STRIPE_SECRET_KEY
+            or os.environ.get("STRIPE_SECRET_KEY")
         ):
-            return _missing_live_secret("stripe", "STRIPE_SECRET_KEY")
+            return _missing_live_secret("fawaterak", "FAWATERAK_CLIENT_SECRET")
         if live and "tabby" in method_id and not (settings.TABBY_API_KEY or os.environ.get("TABBY_API_KEY")):
             return _missing_live_secret("tabby", "TABBY_API_KEY")
         if live and "tamara" in method_id and not (settings.TAMARA_API_KEY or os.environ.get("TAMARA_API_KEY")):
@@ -165,7 +196,7 @@ class PaymentOrchestrator:
             return await adapter(
                 method_id=method_id, amount_minor=amount_minor, currency_code=currency_code,
                 customer_email=customer_email, order_number=order_number, country_code=country_code,
-                tx_id=tx_id,
+                tx_id=tx_id, customer_phone=customer_phone, metadata=metadata,
             )
 
         # BNPL Split Payments
@@ -249,11 +280,14 @@ class PaymentOrchestrator:
         the refund is reported as failed — never as a fabricated success.
         """
         live = bool(settings.PAYMENTS_LIVE) and mode == "live"
-        if live and method == "card" and not settings.STRIPE_SECRET_KEY:
+        if live and method == "card" and not (fawaterak_credentials_present() or settings.STRIPE_SECRET_KEY):
             return {"status": "failed", "reason": "live_credentials_missing", "provider_tx_id": provider_tx_id}
         if live and method != "cod":
+            if fawaterak_credentials_present() and method in ("card", "apple_pay", "vodafone_cash", "instapay_bridge"):
+                fwk: FawaterakAdapter = self.LIVE_PSP_ADAPTERS["fawaterak"]
+                return await fwk.refund(provider_tx_id=provider_tx_id, amount=amount)
             provider_key, adapter = self.live_adapter_for(method)
-            if adapter is None:
+            if adapter is None or not hasattr(adapter, "refund"):
                 logger.error("Live refund requested but no live PSP adapter is implemented",
                              provider=provider_key, method=method, provider_tx_id=provider_tx_id)
                 return {"status": "failed", "reason": "live_psp_adapter_not_implemented",
@@ -280,19 +314,21 @@ class PaymentOrchestrator:
         "tamara": "TAMARA_API_KEY",
         "stripe": "STRIPE_WEBHOOK_SECRET",
         "paymob": "PAYMOB_API_KEY",
+        "fawaterak": "FAWATERAK_VENDOR_API_KEY",
     }
 
     def verify_webhook(self, provider_name: str, payload_bytes: bytes, signature_header: str) -> bool:
         """Cryptographically verifies the webhook HMAC-SHA256 signature over
-        the RAW request body. No dev bypass: the previous implementation ended
-        with `or True`, making every webhook 'verified' regardless of the
-        signature — that hole is closed."""
-        if not signature_header:
-            return False
-        attr = self.PROVIDER_SECRET_ATTRS.get(provider_name.lower())
+        the RAW request body (or Fawaterak's canonical HMAC payload fields)."""
+        prov = (provider_name or "").strip().lower()
+        attr = self.PROVIDER_SECRET_ATTRS.get(prov)
         secret = (getattr(settings, attr, None) or os.environ.get(attr)) if attr else None
         if not secret:
             logger.error("Webhook rejected: no secret configured for provider", provider=provider_name)
+            return False
+        if prov == "fawaterak":
+            return FawaterakAdapter.verify_webhook_payload_sync(payload_bytes, signature_header or "", secret)
+        if not signature_header:
             return False
         expected = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature_header)

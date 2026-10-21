@@ -605,6 +605,24 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     PAYMOB_API_KEY: Optional[str] = None
+    # Fawaterak (فواتيرك) production & staging payment gateway credentials.
+    # OAuth 2.0 client credentials authenticate API v3 (/oauth/token -> /api/v3/*);
+    # FAWATERAK_VENDOR_API_KEY signs webhooks/iframe hashes and authenticates v2.
+    FAWATERAK_ENV: str = "production"
+    FAWATERAK_BASE_URL: Optional[str] = None
+    FAWATERAK_CLIENT_ID: Optional[str] = None
+    FAWATERAK_CLIENT_SECRET: Optional[str] = None
+    FAWATERAK_VENDOR_API_KEY: Optional[str] = None
+    FAWATERAK_PROVIDER_KEY: Optional[str] = None
+    FAWATERAK_TIMEOUT_SECONDS: float = 20.0
+
+    # Serverless-safe cloud catalog worker endpoints (Modal app `confit-catalog-worker`).
+    # Used automatically when no external Redis broker is configured so global Vercel
+    # functions enqueue durable Postgres import jobs without blocking or failing on loopback Redis.
+    CATALOG_WORKER_DISPATCH_URL: Optional[str] = None
+    CATALOG_WORKER_HEALTH_URL: Optional[str] = None
+    CATALOG_WORKER_ADMIN_TOKEN: Optional[str] = None
+    CATALOG_WORKER_TIMEOUT_SECONDS: float = 12.0
     TAX_RATE: float = 0.05
     FREE_SHIPPING_THRESHOLD: float = 250.0
     STANDARD_SHIPPING_FEE: float = 15.0
@@ -781,6 +799,13 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() in PRODUCTION_ENVIRONMENTS
+
+    @property
+    def has_external_redis(self) -> bool:
+        raw = (self.REDIS_URL or "").strip().lower()
+        if not raw:
+            return False
+        return "localhost" not in raw and "127.0.0.1" not in raw
 
     # ------------------------------------------------------------------
     # Object-storage resolution (single source of truth for every caller).

@@ -662,7 +662,23 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # — so nothing durable could consume a queued job. The new columns are the
     # work item (payload), the run configuration, and the lease that lets a dead
     # worker's job be recovered instead of stranded in 'processing'.
-    assert expected_head_revision() == "0043_import_job_payload"
+    # -> 0044 (products price provenance). The head moved for the last piece of
+    # the same story: the importer can now accept a row priced in EGP and
+    # normalise it into the price book once, at a verified rate. Once
+    # `base_price` has been converted, "31.00" no longer explains itself — so
+    # the row records the original amount, the rate, its source and its
+    # timestamp. All five columns are nullable, which is the truthful state for
+    # a price that was never converted.
+    # -> 0045 (brand_domains). The head moved for a reason the importer could not
+    # answer: `image_source=own` in a CSV was the ONLY thing standing between a
+    # brand and copying a competitor's photography into the catalogue, because
+    # the deployment flag asked "may this server fetch first-party URLs at all",
+    # never "whose host is this". A brand now proves control of a hostname with a
+    # DNS TXT claim, per-brand, and imports are authorized against that record at
+    # validation, at commit and on every redirect hop. Additive table only.
+    assert expected_head_revision() == "0045_brand_verified_domains"
+    assert chain["0045_brand_verified_domains"] == "0044_product_price_provenance"
+    assert chain["0044_product_price_provenance"] == "0043_import_job_payload"
     assert chain["0043_import_job_payload"] == "0042_photo_unique_with_index"
     assert chain["0042_photo_unique_with_index"] == "0041_photo_index"
     assert chain["0041_photo_index"] == "0040_onboarding_completion_metadata"

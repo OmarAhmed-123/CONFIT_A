@@ -218,7 +218,13 @@ class FxRateProvider:
 
         configured = self._configured()
         if configured:
-            return RateSnapshot(base=base, rates=configured, source="configured")
+            configured_as_of = (getattr(settings, "MARKET_FX_RATES_AS_OF", None) or "").strip() or None
+            return RateSnapshot(
+                base=base,
+                rates=configured,
+                source="configured",
+                as_of=configured_as_of,
+            )
         return RateSnapshot(base=base, rates={}, source="unavailable")
 
     def rates(self) -> Dict[str, Decimal]:

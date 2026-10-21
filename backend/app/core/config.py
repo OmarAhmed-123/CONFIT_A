@@ -588,6 +588,14 @@ class Settings(BaseSettings):
     # static MARKET_FX_RATES table — e.g. during a treasury freeze.
     FX_LIVE_RATES_ENABLED: bool = True
     FX_RATE_TTL_SECONDS: int = 21600
+    # Maximum acceptable age (seconds) of a rate's publication timestamp
+    # (`as_of` / `MARKET_FX_RATES_AS_OF`) for catalogue price conversion.
+    # 48 hours covers weekend central-bank publication windows while rejecting stale multi-day snapshots.
+    FX_MAX_AGE_SECONDS: int = 172800
+    MARKET_FX_RATES_AS_OF: Optional[str] = None
+    # Maximum lifetime (days) of a verified brand domain before re-verification
+    # of its DNS TXT record is required for new image imports.
+    BRAND_DOMAIN_VERIFICATION_TTL_DAYS: int = 90
     FULFILL_PACE: str = "demo"
     BNPL_DEFAULT_PROVIDER: str = "tabby"
     PAYMENT_DEFAULT_PROVIDER: str = "mock"

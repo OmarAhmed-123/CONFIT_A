@@ -124,6 +124,11 @@ class CheckoutRequest(BaseModel):
     stylist_assisted: bool = False
     guest_email: Optional[str] = None
     shipping_method: str = "standard"
+    #: Optional server-quote confirmation guard: never used to compute amounts,
+    #: only to pause checkout for customer confirmation if catalog price or FX
+    #: rate changed after the cart quote was displayed.
+    expected_quote_total: Optional[Money] = None
+    expected_quote_currency: Optional[str] = Field(None, min_length=3, max_length=3)
 
 
 class OrderItemOut(BaseModel):

@@ -39,6 +39,27 @@ class Product(Base):
     # badge ONLY from this column, never by computing one.
     compare_at_price = Column(Numeric(12, 2), nullable=True)
     currency = Column(String(10), default="USD", nullable=False)
+
+    # ── price provenance (migration 0044) ────────────────────────────────────
+    # How `base_price` came to be the number it is, when it did not start that
+    # way. A brand may supply a row in EGP; the importer normalises it into
+    # `currency` once, at import, and records the arithmetic here so the
+    # conversion is auditable and reproducible.
+    #
+    # All five stay NULL for a row that was priced in the book currency — NULL
+    # is the truthful value for "no conversion happened", and it is what stops a
+    # converted price from being mistaken for one the brand typed in USD.
+    #
+    # These are a SNAPSHOT, not a live calculation: a later rate change must
+    # never reprice a catalogue row. That is the same immutability rule
+    # `orders.fx_rate_used` follows, for the same reason.
+    price_source_currency = Column(String(3), nullable=True)   # e.g. "EGP"
+    price_source_amount = Column(Numeric(12, 2), nullable=True)  # as supplied
+    #: The published rate, priced-book → source (1 USD = 52.09 EGP). Recorded in
+    #: the SAME direction as `orders.fx_rate_used` so the two are comparable.
+    price_fx_rate = Column(Numeric(18, 8), nullable=True)
+    price_fx_source = Column(String(32), nullable=True)        # live | configured
+    price_fx_as_of = Column(String(64), nullable=True)         # provider timestamp
     material = Column(String(255), nullable=True)
     care_instructions = Column(String(500), nullable=True)
 

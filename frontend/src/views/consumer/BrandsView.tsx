@@ -234,7 +234,7 @@ export const BrandsView: React.FC = () => {
       {/* Top Banner / Breadcrumb Bar */}
       <div className="border-b border-neutral-200 bg-neutral-50/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-neutral-500">
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 min-w-0 text-neutral-500">
             <Link to="/" className="hover:text-brand-charcoal transition-colors">
               Home
             </Link>
@@ -245,7 +245,7 @@ export const BrandsView: React.FC = () => {
                   {t('brands.title')}
                 </Link>
                 <span aria-hidden="true">/</span>
-                <span className="font-semibold text-brand-charcoal">
+                <span className="font-semibold text-brand-charcoal break-words min-w-0">
                   {activeBrandDetail.brand_name}
                 </span>
                 {activeBranch && (
@@ -412,7 +412,7 @@ export const BrandsView: React.FC = () => {
 
             {/* Error state */}
             {brandsError && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-xs text-red-800">
+              <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-xs text-red-800">
                 <p className="font-bold">{t('brands.error_loading_brands')}</p>
                 <p className="mt-1">{brandsError}</p>
                 <button data-motion="recovery"
@@ -495,8 +495,12 @@ export const BrandsView: React.FC = () => {
               )}
 
               {detailError && (
-                <div className="p-6 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800">
-                  <p className="font-bold">{t('brands.error_loading_brand')}</p>
+                <div role="alert" className="p-6 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800">
+                  {/* Tailwind preflight resets heading size/weight, so this
+                      renders exactly as the <p> it replaces — but the page now
+                      has a heading instead of none, and the failure is
+                      announced instead of being silent. */}
+                  <h1 className="font-bold">{t('brands.error_loading_brand')}</h1>
                   <p className="mt-1">{detailError}</p>
                 </div>
               )}

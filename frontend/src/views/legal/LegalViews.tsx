@@ -199,11 +199,15 @@ export const PrivacyPolicyView: React.FC = () => {
       <p>{t('legal.privacy_cookies_body')}</p>
 
       <H>{t('legal.privacy_h4')}</H>
-      <table>
+      {/* aria-label names the table for assistive tech without duplicating
+          the section heading as a second text node (a <caption> here would
+          repeat the h4 verbatim). Header cells carry an explicit column
+          scope so every data cell is attributable. */}
+      <table aria-label={t('legal.privacy_h4')}>
         <thead>
           <tr>
-            <th>{t('legal.privacy_retention_data')}</th>
-            <th>{t('legal.privacy_retention_period')}</th>
+            <th scope="col">{t('legal.privacy_retention_data')}</th>
+            <th scope="col">{t('legal.privacy_retention_period')}</th>
           </tr>
         </thead>
         <tbody>
@@ -311,11 +315,11 @@ export const GdprView: React.FC = () => {
       </p>
 
       <H>{t('legal.gdpr_h2')}</H>
-      <table>
+      <table aria-label={t('legal.gdpr_h2')}>
         <thead>
           <tr>
-            <th>{t('legal.gdpr_basis_processing')}</th>
-            <th>{t('legal.gdpr_basis_basis')}</th>
+            <th scope="col">{t('legal.gdpr_basis_processing')}</th>
+            <th scope="col">{t('legal.gdpr_basis_basis')}</th>
           </tr>
         </thead>
         <tbody>

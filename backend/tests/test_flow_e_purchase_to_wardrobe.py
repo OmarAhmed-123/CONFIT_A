@@ -645,7 +645,19 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # silently while reporting success. The column adds the missing dimension;
     # every existing row is photograph 0 via the server default, so no data
     # moves and `images` keeps its pinned "one frame per ratio" meaning.
-    assert expected_head_revision() == "0041_photo_index"
+    # -> 0042 (uq_product_image_photo_ratio_format). The head moved consciously,
+    # and for a reason 0041 could not cover: 0041 added the column but left
+    # `UNIQUE (product_id, ratio, format)` in place, so a product's second 4:5
+    # JPEG was still refused — the same (product, ratio, format) as its first.
+    # Measured on PostgreSQL 16 against production's real constraint set:
+    # photograph 0 inserted, photograph 1 rejected. The suite could not see it
+    # because the ORM declared no such constraint and `create_all` therefore
+    # built a permissive table. 0042 replaces the rule with one that includes
+    # `photo_index` (strictly weaker — every existing row is 0 — so it cannot
+    # fail on existing data), and the model now declares it so the test schema
+    # and the migrated schema agree.
+    assert expected_head_revision() == "0042_photo_unique_with_index"
+    assert chain["0042_photo_unique_with_index"] == "0041_photo_index"
     assert chain["0041_photo_index"] == "0040_onboarding_completion_metadata"
     assert chain["0040_onboarding_completion_metadata"] == "0039_brand_memberships"
     assert chain["0039_brand_memberships"] == "0038_vton_job_retention"

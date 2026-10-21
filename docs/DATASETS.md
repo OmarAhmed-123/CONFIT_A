@@ -150,11 +150,18 @@ Measured read-only against production Neon on 2026-10-20 (§6.2 for the method):
 |---|---|
 | `products` | **12** — 9 from the demo seed, **3** created through the real import path (slug `brand-<id>-<hash>`) |
 | `product_skus` | 28 |
-| `product_images` | 54 — `stock` 50 · `generated` 4; by provider `pexels` 30, `unsplash` 20, `generated` 4 |
+| `product_images` | 54 — `stock` 50 · `generated` 4; by provider `pexels` 30, `unsplash` 20, `generated` 4 — **superseded: 120 rows on 2026-10-21, see note below** |
 | `categories` | 6 — outerwear, tops, bottoms, dresses, footwear, accessories |
 | `brand_profiles` | 4 |
 | price range | 75.00 – 395.00, **all `USD`** |
-| `alembic_version` | `0041_photo_index` |
+| `alembic_version` | `0040_onboarding_completion_metadata` — **corrected 2026-10-21; this table previously said `0041_photo_index`, which the 2026-10-21 read-only check contradicts** |
+
+> **Correction (2026-10-21, read-only against production).** Two rows above were stale at the
+> time of writing and are corrected rather than silently left: production's `alembic_version`
+> is `0040_onboarding_completion_metadata`, not `0041_photo_index`, and `product_images` holds
+> **120** rows (17 columns, no `photo_index`) after the media-ladder repair. Migrations `0041`
+> and `0042` are authored and reviewed but **not applied**; nothing in this document should be
+> read as evidence that they have run.
 
 Two consequences:
 

@@ -76,6 +76,79 @@ One rule, applied at the serializer: *internal codes never cross the public
 boundary; display codes always may.* The existing withholding is therefore a
 special case of the new rule rather than a patch to be undone.
 
+## 4a. Constraint semantics — verified, not assumed
+
+The proposed rule is `UNIQUE (brand_id, display_code)` with `display_code`
+**optional**. That only works if the database treats absent values as *not
+equal to each other*. It does:
+
+* **PostgreSQL** — *executed* on the platform's own PostgreSQL 16 instance
+  (session temp table, nothing persisted):
+  - three rows with `display_code = NULL` under one brand → **accepted** (3 rows);
+  - a duplicate `'RIV-001'` under the same brand → **refused**
+    (`UniqueViolation`);
+  - `'RIV-001'` under brand 1 **and** brand 2 → **both accepted**.
+
+  So absent codes do not collide, real codes do, and uniqueness is per brand.
+  (PostgreSQL 15 added `UNIQUE … NULLS NOT DISTINCT`; **do not** use it here —
+  it would allow exactly one code-less product per brand.)
+* **SQLite** (developer databases): same rule — NULLs are distinct in a unique
+  index.
+
+Two ways to express it, equivalent in effect:
+
+```sql
+-- a) plain constraint: nullable, NULL-distinct by default
+ALTER TABLE product_skus ADD CONSTRAINT uq_skus_brand_display UNIQUE (brand_id, display_code);
+
+-- b) partial index: states the intent more explicitly ("only real codes compete")
+CREATE UNIQUE INDEX uq_skus_brand_display ON product_skus (brand_id, display_code)
+  WHERE display_code IS NOT NULL;
+```
+
+Recommendation: **(b)**. It says out loud that only populated codes are
+constrained, and it cannot be read as "one null code per brand" by someone who
+does not know PostgreSQL's NULL rules.
+
+### Normalisation and case
+
+`display_code` is human-authored, so two spellings of one code must not both be
+accepted. Proposed rules, to be applied in ONE place (a validator) and enforced
+in the database:
+
+* trim surrounding whitespace; collapse internal runs to a single space;
+* reject empty-after-trim (store NULL instead);
+* uppercase for storage, so `riv-001` and `RIV-001` are the same code;
+* length 1–64; reject control characters and leading/trailing punctuation;
+* the unique index is then already case-correct because everything is stored
+  uppercase. (If mixed case is ever wanted for display, store the normalised key
+  separately — do not rely on `LOWER()` in the index without checking the
+  collation.)
+
+### Concurrency
+
+A "check then insert" in application code is racy: two requests can both read
+"free" and both write. **The unique index is the enforcement**; the application
+check exists only to turn the integrity error into a readable message. Any
+implementation must therefore be prepared for `IntegrityError` on this index and
+map it to a field-level validation message, not a 500.
+
+### Write paths that must enforce it
+
+| Path | Today | Change needed |
+|---|---|---|
+| CSV/JSON import (`brand_catalog_service`) | validates `sku_code` uniqueness within the file and against other products | add `display_code` normalisation + collision report per row, in the same validate-first shape as `_sku_collision` |
+| Admin catalogue (`admin_catalog_service`) | edits SKUs | allow editing `display_code`, surface the integrity error |
+| `ProductSKUOut` serializers | public hides `sku_code` | add `display_code` to tenant/admin schemas only |
+| Search (`search_service`) | matches `sku_code` | match both; equal rank; never disclose which matched to a public caller |
+| Exports | include `sku_code` | include `display_code` when set |
+
+### Existing data conflicts
+
+None: no product has a `display_code`, so the index builds against an empty
+value set. No backfill, no conflict resolution, no window where the constraint is
+unenforceable.
+
 ## 5. Migration and rollout (only if approved)
 
 1. **Migration**: `ALTER TABLE product_skus ADD COLUMN display_code VARCHAR(64) NULL;`

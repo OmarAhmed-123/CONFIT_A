@@ -84,28 +84,11 @@ export interface Capabilities {
   shipping_currency?: string | null;
 }
 
-export const HONEST_FALLBACK_CAPABILITIES: Capabilities = {
-  payments_live: false,
-  payments_live_methods: [],
-  cod_live: false,
-  payments_mode: 'demo',
-  bnpl_live: false,
-  vton_gpu_ready: false,
-  vton_engine_state: 'temporarily_unavailable',
-  vton_offered: false,
-  vton_renderable: false,
-  ai_stylist_live: false,
-  photo_upload_available: false,
-  bopis_live: false,
-  bopis_store_count: 0,
-  storage_mode: 'local',
-  returns_window_days: 30,
-  // No flags fetched -> no shipping promise. The honest degradation is an
-  // absent announcement, never a stale or invented threshold.
-  free_shipping_threshold: null,
-  standard_shipping_fee: null,
-  shipping_currency: null,
-};
+// Defined in its own module so components can use the identity sentinel without
+// depending on (and being broken by) the hook module. Re-exported here so every
+// existing `from '../hooks/useCapabilities'` import keeps working unchanged.
+export { HONEST_FALLBACK_CAPABILITIES } from './capabilitiesFallback';
+import { HONEST_FALLBACK_CAPABILITIES as FALLBACK_CAPABILITIES } from './capabilitiesFallback';
 
 export function useCapabilities() {
   const query = useQuery({
@@ -116,7 +99,7 @@ export function useCapabilities() {
     retry: 1,
   });
   return {
-    capabilities: query.data ?? HONEST_FALLBACK_CAPABILITIES,
+    capabilities: query.data ?? FALLBACK_CAPABILITIES,
     isLoading: query.isLoading,
   };
 }

@@ -170,7 +170,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </Link>
         )}
 
-        <div className="absolute top-2.5 left-2.5 flex flex-col items-start gap-1">
+        <div className="absolute top-2.5 start-2.5 flex flex-col items-start gap-1 max-w-[calc(100%-3.5rem)]">
           {discount && (
             <span
               className="px-2 py-0.5 rounded-full bg-[#7A1F2B] text-white text-[10px] font-bold tracking-wide shadow-sm"
@@ -199,7 +199,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
 
         {/* Quick try-on, always present on the image itself. */}
-        <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
+        {/* end-2.5 rather than right-2.5: in Arabic the controls belong on the
+            left, and `right` pinned them to the wrong side of an RTL card. */}
+        <div className="absolute bottom-2.5 end-2.5 flex items-center gap-2">
           <button data-motion="progressive" data-motion-tone="icon"
             onClick={() => openRuler(product)}
             className="p-2 rounded-full bg-white/90 hover:bg-white text-brand-charcoal shadow-sm backdrop-blur-xs transition-all"

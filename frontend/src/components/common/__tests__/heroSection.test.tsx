@@ -145,8 +145,24 @@ describe('HeroLightCard', () => {
         <p>Inner editorial content</p>
       </HeroLightCard>,
     );
-    const link = screen.getByRole('link', { name: 'Example styled look — open the outfit builder' });
+    /*
+     * DELIBERATE CONTRACT UPDATE (2026-10-21). The name used to EQUAL the
+     * label, because `label` was applied as an aria-label that overrode the
+     * card's own text. Measured consequence: the name ("Example styled look —
+     * open the outfit builder") did not contain the visible words ("EXAMPLE
+     * RESULT", the look title, its description), so a speech user saying what
+     * they could read could not reach the control (WCAG 2.5.3).
+     *
+     * `label` is now an action SUFFIX appended as visually-hidden text. The
+     * assertions below therefore pin the requirement rather than the old
+     * accident: the name must contain BOTH the visible content and the action.
+     * Nothing else about the contract moved — one focusable control, a real
+     * route, no nested interactive elements, and the 44px minimum height.
+     */
+    const link = screen.getByRole('link', { name: /Inner editorial content/ });
     expect(link).toHaveAttribute('href', '/builder');
+    expect(link).toHaveAccessibleName(expect.stringContaining('Inner editorial content'));
+    expect(link).toHaveAccessibleName(expect.stringContaining('open the outfit builder'));
     // Natively focusable — reachable by Tab without tabindex hacks.
     link.focus();
     expect(link).toHaveFocus();

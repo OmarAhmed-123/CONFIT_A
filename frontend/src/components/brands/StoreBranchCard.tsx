@@ -87,7 +87,7 @@ export const StoreBranchCard: React.FC<StoreBranchCardProps> = ({
 
       {branch.pickup_instructions && (
         <div className={`mt-3 text-xs p-2.5 rounded-xl border ${isSelected ? 'bg-neutral-800/80 border-neutral-700 text-neutral-300' : 'bg-neutral-50 border-neutral-200/80 text-neutral-600'}`}>
-          <span className="font-semibold block mb-0.5 text-[11px] uppercase tracking-wider text-neutral-400">
+          <span className={`font-semibold block mb-0.5 text-[11px] uppercase tracking-wider ${isSelected ? 'text-neutral-300' : 'text-brand-muted'}`}>
             {t('brands.pickup_instructions')}
           </span>
           {branch.pickup_instructions}
@@ -116,14 +116,14 @@ export const StoreBranchCard: React.FC<StoreBranchCardProps> = ({
           className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-colors ${
             isSelected
               ? 'bg-white text-brand-charcoal hover:bg-neutral-100'
-              : 'bg-brand-coral text-white hover:bg-brand-coral/90'
+              : 'bg-brand-coral text-brand-charcoal hover:bg-brand-coral/90'
           }`}
-          aria-label={`Open Google Maps directions for ${branch.name}`}
         >
           <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
             <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
           </svg>
           {t('brands.get_directions')}
+          <span className="sr-only"> — {branch.name}</span>
         </a>
 
         {branch.phone && (

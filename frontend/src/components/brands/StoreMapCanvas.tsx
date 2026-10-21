@@ -55,7 +55,6 @@ export const StoreMapCanvas: React.FC<StoreMapCanvasProps> = ({
                     ? 'bg-brand-charcoal text-white border-brand-charcoal shadow-md ring-2 ring-brand-mint scale-102'
                     : 'bg-white/95 text-brand-charcoal border-neutral-300 hover:bg-white hover:border-neutral-400'
                 }`}
-                aria-label={`Select branch ${b.name}`}
               >
                 <div
                   className={`p-2 rounded-lg shrink-0 ${
@@ -76,6 +75,7 @@ export const StoreMapCanvas: React.FC<StoreMapCanvasProps> = ({
                     {b.city} {b.distance_km ? `• ${b.distance_km} km` : ''}
                   </div>
                 </div>
+                <span className="sr-only"> — select this branch</span>
               </button>
             );
           })}
@@ -86,7 +86,7 @@ export const StoreMapCanvas: React.FC<StoreMapCanvasProps> = ({
       {selectedBranch && (
         <div className="relative z-10 m-4 p-4 rounded-xl bg-white/95 backdrop-blur-md border border-neutral-200 shadow-md flex items-center justify-between gap-4">
           <div className="text-left truncate">
-            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block">
               Active Store Destination
             </span>
             <p className="font-serif text-sm font-bold text-brand-charcoal truncate">
@@ -101,7 +101,7 @@ export const StoreMapCanvas: React.FC<StoreMapCanvasProps> = ({
             href={selectedBranch.google_maps_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-coral text-white text-xs font-bold hover:bg-brand-coral/90 shadow-xs transition-colors"
+            className="inline-flex shrink-0 items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-coral text-brand-charcoal text-xs font-bold hover:bg-brand-coral/90 shadow-xs transition-colors"
           >
             Launch Route
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

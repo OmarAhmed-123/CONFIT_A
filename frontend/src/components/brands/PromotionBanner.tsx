@@ -26,7 +26,7 @@ export const PromotionBanner: React.FC<PromotionBannerProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-brand-coral text-white">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-brand-coral text-brand-charcoal">
                   {promo.discount_type === 'percent'
                     ? `${promo.discount_value}% OFF`
                     : `${promo.currency} ${promo.discount_value} OFF`}
@@ -50,7 +50,7 @@ export const PromotionBanner: React.FC<PromotionBannerProps> = ({
                 {promo.description}
               </h4>
               {promo.min_order_amount > 0 && (
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-brand-muted">
                   Minimum qualifying order: {promo.currency} {promo.min_order_amount}
                 </p>
               )}
@@ -58,7 +58,7 @@ export const PromotionBanner: React.FC<PromotionBannerProps> = ({
 
             {promo.expires_at && (
               <div className="shrink-0 text-left sm:text-right">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-brand-muted block">
                   Valid Through
                 </span>
                 <span className="text-xs font-semibold text-brand-lilac">

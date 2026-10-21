@@ -161,7 +161,7 @@ export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
         <button data-motion="creative"
           type="button"
           onClick={(e) => { e.stopPropagation(); onSelect(brand.slug); }}
-          className="group-hover:translate-x-1 transition-transform inline-flex items-center gap-1 text-brand-coral font-bold rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
+          className="group-hover:translate-x-1 transition-transform inline-flex items-center gap-1 text-brand-charcoal font-bold rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
         >
           {t('brands.explore_stores_catalog')}
           <span className="sr-only"> — {brand.brand_name}</span>

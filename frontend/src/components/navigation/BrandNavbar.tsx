@@ -225,7 +225,7 @@ const NavLinks: React.FC<{
       {sections.map((section) => (
         <div key={section.id} role="group" aria-label={t(section.labelKey)}>
           <p
-            className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400 ${
+            className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-brand-muted ${
               collapsed ? 'sr-only' : ''
             }`}
           >
@@ -557,7 +557,7 @@ export const BrandNavbar: React.FC = () => {
 
         <div className="space-y-1 border-t border-white/10 px-3 py-3">
           {!collapsed && (
-            <p className="truncate px-3 pb-1 text-[10px] text-neutral-400">
+            <p className="truncate px-3 pb-1 text-[10px] text-brand-muted">
               {user?.full_name || 'Partner'}
             </p>
           )}

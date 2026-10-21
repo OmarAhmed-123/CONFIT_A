@@ -268,9 +268,13 @@ export const ConsumerNavbar: React.FC = () => {
               <Menu size={22} aria-hidden="true" />
             </button>
 
+            {/* The mark is 28x28; as a home link that is a 28px target whose
+                left edge sat under the menu button, so it measured 22.8x28
+                visible — below the 24px minimum. The padding makes the whole
+                44px box the target without changing the logo's size. */}
             <Link
               to="/"
-              className="flex shrink-0 items-center group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+              className="flex shrink-0 items-center group rounded-lg min-h-[44px] min-w-[44px] justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
             >
               <ConfitLogo variant="mark" theme="dark" size="sm" className="sm:hidden" />
               <ConfitLogo variant="full" theme="dark" size="md" className="hidden sm:inline-flex" />

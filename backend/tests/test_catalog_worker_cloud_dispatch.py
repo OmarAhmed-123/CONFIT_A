@@ -65,7 +65,8 @@ def test_execute_catalog_import_with_retries_recovers_and_marks_exhausted(client
     buf = _io.BytesIO()
     Image.new("RGB", (600, 800), color=(40, 60, 80)).save(buf, format="JPEG")
     jpg_bytes = buf.getvalue()
-    monkeypatch.setattr(settings, "STORAGE_LOCAL_DIR", str(tmp_path / "uploads"), raising=False)
+    orig_local_dir = settings.STORAGE_LOCAL_DIR
+    settings.STORAGE_LOCAL_DIR = str(tmp_path / "uploads")
     storage_service.reset_storage()
     monkeypatch.setattr(
         mms,
@@ -137,3 +138,5 @@ def test_execute_catalog_import_with_retries_recovers_and_marks_exhausted(client
         assert "persistent upstream failure" in (final_job.last_error or "")
     finally:
         db.close()
+        settings.STORAGE_LOCAL_DIR = orig_local_dir
+        storage_service.reset_storage()

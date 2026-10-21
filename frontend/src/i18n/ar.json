@@ -1878,12 +1878,14 @@
       "paid": "مدفوع",
       "credit_due": "مبلغ آجل",
       "delta_due": "فرق مستحق",
+      "refund_pending": "جاري رد المبلغ",
       "refunded": "تم رد المبلغ",
       "failed": "فشل",
       "not_required": "غير مطلوب"
     },
     "payment_method": {
       "card": "بطاقة",
+      "fawaterak": "الدفع عبر فواتيرك",
       "bnpl_tabby": "تقسيط تابي",
       "bnpl_tamara": "تقسيط تمارا",
       "apple_pay": "أبل باي",

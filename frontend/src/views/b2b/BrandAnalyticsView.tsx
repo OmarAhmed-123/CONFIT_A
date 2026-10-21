@@ -286,12 +286,16 @@ export const BrandAnalyticsView: React.FC = () => {
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             {t('bi.filter_scope', 'Reporting Scope & Range Filters')}
           </span>
-          <button data-motion="filter" data-motion-tone="edge"
+          <button data-motion="filter" data-motion-tone="icon"
             type="button"
             onClick={handleResetFilters}
-            className="text-xs font-bold text-slate-500 hover:text-brand-charcoal underline"
+            className="inline-flex min-h-11 items-center rounded-md px-2 text-xs font-bold text-slate-600 underline hover:text-brand-charcoal"
           >
-            Reset Filters
+            {/* bi.reset_filters has existed in BOTH locales but was never used:
+                this control hard-coded English, so the Arabic page showed
+                "Reset Filters" inside a dir=rtl document. Measured at
+                1280x900 and 320x640, Chromium/Firefox/WebKit. */}
+            {t('bi.reset_filters', 'Reset Filters')}
           </button>
         </div>
 

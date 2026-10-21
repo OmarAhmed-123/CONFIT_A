@@ -1,20 +1,19 @@
 """Modal deployment wrapper for CONFIT's Celery background worker & maintenance sweeps.
 
 Runs the real Celery worker (`backend.app.workers.celery_app`) on Modal cloud
-infrastructure in Frankfurt (`eu-central`, matching Vercel `fra1` and Neon
-PostgreSQL / S3 in `eu-central-1`):
+infrastructure:
 
   1. Scheduled 5-minute maintenance & queue-drain sweep (`recover_and_drain`):
      - Re-enqueues any stale `queued` / crashed `running` catalog imports via
        `recover_stalled_catalog_imports_task`.
      - Releases expired checkout inventory reservations via
        `release_expired_inventory_reservations_task`.
-     - Starts a real `celery ... worker --burst` pass across
+     - Launches a real `celery ... worker` process across
        `catalog_ingest,wardrobe_jobs,analytics_rollups,maintenance` until all
-       pending broker messages have drained cleanly.
+       pending broker messages have drained, then sends graceful `SIGTERM`.
   2. Long-running real-time worker (`run_worker_window`):
      - Keeps an active Celery worker attached to Upstash/TLS Redis for immediate
-       sub-second pickup of newly submitted brand CSV imports.
+       pickup of newly submitted brand CSV imports.
 
 Deploy command (operator runbook):
   modal secret create confit-catalog-worker \\
@@ -33,18 +32,24 @@ Deploy command (operator runbook):
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
+import time
 from pathlib import Path
 
 import modal
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SECRET_NAME = os.environ.get("CONFIT_CATALOG_WORKER_SECRET", "confit-catalog-worker")
+QUEUES = ("catalog_ingest", "wardrobe_jobs", "analytics_rollups", "maintenance")
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install_from_requirements(str(REPO_ROOT / "backend" / "requirements.txt"))
-    .env({"PYTHONPATH": "/root/project"})
+    .env({
+        "PYTHONPATH": "/root/project",
+        "CATALOG_IMPORT_ALLOW_OWN_IMAGES": "true",
+    })
     .add_local_dir(str(REPO_ROOT / "backend"), remote_path="/root/project/backend")
 )
 
@@ -58,7 +63,7 @@ def _celery_cmd(*extra_args: str) -> list[str]:
         "backend.app.workers.celery_app",
         "worker",
         "-Q",
-        "catalog_ingest,wardrobe_jobs,analytics_rollups,maintenance",
+        ",".join(QUEUES),
         "--loglevel=info",
         "--concurrency=2",
         *extra_args,
@@ -71,7 +76,9 @@ def _celery_cmd(*extra_args: str) -> list[str]:
     schedule=modal.Period(minutes=5),
 )
 def recover_and_drain() -> dict:
-    """Periodic 5-minute recovery sweep + full burst drain on real Celery."""
+    """Periodic 5-minute recovery sweep + graceful queue drain on real Celery."""
+    import redis as redis_lib
+    from backend.app.core.config import settings
     from backend.app.workers.tasks import (
         recover_stalled_catalog_imports_task,
         release_expired_inventory_reservations_task,
@@ -79,17 +86,30 @@ def recover_and_drain() -> dict:
 
     recovery_summary = recover_stalled_catalog_imports_task.apply().get()
     reservation_summary = release_expired_inventory_reservations_task.apply().get()
-    burst = subprocess.run(
-        _celery_cmd("--burst"),
-        cwd="/root/project",
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
+
+    rc = redis_lib.from_url(settings.REDIS_URL)
+    proc = subprocess.Popen(_celery_cmd("--pool=solo"), cwd="/root/project")
+    try:
+        idle_ticks = 0
+        deadline = time.monotonic() + 540
+        while time.monotonic() < deadline and proc.poll() is None:
+            depth = sum(int(rc.llen(q)) for q in QUEUES)
+            idle_ticks = idle_ticks + 1 if depth == 0 else 0
+            if idle_ticks >= 4:
+                break
+            time.sleep(1.5)
+        if proc.poll() is None:
+            proc.send_signal(signal.SIGTERM)
+            proc.wait(timeout=30)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=5)
+
     return {
         "recovery": recovery_summary,
         "reservations": reservation_summary,
-        "burst_returncode": burst.returncode,
+        "worker_returncode": proc.returncode,
     }
 
 

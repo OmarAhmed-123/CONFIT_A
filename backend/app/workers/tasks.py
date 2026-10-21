@@ -221,19 +221,38 @@ def bulk_catalog_import_task(self, job_id: int):
         )
         return result
     except Exception as exc:
-        # The service marked the job failed and kept its payload, so a retry
-        # re-runs the same bytes. Backoff is exponential and bounded by
-        # max_retries; when the budget is gone the job stays 'failed' with
-        # last_error set, which the brand can see and act on.
-        logger.error("catalog_import_task_error", job_id=job_id, error=str(exc)[:300])
+        db.rollback()
+        err_msg = f"{type(exc).__name__}: {exc}"[:500]
+        logger.error("catalog_import_task_error", job_id=job_id, error=err_msg[:300])
+        is_exhausted = self.request.retries >= self.max_retries
+        recovery_db = SessionLocal()
+        try:
+            from backend.app.models.catalog_import import CatalogImportJob
+            job_row = recovery_db.query(CatalogImportJob).filter(CatalogImportJob.id == job_id).first()
+            if job_row is not None and job_row.status not in ("completed", "partially_completed"):
+                job_row.heartbeat_at = None
+                job_row.last_error = err_msg
+                if is_exhausted:
+                    job_row.status = "failed"
+                    job_row.completed_at = datetime.now(timezone.utc)
+                else:
+                    job_row.status = "queued"
+                recovery_db.commit()
+        except Exception as rec_exc:
+            recovery_db.rollback()
+            logger.warning("catalog_import_state_reset_failed", job_id=job_id, error=str(rec_exc)[:200])
+        finally:
+            recovery_db.close()
+
+        if is_exhausted:
+            logger.error("catalog_import_retries_exhausted", job_id=job_id)
+            return {"job_id": job_id, "status": "failed", "retries_exhausted": True}
+
         try:
             raise self.retry(exc=exc, countdown=min(30 * (2 ** self.request.retries), 300))
         except Retry:
             raise
         except MaxRetriesExceededError:
-            # Budget exhausted: the service already marked the job 'failed' with
-            # last_error set, which is what the brand sees. Do not re-raise as a
-            # worker crash — the outcome is recorded, not lost.
             logger.error("catalog_import_retries_exhausted", job_id=job_id)
             return {"job_id": job_id, "status": "failed", "retries_exhausted": True}
     finally:

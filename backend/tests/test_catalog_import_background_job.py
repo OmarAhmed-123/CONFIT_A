@@ -326,3 +326,35 @@ def test_a_missing_payload_fails_the_job_instead_of_hanging(job_env):
     assert result["status"] == "failed"
     assert result["last_error"] == "payload_missing"
     assert "upload it again" in result["errors"][0]["message"]
+
+
+# ---------------------------------------------------------------------------
+# J — post-claim transient DB failure releases lease across retries & exhaustion
+# ---------------------------------------------------------------------------
+def test_post_claim_db_error_releases_lease_for_retry_and_marks_failed_on_exhaustion(job_env, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    db, brand = job_env["db"], job_env["brand"]
+    svc = BrandCatalogService(db)
+    job = svc.enqueue_csv_import(csv_bytes(["Resilient Blazer"]), brand.id, "c.csv")
+
+    orig_claim = BrandCatalogService.claim_job
+
+    def _crash_after_claim(self, job_id):
+        orig_claim(self, job_id)
+        raise OperationalError("SELECT 1", {}, Exception("persistent upstream dependency outage"))
+
+    monkeypatch.setattr(BrandCatalogService, "execute_import_job", _crash_after_claim)
+    monkeypatch.setitem(worker_tasks.celery_app.conf, "task_always_eager", True)
+
+    result = worker_tasks.bulk_catalog_import_task.apply(args=[job.id]).get()
+    assert result == {"job_id": job.id, "status": "failed", "retries_exhausted": True}
+
+    db.expire_all()
+    stored = db.query(CatalogImportJob).filter_by(id=job.id).one()
+    assert stored.status == "failed"
+    assert stored.attempts == 3
+    assert stored.heartbeat_at is None
+    assert stored.completed_at is not None
+    assert "OperationalError" in (stored.last_error or "")
+

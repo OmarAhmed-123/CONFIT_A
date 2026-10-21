@@ -148,7 +148,7 @@ export const BrandOrdersView: React.FC = () => {
             </div>
           ))}
           {/* The totals describe every matching line, not the visible page. */}
-          <p className="col-span-2 lg:col-span-5 text-[11px] text-slate-500">
+          <p className="col-span-2 lg:col-span-5 text-[11px] text-slate-600">
             {t("brand_orders.totals_scope", { count: data.pagination.total_lines })}
           </p>
         </section>
@@ -210,7 +210,7 @@ export const BrandOrdersView: React.FC = () => {
                         <span className="block font-semibold text-brand-charcoal truncate max-w-[180px]">
                           {line.product_title}
                         </span>
-                        <span className="block text-[11px] text-slate-500">
+                        <span className="block text-[11px] text-slate-600">
                           {line.size} · {line.color}
                           {line.sku_code ? ` · ${line.sku_code}` : ""}
                         </span>
@@ -225,7 +225,7 @@ export const BrandOrdersView: React.FC = () => {
                     <span className="block font-mono text-[11px] text-brand-charcoal">
                       {line.order_number}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-slate-600">
                       {line.placed_at
                         ? new Date(line.placed_at).toLocaleDateString(lang)
                         : "—"}
@@ -243,7 +243,7 @@ export const BrandOrdersView: React.FC = () => {
                     <span className="block font-semibold text-brand-charcoal">
                       {line.customer_name}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-slate-600">
                       {line.customer_city ?? "—"} · {line.fulfillment_type}
                     </span>
                   </td>
@@ -252,10 +252,10 @@ export const BrandOrdersView: React.FC = () => {
                     <span className="block font-semibold text-brand-charcoal">
                       {t("brand_orders.units_pulled", { count: line.quantity })}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-slate-600">
                       {line.store_name ?? t("brand_orders.no_store")}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-slate-600">
                       {/* null means the SKU row is gone, so remaining stock is
                           genuinely unknown. Printing 0 would claim sold out. */}
                       {line.sku_stock_remaining == null
@@ -288,7 +288,7 @@ export const BrandOrdersView: React.FC = () => {
           </table>
 
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-brand-wash">
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-slate-600">
               {t("brand_orders.showing", {
                 from: data.pagination.offset + 1,
                 to: data.pagination.offset + data.pagination.returned,

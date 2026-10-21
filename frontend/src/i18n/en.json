@@ -1101,6 +1101,7 @@
     "add_to_wishlist": "Add to wishlist",
     "open": "Open {{name}}",
     "view_product": "View {{name}}",
+    "image_unavailable": "Image unavailable",
     "view_image": "View image {{index}}",
     "remove_photo": "Remove photo",
     "close_dialog": "Close dialog",

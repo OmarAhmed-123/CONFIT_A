@@ -67,7 +67,7 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
           <span className="font-mono text-xl font-bold text-rose-700 mt-1 block">
             {inventory.out_of_stock_count}
           </span>
-          <span className="text-[10px] text-rose-600 mt-0.5 block">
+          <span className="text-[10px] text-rose-700 mt-0.5 block">
             {t('bi.out_of_stock_desc', 'Urgent reorder required')}
           </span>
         </div>

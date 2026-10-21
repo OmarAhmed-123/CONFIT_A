@@ -1,10 +1,12 @@
 # Catalog CSV import — contract and operations
 
-Status: **implemented and verified** on branch `feat/catalog-csv-import-verified`
-(base `fix/wizard-reappearing`). Every rule below is enforced by
-`backend/app/services/brand_catalog_service.py` and pinned by
-`backend/tests/test_catalog_csv_import_contract.py`; the end-to-end path is
-proven by `scripts/tooling/verify_catalog_csv_import_e2e.py`.
+Status: **implemented and verified** on branch `fix/wizard-reappearing`. Every
+rule below is enforced by `backend/app/services/brand_catalog_service.py` and
+pinned by `backend/tests/test_catalog_csv_import_contract.py`; the job lifecycle
+(§2a) is pinned by `backend/tests/test_catalog_import_background_job.py` and
+`backend/tests/test_catalog_import_api_async.py`, and the UI half by
+`frontend/src/views/b2b/__tests__/csvImportJobLifecycle.test.tsx`. The
+end-to-end path is proven by `scripts/tooling/verify_catalog_csv_import_e2e.py`.
 
 ---
 
@@ -34,11 +36,56 @@ they are the same handlers.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `POST` | `/api/v1/partner/catalog/preview-csv` | **dry run** — parse, validate, resolve categories/stores/skus, write nothing |
-| `POST` | `/api/v1/partner/catalog/confirm-import` | commit; returns the job result |
+| `POST` | `/api/v1/partner/catalog/confirm-import` | **accept** the import: persists the job and dispatches it (§2a). `202` + job id, or `503` if the queue is down |
 | `GET` | `/api/v1/partner/catalog/template.csv` | the authoritative template (public; contains no data) |
 | `POST` | `/api/v1/partner/catalog/export-errors` | CSV error report, formula-injection escaped server-side |
 | `GET` | `/api/v1/partner/catalog/imports` | import history |
-| `GET` | `/api/v1/brand/catalog/jobs/{job_id}` | one job, with its stored row errors |
+| `GET` | `/api/v1/brand/catalog/jobs/{job_id}` | one job, with its stored row errors, live `processed_rows`, `attempts` and `last_error` |
+| `POST` | `/api/v1/partner/catalog/imports/{job_id}/retry` | re-dispatch a `failed` job whose file is still stored (`409` for a finished job — retrying it would import twice) |
+
+### 2a. The import is a background job, not a slow request
+
+`confirm-import` used to answer `202 Accepted` and then run the entire import
+inside the request. The status was false: nothing had been accepted *for later*,
+the work was happening right there, and it died with the connection. The route
+order is now:
+
+1. **persist** the job row, with the CSV itself (`payload_text`,
+   `payload_sha256`, `target_store_id`, `send_notifications`, `actor_id`) —
+   migration `0043_import_job_payload`;
+2. **dispatch** `backend.app.workers.tasks.bulk_catalog_import_task` to the
+   `catalog_ingest` queue;
+3. answer **202** with `job_id`, the current status and `status_url`.
+
+The task that `task_routes` and `docker-compose.yml` had been naming since the
+worker was introduced **did not exist**. It does now, so the queue is no longer
+decorative.
+
+Failure directions, both tested:
+
+| Situation | What the client gets | What the database says |
+| --- | --- | --- |
+| queue/broker down at dispatch | `503`, "nothing was imported" | job `failed`, `last_error = dispatch_failed: …`, payload **kept** |
+| worker starts, gets killed | nothing (client polls) | job stuck in `processing` until the lease expires, then recovered |
+| rows rejected by validation | `202` (the file is valid as a file) | `partially_completed` with per-row errors |
+| corrupt/missing payload | — | `failed`, `payload_missing` |
+
+**Lease and recovery.** A claim is an atomic conditional `UPDATE`
+(`BrandCatalogService.claim_job`): it only succeeds from `queued`/`failed`, only
+while `attempts < 3`, and only when any previous `heartbeat_at` is older than
+`JOB_LEASE_SECONDS = 900`. The worker refreshes `heartbeat_at` every
+`_PROGRESS_EVERY = 10` rows. `recover_stalled_catalog_imports_task` runs every
+**300 s** on the `maintenance` queue and re-dispatches jobs that are `queued`
+past their grace period or `processing` with an expired lease. Re-dispatch is
+safe because a terminal job cannot be claimed again: a broker redelivery or a
+double click imports nothing twice.
+
+**Progress is read from the row, never estimated.** `processed_rows` is written
+as the worker goes; the UI shows `processed / total` and only renders a
+percentage when the server knows the total. The modal polls at 2 s for the first
+10 polls, then 6 s, for a ~7 minute budget; when the budget ends it says it
+stopped watching rather than freezing on a stale "processing" — the job is still
+running server-side, and the panel says so.
 
 Authorisation: `require_brand_access("catalog:write")` for preview/import;
 `brand_auth` for reads. Tenant isolation is enforced on stores
@@ -243,10 +290,9 @@ matches it (it previously defaulted to `true` and re-opened the accident).
    EGP is not implemented.
 3. **First-party image ingestion is off by default** (§5).
 4. **`is_featured` / `is_active` / `size_chart_json` are not importable.**
-5. **1000 rows per file**, and the import runs synchronously inside the request.
-   At ~10 objects per row this is a seconds-per-row path; a 1000-row file with
-   cold images can outlive a gateway timeout even though the rows commit
-   individually. A background worker is the correct next step; the import history
-   table already models the job state needed for it.
+5. **1000 rows per file.** ~~The import runs synchronously inside the
+   request.~~ **Fixed:** the import is a durable background job (§2a) — the
+   request only persists and dispatches it, so a slow image fetch can no longer
+   outlive a gateway timeout, and a closed tab no longer cancels the work.
 6. **`/partner/catalog/template.csv` is unauthenticated.** It is static and holds
    no tenant data; it is left open so a prospective brand can look at the format.

@@ -70,9 +70,18 @@ celery_app.conf.update(
         "backend.app.workers.tasks.bulk_catalog_import_task": {"queue": "catalog_ingest"},
         "backend.app.workers.tasks.aggregate_analytics_task": {"queue": "analytics_rollups"},
         "backend.app.workers.tasks.purge_expired_sessions_task": {"queue": "maintenance"},
+        "backend.app.workers.tasks.recover_stalled_catalog_imports_task": {"queue": "maintenance"},
         "backend.app.workers.tasks.release_expired_inventory_reservations_task": {"queue": "maintenance"},
     },
     beat_schedule={
+        # Abandoned catalog imports (broker down at dispatch, or a worker killed
+        # mid-job) are re-queued a few minutes apart. Safe to run often: the
+        # claim in BrandCatalogService.claim_job is atomic and a terminal job is
+        # a no-op.
+        "recover-stalled-catalog-imports": {
+            "task": "backend.app.workers.tasks.recover_stalled_catalog_imports_task",
+            "schedule": 300.0,
+        },
         "purge-expired-tryon-photos-hourly": {
             "task": "backend.app.workers.tasks.purge_expired_sessions_task",
             "schedule": 3600.0, # Every hour

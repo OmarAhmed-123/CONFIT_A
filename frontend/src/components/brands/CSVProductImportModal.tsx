@@ -34,9 +34,21 @@ interface CSVProductImportModalProps {
  * must never be reported as finished.
  */
 const TERMINAL_JOB_STATES = new Set(['completed', 'partially_completed', 'failed']);
-const POLL_INTERVAL_MS = 2500;
-/** Bounded so a stuck job cannot poll forever (25 x 2.5s ≈ 1 minute). */
-const MAX_POLLS = 25;
+/**
+ * Poll schedule: eager at first (a small CSV finishes in seconds), then slower
+ * so a 5,000-row import with image downloads does not hammer the API. The total
+ * budget is ~7 minutes; when it runs out the modal says it stopped watching
+ * instead of freezing on a stale "processing".
+ */
+const POLL_INTERVAL_MS = 2000;
+const POLL_BACKOFF_AFTER = 10;
+const POLL_INTERVAL_SLOW_MS = 6000;
+const MAX_POLLS = 60;
+
+/** A job nobody is working on yet. Never "done", never "failed". */
+const isJobSettled = (status: string) =>
+  status === 'completed' || status === 'partially_completed';
+const isJobFailed = (status: string) => status === 'failed';
 
 export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
   isOpen,
@@ -60,6 +72,11 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
   // was re-opened by the UI. Notifications are now a deliberate choice.
   const [sendNotifications, setSendNotifications] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // True while the poller is still following this job; false once it has
+  // stopped (terminal state or budget exhausted).
+  const [polling, setPolling] = useState(false);
+  const [pollElapsed, setPollElapsed] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useModalFocus<HTMLDivElement>(onClose, isOpen);
@@ -80,6 +97,8 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
       setPreviewData(null);
       setImportResult(null);
       setErrorMsg(null);
+      setPolling(false);
+      setPollElapsed(0);
       setTargetStoreId(undefined);
     }
   }, [isOpen]);
@@ -98,8 +117,11 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
     let cancelled = false;
     let polls = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const nextDelay = () =>
+      polls < POLL_BACKOFF_AFTER ? POLL_INTERVAL_MS : POLL_INTERVAL_SLOW_MS;
     const tick = async () => {
       polls += 1;
+      setPollElapsed(polls);
       try {
         const job = await brandService.getCatalogImportJob(importResult.job_id);
         if (cancelled) return;
@@ -111,8 +133,12 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
         // A transient poll failure is not a failed import: keep the last known
         // server state on screen and try again until the bound is reached.
       }
-      if (!cancelled && polls < MAX_POLLS) timer = setTimeout(tick, POLL_INTERVAL_MS);
+      if (!cancelled && polls < MAX_POLLS) timer = setTimeout(tick, nextDelay());
+      // Out of budget: the job may well still be running server-side. Say that
+      // rather than leave a spinner implying we are still watching it.
+      else if (!cancelled) setPolling(false);
     };
+    setPolling(true);
     timer = setTimeout(tick, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
@@ -189,9 +215,34 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
       setImportResult(result);
       setStep('result');
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Import failed. Check error log and retry.');
+      // A refusal is not an import failure: the server refused to accept the
+      // job (queue down, 503) or rejected the file (4xx). Saying "import
+      // failed" for a job that was never created would send the brand hunting
+      // for rows that do not exist.
+      setErrorMsg(err?.message || t('b2b.cat.err_not_accepted'));
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  /**
+   * Retry a failed job. The server still holds the file, so this needs no
+   * re-upload; it re-queues the SAME job and the poller above picks it up
+   * because the status leaves the terminal set.
+   */
+  const handleRetryImport = async () => {
+    if (!importResult) return;
+    setIsRetrying(true);
+    setErrorMsg(null);
+    try {
+      const job = await brandService.retryCatalogImport(importResult.job_id);
+      setImportResult(job);
+      setPollElapsed(0);
+      setPolling(true);
+    } catch (err: any) {
+      setErrorMsg(err?.message || t('b2b.cat.err_retry_refused'));
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -602,12 +653,31 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
           {/* STEP 3: RESULT */}
           {step === 'result' && importResult && (
             <div className="space-y-6 text-center py-4">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-                <CheckCircle2 size={32} />
-              </div>
+              {/* THE ICON AND HEADLINE FOLLOW THE JOB, NOT THE OPTIMISM.
+                  The import is accepted before it runs, so this screen can
+                  legitimately be showing a queued, running or dead job. A green
+                  tick over "Import complete" for any of those is the same lie
+                  the 202-with-a-stale-body used to tell, just moved to the UI. */}
+              {isJobFailed(importResult.status) ? (
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-50 text-rose-600 border border-rose-100">
+                  <XCircle size={32} />
+                </div>
+              ) : isJobSettled(importResult.status) ? (
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  <CheckCircle2 size={32} />
+                </div>
+              ) : (
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 text-amber-600 border border-amber-100">
+                  <RefreshCw size={32} className="motion-safe:animate-spin" />
+                </div>
+              )}
               <div>
                 <h3 className="font-serif text-2xl font-bold text-brand-charcoal">
-                  {t('b2b.cat.result_title')}
+                  {isJobFailed(importResult.status)
+                    ? t('b2b.cat.result_title_failed')
+                    : isJobSettled(importResult.status)
+                      ? t('b2b.cat.result_title')
+                      : t('b2b.cat.result_title_running')}
                 </h3>
                 <p className="mt-1 text-xs text-slate-600">
                   {t('b2b.cat.result_job', {
@@ -618,6 +688,79 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                   })}
                 </p>
               </div>
+
+              {/* Live progress, from the row the worker writes. A percentage is
+                  only shown when the server knows the total. */}
+              {!isJobSettled(importResult.status) && !isJobFailed(importResult.status) && (
+                <div className="mx-auto max-w-2xl rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-start">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-amber-900">
+                    <span>{t('b2b.cat.progress_processed')}</span>
+                    <span className="font-mono">
+                      {importResult.processed_rows ?? 0}
+                      {importResult.total_rows
+                        ? ` / ${importResult.total_rows}`
+                        : ''}
+                    </span>
+                  </div>
+                  {importResult.total_rows > 0 && (
+                    <div
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={importResult.total_rows}
+                      aria-valuenow={importResult.processed_rows ?? 0}
+                      aria-label={t('b2b.cat.progress_processed')}
+                      className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-amber-200/70"
+                    >
+                      <div
+                        className="h-full rounded-full bg-amber-500 transition-all"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              ((importResult.processed_rows ?? 0) /
+                                Math.max(1, importResult.total_rows)) *
+                                100,
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* You may close the modal: the work is server-side now. */}
+                  <p className="mt-2 text-[11px] leading-relaxed text-amber-800">
+                    {t('b2b.cat.progress_safe_to_close')}
+                  </p>
+                  {!polling && (
+                    <p className="mt-1 text-[11px] font-semibold text-amber-900">
+                      {t('b2b.cat.progress_stopped_watching')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* A dead job says why, and offers the retry that actually works. */}
+              {isJobFailed(importResult.status) && (
+                <div className="mx-auto max-w-2xl space-y-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-start">
+                  <p className="text-[11px] leading-relaxed text-rose-900">
+                    {importResult.last_error
+                      ? t('b2b.cat.failed_reason', { reason: importResult.last_error })
+                      : t('b2b.cat.failed_no_reason')}
+                  </p>
+                  <button
+                    data-motion="upload"
+                    type="button"
+                    onClick={handleRetryImport}
+                    disabled={isRetrying}
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2 text-[11px] font-bold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      size={13}
+                      className={isRetrying ? 'motion-safe:animate-spin' : undefined}
+                    />
+                    <span>{t('b2b.cat.btn_retry_import')}</span>
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">

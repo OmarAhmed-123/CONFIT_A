@@ -17,7 +17,7 @@ from backend.app.services.brand_catalog_service import BrandCatalogService
 
 
 @pytest.fixture
-def portal():
+def portal(monkeypatch):
     pg_url = os.environ.get('CONFIT_PORTAL_TEST_PG_URL')
     admin_engine = None
     if pg_url:
@@ -55,6 +55,21 @@ def portal():
         with factory() as db:
             yield db
     app.dependency_overrides[get_db] = session
+
+    # The import is a background job now: the endpoint persists the job and
+    # dispatches it to `catalog_ingest`. These tests are about the importer's
+    # verdicts, so the dispatch is made synchronous — the task is executed
+    # against this fixture's own database instead of being pushed to a broker.
+    # What is NOT stubbed: the endpoint still persists the job first and still
+    # returns the job's real state, so a bug in that hand-off would fail here.
+    from backend.app.workers.tasks import bulk_catalog_import_task
+
+    def _run_now(job_id):
+        with factory() as worker_db:
+            BrandCatalogService(worker_db).execute_import_job(job_id)
+        return type('AsyncResult', (), {'id': f'sync-{job_id}'})()
+
+    monkeypatch.setattr(bulk_catalog_import_task, 'delay', _run_now)
     try:
         yield TestClient(app), factory, headers, ids
     finally:

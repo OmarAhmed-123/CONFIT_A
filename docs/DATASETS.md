@@ -159,9 +159,9 @@ Measured read-only against production Neon on 2026-10-20 (§6.2 for the method):
 > **Correction (2026-10-21, read-only against production).** Two rows above were stale at the
 > time of writing and are corrected rather than silently left: production's `alembic_version`
 > is `0040_onboarding_completion_metadata`, not `0041_photo_index`, and `product_images` holds
-> **120** rows (17 columns, no `photo_index`) after the media-ladder repair. Migrations `0041`
-> and `0042` are authored and reviewed but **not applied**; nothing in this document should be
-> read as evidence that they have run.
+> **120** rows (17 columns, no `photo_index`) after the media-ladder repair. Migrations `0041`,
+> `0042` and `0043` are authored and reviewed but **not applied**; nothing in this document
+> should be read as evidence that they have run.
 
 Two consequences:
 

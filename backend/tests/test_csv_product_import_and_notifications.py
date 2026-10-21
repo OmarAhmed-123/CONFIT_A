@@ -18,7 +18,7 @@ from backend.app.core.security import create_access_token
 
 
 @pytest.fixture()
-def test_env():
+def test_env(monkeypatch):
     old_override = app.dependency_overrides.get(get_db)
     engine = create_engine(
         "sqlite://",
@@ -36,6 +36,21 @@ def test_env():
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+
+    # The import is a background job: confirm-import persists the job and
+    # dispatches it to the `catalog_ingest` queue. These tests are about what the
+    # importer writes and what it emails, so the dispatch is executed inline
+    # against this fixture's database. The endpoint itself is untouched — it
+    # still persists the job first and returns the row's real state, so a broken
+    # hand-off still fails these tests.
+    from backend.app.workers.tasks import bulk_catalog_import_task
+
+    def _run_now(job_id):
+        with TestingSession() as worker_db:
+            BrandCatalogService(worker_db).execute_import_job(job_id)
+        return type("AsyncResult", (), {"id": f"sync-{job_id}"})()
+
+    monkeypatch.setattr(bulk_catalog_import_task, "delay", _run_now)
 
     # Create Categories
     c_shirts = Category(name="Shirts", name_ar="قمصان", slug="shirts")

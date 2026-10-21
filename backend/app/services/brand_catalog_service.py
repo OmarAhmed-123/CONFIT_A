@@ -10,15 +10,17 @@ import io
 import json
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 from typing import Any, Dict, List, Optional, Tuple
+from sqlalchemy import and_ as sa_and, or_ as sa_or
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from backend.app.core.money import validate_money
 from backend.app.core.logging import logger
 from backend.app.models.catalog import Product, ProductSKU, Category, StoreLocation, StoreInventory
 from backend.app.models.user import BrandProfile, AuditLog
+from backend.app.models.catalog_import import CatalogImportJob
 from backend.app.repositories.brand_repository import BrandRepository
 
 
@@ -127,6 +129,9 @@ class BrandCatalogService:
         'img_source': 'image_source',
         'image_source_type': 'image_source',
     }
+
+    #: How many rows between persisted progress updates (see import_products).
+    _PROGRESS_EVERY = 10
 
     def __init__(self, db: Session):
         self.db = db
@@ -769,7 +774,14 @@ class BrandCatalogService:
             "warnings": warnings,
         }
 
-    def import_products(self, valid_rows, brand_id, target_store_id=None):
+    def import_products(self, valid_rows, brand_id, target_store_id=None, on_progress=None):
+        """Persist normalised rows.
+
+        ``on_progress(processed)`` is called as rows are handled, so a background
+        job can persist real progress. It is called every `_PROGRESS_EVERY` rows
+        rather than per row: a per-row commit would make progress cost more than
+        the work it describes.
+        """
         accepted, rejected, errors = 0, 0, []
         new_products_created = []
         # Rows accepted without Arabic copy, and rows whose gender was derived
@@ -783,6 +795,11 @@ class BrandCatalogService:
 
         for fallback_number, row in enumerate(valid_rows, 2):
             number = row.get('_row_number', fallback_number)
+            if on_progress is not None and fallback_number % self._PROGRESS_EVERY == 0:
+                try:
+                    on_progress(fallback_number)
+                except Exception:  # progress must never break the import
+                    logger.warning('catalog_import_progress_failed', row=number)
             try:
                 brand = self.db.query(BrandProfile).filter_by(id=brand_id).with_for_update().first()
                 if not brand:
@@ -1152,22 +1169,50 @@ class BrandCatalogService:
             logger.error('catalog_import_media_error', product_id=getattr(product, 'id', None), reason=type(exc).__name__)
             return MediaResolvability(0, False, 'materialization_failed')
 
-    def _process(self, brand_id, file_name, file_size, prepare, actor_id=None, target_store_id=None, send_notifications=False):
-        job = self.brand_repo.create_import_job(brand_id, file_name, file_size)
+    def _process(self, brand_id, file_name, file_size, prepare, actor_id=None, target_store_id=None,
+                 send_notifications=False, job=None):
+        """Run an import against a job row and persist the outcome.
+
+        ``job`` is the row a worker already claimed (or the one this call creates
+        for the synchronous paths). It is deliberately a parameter: the
+        background worker must write its result to the SAME row the API returned,
+        otherwise the brand polls a job that never changes.
+        """
+        job = job or self.brand_repo.create_import_job(brand_id, file_name, file_size)
         job_id = job.id
         try:
             job.status, job.started_at = 'processing', datetime.now(timezone.utc)
+            job.heartbeat_at = job.started_at
             self._photo_warnings = []
             self.db.commit()
+
+            def _progress(processed):
+                # Real progress, committed as it happens: a job that says
+                # "processing" for four minutes is indistinguishable from a
+                # stuck one without this.
+                self.db.query(type(job)).filter(type(job).id == job_id).update(
+                    {'processed_rows': processed, 'heartbeat_at': datetime.now(timezone.utc)},
+                    synchronize_session=False,
+                )
+                self.db.commit()
+
             valid, validation_errors, stats = prepare()
             (accepted, rejected, import_errors, new_prods, missing_ar, media_rows,
-             missing_desc_ar, gender_inferred) = self.import_products(valid, brand_id, target_store_id=target_store_id)
+             missing_desc_ar, gender_inferred) = self.import_products(
+                valid, brand_id, target_store_id=target_store_id, on_progress=_progress)
             errors = [e.to_dict() for e in validation_errors] + import_errors
             job.total_rows, job.accepted_rows = stats['total'], accepted
             job.rejected_rows = stats['rejected'] + rejected
             job.duplicate_rows = stats['duplicate']
             job.status = 'completed' if accepted and not errors else 'partially_completed' if accepted else 'failed'
             job.errors_json, job.completed_at = json.dumps(errors), datetime.now(timezone.utc)
+            job.processed_rows = stats['total']
+            job.heartbeat_at = job.completed_at
+            job.last_error = None
+            # The catalogue itself is no longer needed: keeping 10 MB of CSV per
+            # finished job is storage for nothing. It is kept on a FAILED job so
+            # a retry can re-run the same bytes.
+            job.payload_text = None
             self.db.add(AuditLog(user_id=actor_id, action='BRAND_CATALOG_IMPORTED', resource_type='CatalogImportJob',
                                  resource_id=str(job_id), details_json=json.dumps(dict(brand_id=brand_id, accepted=accepted, rejected=job.rejected_rows))))
             self.db.commit()
@@ -1202,12 +1247,14 @@ class BrandCatalogService:
                 media_warnings=self._photo_warnings[:50],
                 photos_not_imported=len(self._photo_warnings),
             )
-        except Exception:
+        except Exception as exc:
             self.db.rollback()
             job = self.brand_repo.get_import_job(job_id, brand_id)
             if job:
                 job.status, job.completed_at = 'failed', datetime.now(timezone.utc)
+                job.last_error = f'{type(exc).__name__}: {exc}'[:500]
                 job.errors_json = json.dumps([CatalogImportError(0, 'system', 'Import interrupted; inspect catalog before retrying').to_dict()])
+                # payload_text stays: a failed job is retryable with the same bytes.
                 self.db.commit()
             raise
 
@@ -1221,6 +1268,194 @@ class BrandCatalogService:
             target_store_id=target_store_id,
             send_notifications=send_notifications,
         )
+
+    # ------------------------------------------------------------------
+    # Durable background execution (migration 0042)
+    # ------------------------------------------------------------------
+    #: A job whose heartbeat is older than this is considered abandoned and may
+    #: be re-claimed. Live worker tasks refresh the heartbeat as they process.
+    JOB_LEASE_SECONDS = 900
+    #: A worker may claim a job this many times in total. Beyond that the job is
+    #: terminal-failed: an import that keeps crashing must not retry forever.
+    MAX_JOB_ATTEMPTS = 3
+
+    def enqueue_csv_import(self, csv_content, brand_id, file_name=None, actor_id=None,
+                           target_store_id=None, send_notifications=False):
+        """Create the durable job and NOT process it.
+
+        Returns the job row. The caller dispatches it to the worker; if dispatch
+        fails the caller must mark it (see ``mark_dispatch_failed``) rather than
+        report a queued import that nothing will ever run.
+        """
+        job = self.brand_repo.create_import_job(brand_id, file_name, len(csv_content.encode()))
+        job.payload_text = csv_content
+        job.payload_sha256 = hashlib.sha256(csv_content.encode('utf-8')).hexdigest()
+        job.target_store_id = target_store_id
+        job.send_notifications = bool(send_notifications)
+        job.actor_id = actor_id
+        job.status = 'queued'
+        job.processed_rows = 0
+        job.attempts = 0
+        self.db.commit()
+        self.db.refresh(job)
+        logger.info('catalog_import_enqueued', job_id=job.id, brand_id=brand_id,
+                    bytes=job.file_size)
+        return job
+
+    def mark_dispatch_failed(self, job_id, reason):
+        """The queue rejected the job: say so, and leave it recoverable.
+
+        A job row that stays ``queued`` after a failed dispatch is the exact
+        "we accepted your import" lie this whole path exists to remove. It goes
+        to ``failed`` with the reason recorded; the payload is kept, so the
+        operator (or the recovery sweep) can re-dispatch the same bytes.
+        """
+        job = self.db.query(CatalogImportJob).filter(CatalogImportJob.id == job_id).first()
+        if not job:
+            return None
+        job.status = 'failed'
+        job.last_error = f'dispatch_failed: {reason}'[:500]
+        job.errors_json = json.dumps([CatalogImportError(
+            0, 'system',
+            'The import queue is unavailable, so this file was not imported. Nothing was changed.',
+        ).to_dict()])
+        job.completed_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(job)
+        logger.error('catalog_import_dispatch_failed', job_id=job_id, reason=str(reason)[:200])
+        return job
+
+    def claim_job(self, job_id):
+        """Atomically take ownership of a queued job. Returns (job, claimed).
+
+        The conditional UPDATE is the concurrency control: two workers (or a
+        worker and a retry click) race here, and exactly one wins. A job that is
+        already terminal returns ``claimed=False`` so a redelivered message is a
+        no-op instead of a second import — which is what stops duplicate
+        products.
+        """
+        now = datetime.now(timezone.utc)
+        stale_before = now - timedelta(seconds=self.JOB_LEASE_SECONDS)
+        open_states = ('queued', 'failed')
+        claimed_rows = (
+            self.db.query(CatalogImportJob)
+            .filter(CatalogImportJob.id == job_id)
+            .filter(CatalogImportJob.attempts < self.MAX_JOB_ATTEMPTS)
+            .filter(
+                sa_or(
+                    CatalogImportJob.status.in_(open_states),
+                    sa_and(CatalogImportJob.status == 'processing',
+                           CatalogImportJob.heartbeat_at.isnot(None),
+                           CatalogImportJob.heartbeat_at < stale_before),
+                )
+            )
+            .update(
+                {
+                    'status': 'processing',
+                    'started_at': now,
+                    'heartbeat_at': now,
+                    'attempts': CatalogImportJob.attempts + 1,
+                    'last_error': None,
+                },
+                synchronize_session=False,
+            )
+        )
+        self.db.commit()
+        job = self.db.query(CatalogImportJob).filter(CatalogImportJob.id == job_id).first()
+        if job is None:
+            raise ValueError(f'import job {job_id} does not exist')
+        if not claimed_rows:
+            if job.attempts >= self.MAX_JOB_ATTEMPTS and job.status != 'completed':
+                job.status = 'failed'
+                job.last_error = (job.last_error or '')[:400] or 'retry limit reached'
+                job.completed_at = now
+                self.db.commit()
+            return job, False
+        return job, True
+
+    def execute_import_job(self, job_id):
+        """Run a claimed job from its stored payload. Idempotent by construction.
+
+        A terminal job returns its stored result untouched — re-delivering the
+        task cannot import the catalogue twice.
+        """
+        job, claimed = self.claim_job(job_id)
+        if not claimed:
+            logger.info('catalog_import_job_not_claimed', job_id=job_id, status=job.status,
+                        attempts=job.attempts)
+            return self.job_result(job)
+        if not job.payload_text:
+            job.status = 'failed'
+            job.last_error = 'payload_missing'
+            job.errors_json = json.dumps([CatalogImportError(
+                0, 'system',
+                'The uploaded file is no longer available for this job; upload it again.',
+            ).to_dict()])
+            job.completed_at = datetime.now(timezone.utc)
+            self.db.commit()
+            return self.job_result(job)
+
+        return self._process(
+            job.brand_id,
+            job.file_name,
+            job.file_size,
+            lambda: self.parse_csv(job.payload_text, job.brand_id,
+                                   target_store_id=job.target_store_id),
+            actor_id=job.actor_id,
+            target_store_id=job.target_store_id,
+            send_notifications=bool(job.send_notifications),
+            job=job,
+        )
+
+    def job_result(self, job):
+        """The API/stored shape of a job row (same keys the sync path returns)."""
+        try:
+            errors = json.loads(job.errors_json or '[]')
+        except (TypeError, ValueError):
+            errors = []
+        return dict(
+            job_id=job.id,
+            status=job.status,
+            total_rows=job.total_rows,
+            processed_rows=job.processed_rows or 0,
+            accepted_rows=job.accepted_rows,
+            rejected_rows=job.rejected_rows,
+            duplicate_rows=job.duplicate_rows,
+            errors=errors[:50],
+            last_error=job.last_error,
+            attempts=job.attempts or 0,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+        )
+
+    def recover_open_jobs(self, limit=25):
+        """Re-dispatch jobs that are open but nobody is working on.
+
+        Two real situations produce these: the API committed the job and the
+        broker was unreachable at dispatch time (status ``queued``), and a worker
+        was killed mid-import (status ``processing`` with a stale heartbeat).
+        Returns the job ids that were handed back to the queue.
+        """
+        now = datetime.now(timezone.utc)
+        stale_before = now - timedelta(seconds=self.JOB_LEASE_SECONDS)
+        jobs = (
+            self.db.query(CatalogImportJob)
+            .filter(CatalogImportJob.payload_text.isnot(None))
+            .filter(CatalogImportJob.attempts < self.MAX_JOB_ATTEMPTS)
+            .filter(
+                sa_or(
+                    CatalogImportJob.status == 'queued',
+                    sa_and(CatalogImportJob.status == 'processing',
+                           sa_or(CatalogImportJob.heartbeat_at.is_(None),
+                                 CatalogImportJob.heartbeat_at < stale_before)),
+                )
+            )
+            .order_by(CatalogImportJob.created_at.asc())
+            .limit(limit)
+            .all()
+        )
+        return [j.id for j in jobs]
 
     def process_json_import(self, products, brand_id, actor_id=None, target_store_id=None, send_notifications=False):
         return self._process(

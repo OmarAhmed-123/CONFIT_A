@@ -506,19 +506,71 @@ async def upload_catalog_csv(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid CSV encoding, must be UTF-8")
 
+    # ------------------------------------------------------------------
+    # DURABLE ACCEPTANCE, NOT A SLOW REQUEST
+    # ------------------------------------------------------------------
+    # This endpoint used to declare 202 and then run the entire import — every
+    # row, every image download, every rendition — inside the request. The 202
+    # was therefore a lie: the work was not accepted for later, it was happening
+    # right there, and it died with the connection. The order is now:
+    #
+    #   1. persist the job WITH the file (migration 0042), so it is durable;
+    #   2. dispatch the worker task;
+    #   3. answer 202 with the job id and where to poll it.
+    #
+    # If the dispatch fails the job is marked failed with a reason and we answer
+    # 503 — never "queued" for work nothing will ever pick up. The payload is
+    # kept, so the recovery sweep (or the retry endpoint) can run it later.
     catalog_service = BrandCatalogService(db)
+    job = catalog_service.enqueue_csv_import(
+        csv_text,
+        bp["id"],
+        file.filename,
+        actor_id=user.id,
+        target_store_id=target_store_id,
+        send_notifications=send_notifications,
+    )
+
+    from backend.app.workers.tasks import bulk_catalog_import_task
+
     try:
-        result = catalog_service.process_csv_import(
-            csv_text,
-            bp["id"],
-            file.filename,
-            actor_id=user.id,
-            target_store_id=target_store_id,
-            send_notifications=send_notifications,
+        async_result = bulk_catalog_import_task.delay(job.id)
+        job.celery_task_id = getattr(async_result, "id", None)
+        db.commit()
+    except Exception as exc:  # broker unreachable / task unroutable
+        catalog_service.mark_dispatch_failed(job.id, str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=("The import queue is unavailable, so nothing was imported. "
+                    "The file was kept; retry the import when the worker is back."),
         )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Import interrupted; inspect import history before retrying")
+
+    # Re-read the row after dispatch. Normally it is still 'queued' — nothing has
+    # run yet — but if the worker is fast (or a test runs it eagerly) the honest
+    # answer is the state the database holds now, not a stale copy in memory.
+    db.refresh(job)
+    errors = []
+    if job.errors_json:
+        try:
+            errors = json.loads(job.errors_json)[:50]
+        except (TypeError, ValueError):
+            errors = [{"row": None, "field": "errors_json",
+                       "message": "stored error log is unreadable", "value": None}]
+
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "total_rows": job.total_rows,
+        "processed_rows": job.processed_rows or 0,
+        "accepted_rows": job.accepted_rows,
+        "rejected_rows": job.rejected_rows,
+        "duplicate_rows": job.duplicate_rows,
+        # Errors the worker already recorded (empty on the normal fast path).
+        "errors": errors,
+        # Where to watch it: the brand-scoped job endpoint that already exists.
+        "status_url": f"/api/v1/partner/catalog/imports/{job.id}",
+        "attempts": job.attempts or 0,
+    }
 
 
 @router.get("/partner/catalog/imports")
@@ -575,14 +627,79 @@ def get_catalog_import_status(
         "file_name": job.file_name,
         "status": job.status,
         "total_rows": job.total_rows,
+        # Real progress from persisted state: how many rows the worker has
+        # actually handled, not an estimate that drifts to completion.
+        "processed_rows": job.processed_rows or 0,
         "accepted_rows": job.accepted_rows,
         "rejected_rows": job.rejected_rows,
         "duplicate_rows": job.duplicate_rows,
+        "attempts": job.attempts or 0,
+        # The most recent failure reason, when there is one. Present so a brand
+        # (and an operator reading the same payload) can tell "still running"
+        # from "died", which a bare status string cannot express.
+        "last_error": job.last_error,
         "errors": errors[:50],  # Limit to 50
         "created_at": job.created_at,
         "started_at": job.started_at,
-        "completed_at": job.completed_at
+        "completed_at": job.completed_at,
+        "status_url": f"/api/v1/partner/catalog/imports/{job.id}",
     }
+
+
+@router.post("/partner/catalog/imports/{job_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+def retry_catalog_import(
+    job_id: int,
+    user: User = Depends(brand_catalog),
+    db: Session = Depends(get_db),
+):
+    """Re-dispatch a failed import that still has its file.
+
+    Deliberately narrow: only a job whose status is ``failed`` and whose payload
+    is still stored may be retried, and the section's bounded attempt limit
+    applies (claim_job enforces it). A finished job cannot be "retried" — that
+    would import the same catalogue twice — so it answers 409 rather than
+    pretending to do something.
+    """
+    service = BrandService(db)
+    bp = service.get_brand_profile_by_user(user)
+    repo = BrandRepository(db)
+    job = repo.get_import_job(job_id, bp["id"])
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Import job {job_id} not found for your brand")
+
+    catalog_service = BrandCatalogService(db)
+    if job.status not in ("failed", "queued"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Import job {job_id} is {job.status}; only a failed import can be retried",
+        )
+    if not job.payload_text:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This import's file is no longer stored; upload it again",
+        )
+    if (job.attempts or 0) >= catalog_service.MAX_JOB_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=("This import has already been attempted "
+                    f"{job.attempts} times; upload a corrected file instead"),
+        )
+
+    from backend.app.workers.tasks import bulk_catalog_import_task
+
+    job.status = "queued"
+    db.commit()
+    try:
+        async_result = bulk_catalog_import_task.delay(job.id)
+        job.celery_task_id = getattr(async_result, "id", None)
+        db.commit()
+    except Exception as exc:
+        catalog_service.mark_dispatch_failed(job.id, str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The import queue is unavailable; nothing was imported. Try again later.",
+        )
+    return catalog_service.job_result(job)
 
 
 # ============================================================================

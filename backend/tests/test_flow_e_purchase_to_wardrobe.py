@@ -656,7 +656,14 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # `photo_index` (strictly weaker — every existing row is 0 — so it cannot
     # fail on existing data), and the model now declares it so the test schema
     # and the migrated schema agree.
-    assert expected_head_revision() == "0042_photo_unique_with_index"
+    # -> 0043 (catalog_import_jobs). Then the import head moved, for the same
+    # kind of reason: the endpoint answered 202 and did the work inline, and the
+    # job table had nowhere to put the file, no attempt counter and no heartbeat
+    # — so nothing durable could consume a queued job. The new columns are the
+    # work item (payload), the run configuration, and the lease that lets a dead
+    # worker's job be recovered instead of stranded in 'processing'.
+    assert expected_head_revision() == "0043_import_job_payload"
+    assert chain["0043_import_job_payload"] == "0042_photo_unique_with_index"
     assert chain["0042_photo_unique_with_index"] == "0041_photo_index"
     assert chain["0041_photo_index"] == "0040_onboarding_completion_metadata"
     assert chain["0040_onboarding_completion_metadata"] == "0039_brand_memberships"

@@ -172,6 +172,24 @@ const EXTRACTED = [
   // Gallery honesty: the import can complete with fewer photographs than the
   // CSV asked for, and the result screen states how many were not imported.
   'b2b.cat.result_photos_not_imported',
+  // Background-import lifecycle. The import is accepted before it runs, so the
+  // result screen can be showing a queued, running or dead job. Reviewed: the
+  // Arabic distinguishes قيد التنفيذ (running) from اكتمل (done) and from لم
+  // يكتمل (did not finish) — the three states the old single headline collapsed
+  // into one — and the progress copy promises only what the server does (the
+  // job keeps running after the tab closes), never a completion the client
+  // cannot know.
+  'b2b.cat.result_title_running',
+  'b2b.cat.result_title_failed',
+  'b2b.cat.status_queued',
+  'b2b.cat.progress_processed',
+  'b2b.cat.progress_safe_to_close',
+  'b2b.cat.progress_stopped_watching',
+  'b2b.cat.failed_reason',
+  'b2b.cat.failed_no_reason',
+  'b2b.cat.btn_retry_import',
+  'b2b.cat.err_not_accepted',
+  'b2b.cat.err_retry_refused',
 ];
 
 describe('extracted strings: presence and shape', () => {
@@ -254,6 +272,25 @@ describe('1. the strings that were measurably wrong stay correct', () => {
     const value = flatAr[key];
     for (const m of must) expect(value, `ar:${key} should contain "${m}"`).toContain(m);
     for (const m of mustNot) expect(value, `ar:${key} must NOT contain "${m}"`).not.toContain(m);
+  });
+
+  it('the import lifecycle keeps "running", "done" and "did not finish" apart in Arabic', () => {
+    // One headline for all three states was the UI half of the same lie the
+    // 202-with-a-stale-body told: a green tick over work that had not started.
+    expect(flatAr['b2b.cat.result_title_running']).toContain('قيد التنفيذ');
+    expect(flatAr['b2b.cat.result_title_failed']).toContain('لم يكتمل');
+    expect(flatAr['b2b.cat.status_queued']).toBeTruthy();
+    expect(flatAr['b2b.cat.status_queued']).not.toBe(flatAr['b2b.cat.status_processing']);
+  });
+
+  it('progress copy promises only what the server actually does', () => {
+    // Truthful claim: the job lives in the database and a worker owns it, so
+    // closing the tab does not cancel it. A "do not close this window" warning
+    // would be the opposite lie — and hiding the stopped-poller state would
+    // leave a spinner implying we are still watching.
+    expect(flatEn['b2b.cat.progress_safe_to_close']).toMatch(/close this window/i);
+    expect(flatEn['b2b.cat.progress_stopped_watching']).toMatch(/may still be running/i);
+    expect(flatAr['b2b.cat.progress_safe_to_close']).toContain('إغلاق');
   });
 
   it('the dead duplicate key tryon.person_ref_value stays removed', () => {

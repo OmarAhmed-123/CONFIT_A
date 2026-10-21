@@ -1534,11 +1534,24 @@ export interface CatalogImportPreviewResponse {
 
 export interface CatalogImportResult {
   job_id: number;
-  status: 'completed' | 'partially_completed' | 'failed' | 'processing';
+  /**
+   * The five states the job table constrains. `queued` is a real state now that
+   * the import runs on a worker: the endpoint persists the job and returns
+   * before any row is touched, so a fresh job is queued, not processing.
+   */
+  status: 'queued' | 'processing' | 'completed' | 'partially_completed' | 'failed';
   total_rows: number;
   accepted_rows: number;
   rejected_rows: number;
   duplicate_rows: number;
+  /** Rows the worker has actually handled so far, persisted as it goes. */
+  processed_rows?: number;
+  /** How many times a worker has claimed the job (bounded by the server). */
+  attempts?: number;
+  /** Why the last attempt failed, when there is one. */
+  last_error?: string | null;
+  /** Where this job can be polled; returned by the acceptance response. */
+  status_url?: string;
   notifications_queued?: number;
   notification_recipients_count?: number;
   /** Derived completeness facts the API already returns — surfaced so the

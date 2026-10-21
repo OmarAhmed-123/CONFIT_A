@@ -1615,6 +1615,18 @@ export const brandService = {
    */
   getCatalogImportJob: (jobId: number) =>
     request<CatalogImportResult>(`/partner/catalog/imports/${jobId}`),
+
+  /**
+   * Re-dispatch a failed import whose file the server still holds.
+   *
+   * Only a failed (or never-claimed) job can be retried: a finished job would
+   * import the same catalogue twice, so the API answers 409 and this call
+   * surfaces that as an error instead of pretending to have done something.
+   */
+  retryCatalogImport: (jobId: number) =>
+    request<CatalogImportResult>(`/partner/catalog/imports/${jobId}/retry`, {
+      method: 'POST',
+    }),
 };
 
 /**

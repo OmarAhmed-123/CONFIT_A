@@ -9,6 +9,7 @@ class CatalogImportJob(Base):
     __table_args__ = (
         Index("ix_catalog_import_brand_status", "brand_id", "status"),
         Index("ix_catalog_import_created", "created_at"),
+        Index("ix_catalog_import_open_jobs", "status", "heartbeat_at"),
         CheckConstraint("total_rows >= 0", name="ck_import_total_nonneg"),
         CheckConstraint("accepted_rows >= 0", name="ck_import_accepted_nonneg"),
         CheckConstraint("rejected_rows >= 0", name="ck_import_rejected_nonneg"),
@@ -26,6 +27,25 @@ class CatalogImportJob(Base):
     rejected_rows = Column(Integer, default=0, nullable=False)
     duplicate_rows = Column(Integer, default=0, nullable=False)
     errors_json = Column(Text, default="[]", nullable=False)  # JSON array of error details
+    #: The CSV exactly as received (migration 0042). This is what makes the job a
+    #: DURABLE work item: a worker can pick it up after the HTTP request is gone,
+    #: and a retry re-runs the same bytes. Cleared on a terminal state so the
+    #: table does not accumulate catalogues; kept after a failure so it can be
+    #: retried.
+    payload_text = Column(Text, nullable=True)
+    payload_sha256 = Column(String(64), nullable=True)
+    #: The run's configuration, so a worker reproduces what the request asked for.
+    target_store_id = Column(Integer, nullable=True)
+    send_notifications = Column(Boolean, default=False, nullable=False, server_default="0")
+    actor_id = Column(Integer, nullable=True)
+    #: Execution bookkeeping. ``attempts`` counts worker claims, ``heartbeat_at``
+    #: is the lease (a stale value means the worker died), ``processed_rows`` is
+    #: real progress rather than an estimate.
+    attempts = Column(Integer, default=0, nullable=False, server_default="0")
+    processed_rows = Column(Integer, default=0, nullable=False, server_default="0")
+    heartbeat_at = Column(DateTime, nullable=True)
+    last_error = Column(String(500), nullable=True)
+    celery_task_id = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)

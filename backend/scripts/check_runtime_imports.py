@@ -89,10 +89,11 @@ LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app", "backend", "api
 # the guard that makes the absence safe; an unguarded lazy import is NOT
 # optional (that is exactly how the Pillow outage happened).
 VERCEL_OPTIONAL = {
-    # celery is imported by backend/app/workers/*; wardrobe_service enqueues
-    # inside try/except and falls back to inline analysis when the broker or
-    # the package is unavailable. Vercel runs no Celery worker.
-    "celery": "workers/ package; wardrobe_service guards enqueue failure and runs inline",
+    # NOTE: `celery` is intentionally NOT optional on Vercel. `/confirm-import`
+    # dispatches strictly via `bulk_catalog_import_task.apply_async` with zero
+    # inline fallback; omitting `celery` from requirements.txt caused real
+    # serverless invocations to fail closed with `503 BrokerUnavailableError`
+    # (`ModuleNotFoundError: No module named 'celery'`).
     # cv2 is used only in garment_asset_guard._human_scale_skin for connected-component
     # filtering; the same function has a pure-numpy BFS fallback (<=128px pooled copy) when
     # cv2 is absent. Vercel never renders try-on (Modal worker does), so the fallback is

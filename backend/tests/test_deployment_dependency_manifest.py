@@ -91,10 +91,17 @@ class TestPillowIsDeclaredForVercel:
         assert missing, "docker manifest leaked into the vercel evaluation"
 
     def test_removing_any_core_runtime_dep_fails_the_gate(self):
-        for dist in ("fastapi", "sqlalchemy", "slowapi", "PyJWT"):
+        for dist in ("fastapi", "sqlalchemy", "slowapi", "PyJWT", "celery", "dnspython"):
             hypothetical = _strip(VERCEL_MANIFEST.read_text(), dist)
             missing = guard.missing_for_target("vercel", manifest_text=hypothetical)
             assert missing, f"gate did not notice {dist} missing"
+
+    def test_celery_and_dnspython_present_in_real_vercel_manifest(self):
+        assert "celery" in guard.declared_packages(VERCEL_MANIFEST)
+        assert "celery" in guard.declared_packages(VERCEL_MIRROR)
+        assert "dnspython" in guard.declared_packages(VERCEL_MANIFEST)
+        assert "dnspython" in guard.declared_packages(VERCEL_MIRROR)
+        assert "celery" not in {m.lower() for m in guard.VERCEL_OPTIONAL}
 
 
 class TestOptionalListIsJustified:

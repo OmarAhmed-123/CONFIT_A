@@ -209,7 +209,70 @@ class BusinessIntelligenceService:
             date_to=curr_to,
         )
 
-        # 9. Automated Business Insights
+        # 9. Real Storefront Media & Fit Engagement Telemetry (date- & category-filtered)
+        from backend.app.models.catalog_import import BrandAnalyticsEvent
+        from backend.app.models.profile import UserWishlistItem
+        import json as _json
+
+        evt_q = self.db.query(
+            BrandAnalyticsEvent.event_type,
+            BrandAnalyticsEvent.event_metadata_json,
+        ).filter(
+            BrandAnalyticsEvent.brand_id == brand_id,
+            BrandAnalyticsEvent.event_type.in_(
+                ["gallery_photo_view", "fit_recommendation", "wishlist_save"]
+            ),
+        )
+        if category_id is not None:
+            evt_q = evt_q.join(Product, Product.id == BrandAnalyticsEvent.product_id).filter(
+                Product.category_id == category_id
+            )
+        if curr_from is not None:
+            evt_q = evt_q.filter(BrandAnalyticsEvent.created_at >= curr_from)
+        if curr_to is not None:
+            evt_q = evt_q.filter(BrandAnalyticsEvent.created_at <= curr_to)
+
+        gallery_views = 0
+        fit_recommendations = 0
+        wishlist_event_saves = 0
+        photo_index_breakdown: Dict[str, int] = {}
+        for etype, meta_raw in evt_q.all():
+            if etype == "gallery_photo_view":
+                gallery_views += 1
+                try:
+                    parsed = _json.loads(meta_raw or "{}")
+                    pidx = parsed.get("photo_index")
+                    if isinstance(pidx, int) and not isinstance(pidx, bool) and pidx >= 0:
+                        k = str(pidx)
+                        photo_index_breakdown[k] = photo_index_breakdown.get(k, 0) + 1
+                except Exception:
+                    pass
+            elif etype == "fit_recommendation":
+                fit_recommendations += 1
+            elif etype == "wishlist_save":
+                wishlist_event_saves += 1
+
+        wish_q = (
+            self.db.query(func.count(UserWishlistItem.id))
+            .join(Product, Product.id == UserWishlistItem.product_id)
+            .filter(Product.brand_id == brand_id)
+        )
+        if category_id is not None:
+            wish_q = wish_q.filter(Product.category_id == category_id)
+        if curr_from is not None:
+            wish_q = wish_q.filter(UserWishlistItem.created_at >= curr_from)
+        if curr_to is not None:
+            wish_q = wish_q.filter(UserWishlistItem.created_at <= curr_to)
+        wishlist_live_saves = int(wish_q.scalar() or 0)
+
+        media_engagement = {
+            "gallery_photo_views": gallery_views,
+            "fit_recommendations": fit_recommendations,
+            "wishlist_saves": max(wishlist_live_saves, wishlist_event_saves),
+            "photo_index_breakdown": photo_index_breakdown,
+        }
+
+        # 10. Automated Business Insights
         insights = self._generate_business_insights(
             brand_name=brand.brand_name,
             current_kpis=current_kpis,
@@ -256,6 +319,7 @@ class BusinessIntelligenceService:
             "branches": branches_breakdown,
             "inventory": inventory_health,
             "promotions": promotions_breakdown,
+            "media_engagement": media_engagement,
             "insights": insights,
             "methodology": (
                 f"Revenue and sales figures are strictly aggregated from revenue-eligible orders ({REVENUE_BASIS}) "
@@ -1199,7 +1263,15 @@ class BusinessIntelligenceService:
                 sanitize_csv_cell(f"{c['share_pct']}%"),
             ])
 
-        return buf.getvalue()
+        me = data.get("media_engagement") or {}
+        writer.writerow([])
+        writer.writerow(["STOREFRONT MEDIA & FIT ENGAGEMENT"])
+        writer.writerow(["Metric", "Count"])
+        writer.writerow(["Gallery Photo Views", sanitize_csv_cell(me.get("gallery_photo_views", 0))])
+        writer.writerow(["Fit Finder Recommendations", sanitize_csv_cell(me.get("fit_recommendations", 0))])
+        writer.writerow(["Wishlist Saves", sanitize_csv_cell(me.get("wishlist_saves", 0))])
+
+        return "\ufeff" + buf.getvalue()
 
     # -------------------------------------------------------------------------
     # Professional PDF Generation (ReportLab with Logo #3 Branding)

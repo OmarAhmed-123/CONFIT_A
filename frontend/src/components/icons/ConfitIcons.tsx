@@ -44,7 +44,7 @@ const IconWrapper: React.FC<{
   badge?: number;
   children: React.ReactNode;
 }> = ({ size, className, ariaLabel, badge, children }) => (
-  <span className={`relative inline-flex items-center justify-center ${className}`} aria-label={ariaLabel} role="img">
+  <span className={`relative inline-flex items-center justify-center ${className}`} {...(ariaLabel ? { role: "img", "aria-label": ariaLabel } : { "aria-hidden": "true" })}>
     <svg
       width={size}
       height={size}
@@ -64,7 +64,7 @@ const IconWrapper: React.FC<{
 );
 
 // 1. Home Icon
-export const HomeIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Home' }) => {
+export const HomeIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -74,7 +74,7 @@ export const HomeIcon: React.FC<IconProps> = ({ size = 20, className = '', isAct
 };
 
 // 2. Sparkle / AI Icon
-export const SparkleIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'AI Feature' }) => {
+export const SparkleIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -85,7 +85,7 @@ export const SparkleIcon: React.FC<IconProps> = ({ size = 20, className = '', is
 };
 
 // 3. Stylist Icon
-export const StylistIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Stylist' }) => {
+export const StylistIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -97,7 +97,7 @@ export const StylistIcon: React.FC<IconProps> = ({ size = 20, className = '', is
 };
 
 // 4. Outfit Builder Icon
-export const OutfitBuilderIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Outfit Builder' }) => {
+export const OutfitBuilderIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -110,7 +110,7 @@ export const OutfitBuilderIcon: React.FC<IconProps> = ({ size = 20, className = 
 };
 
 // 5. Visual Search Icon
-export const VisualSearchIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Visual Search' }) => {
+export const VisualSearchIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -125,7 +125,7 @@ export const VisualSearchIcon: React.FC<IconProps> = ({ size = 20, className = '
 };
 
 // 6. Flame / Trending Icon
-export const FlameIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Trending' }) => {
+export const FlameIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -136,7 +136,7 @@ export const FlameIcon: React.FC<IconProps> = ({ size = 20, className = '', isAc
 };
 
 // 7. Virtual Try-On Icon
-export const TryOnIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Virtual Try-On' }) => {
+export const TryOnIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -148,7 +148,7 @@ export const TryOnIcon: React.FC<IconProps> = ({ size = 20, className = '', isAc
 };
 
 // 8. Ruler / Measurement Icon
-export const RulerIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Body Sizing Ruler' }) => {
+export const RulerIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -162,7 +162,7 @@ export const RulerIcon: React.FC<IconProps> = ({ size = 20, className = '', isAc
 };
 
 // 9. Wardrobe Icon
-export const WardrobeIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Wardrobe' }) => {
+export const WardrobeIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -175,7 +175,7 @@ export const WardrobeIcon: React.FC<IconProps> = ({ size = 20, className = '', i
 };
 
 // 10. Saved Looks Icon
-export const SavedLooksIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Saved Looks' }) => {
+export const SavedLooksIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -185,7 +185,7 @@ export const SavedLooksIcon: React.FC<IconProps> = ({ size = 20, className = '',
 };
 
 // 11. Gap Analysis Icon
-export const GapAnalysisIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Gap Analysis' }) => {
+export const GapAnalysisIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -196,7 +196,7 @@ export const GapAnalysisIcon: React.FC<IconProps> = ({ size = 20, className = ''
 };
 
 // 12. Shopping Bag / Cart Icon
-export const BagIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, badge, color, ariaLabel = 'Shopping Bag' }) => {
+export const BagIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, badge, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel} badge={badge}>
@@ -207,7 +207,7 @@ export const BagIcon: React.FC<IconProps> = ({ size = 20, className = '', isActi
 };
 
 // 13. Orders & Tracking Icon
-export const OrdersIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Orders' }) => {
+export const OrdersIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -220,7 +220,7 @@ export const OrdersIcon: React.FC<IconProps> = ({ size = 20, className = '', isA
 };
 
 // 14. BOPIS Icon (Boutique Store Pickup)
-export const BopisIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Boutique Store Pickup' }) => {
+export const BopisIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -232,7 +232,7 @@ export const BopisIcon: React.FC<IconProps> = ({ size = 20, className = '', isAc
 };
 
 // 15. User / Account Icon
-export const UserIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'User Account' }) => {
+export const UserIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -243,7 +243,7 @@ export const UserIcon: React.FC<IconProps> = ({ size = 20, className = '', isAct
 };
 
 // 16. Brand Dashboard Icon
-export const BrandDashboardIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Brand Dashboard' }) => {
+export const BrandDashboardIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -257,7 +257,7 @@ export const BrandDashboardIcon: React.FC<IconProps> = ({ size = 20, className =
 };
 
 // 17. Lock Icon
-export const LockIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Security Lock' }) => {
+export const LockIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -269,7 +269,7 @@ export const LockIcon: React.FC<IconProps> = ({ size = 20, className = '', isAct
 };
 
 // 18. Shield Icon
-export const ShieldIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Security Shield' }) => {
+export const ShieldIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -280,7 +280,7 @@ export const ShieldIcon: React.FC<IconProps> = ({ size = 20, className = '', isA
 };
 
 // 19. Heart / Wishlist Icon
-export const HeartIcon: React.FC<IconProps & { isLiked?: boolean }> = ({ size = 20, className = '', isLiked = false, color, ariaLabel = 'Wishlist' }) => {
+export const HeartIcon: React.FC<IconProps & { isLiked?: boolean }> = ({ size = 20, className = '', isLiked = false, color, ariaLabel }) => {
   const strokeColor = isLiked ? '#E11D48' : (color || 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -297,7 +297,7 @@ export const HeartIcon: React.FC<IconProps & { isLiked?: boolean }> = ({ size = 
 };
 
 // 20. Duplicate Alert Icon
-export const DuplicateAlertIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Duplicate Purchase Alert' }) => {
+export const DuplicateAlertIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
@@ -312,7 +312,7 @@ export const DuplicateAlertIcon: React.FC<IconProps> = ({ size = 20, className =
 // 21. Microphone (voice input) — replaces the 🎙️ emoji that rendered as an
 // uncontrolled platform glyph in a production control (spec 14: no emoji as
 // production state). Stroke-based, inherits the house icon grammar.
-export const MicIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Voice input' }) => {
+export const MicIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel }) => {
   const strokeColor = color || (isActive ? ConfitColors.ink : 'currentColor');
   return (
     <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>

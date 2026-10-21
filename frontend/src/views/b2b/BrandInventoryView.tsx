@@ -305,25 +305,25 @@ export const BrandInventoryView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.modal_add_store')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.add_bopis_store')}</h2>
-            <p className="text-[11px] text-brand-muted">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
+            <p className="text-[11px] text-brand-muted">{t('b2b.store_modal_subtitle')}</p>
             <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold block mb-1">Store Name *</label>
-                <input aria-label={t('b2b.field_store_name')} value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="The Dubai Mall - Fashion Avenue" />
+                <label className="font-bold block mb-1">{t('b2b.label_store_name')}</label>
+                <input aria-label={t('b2b.field_store_name')} value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_name')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold block mb-1">City *</label>
-                  <input aria-label={t('b2b.field_store_city')} value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Dubai" />
+                  <label className="font-bold block mb-1">{t('b2b.label_store_city')}</label>
+                  <input aria-label={t('b2b.field_store_city')} value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_city')} />
                 </div>
                 <div>
-                  <label className="font-bold block mb-1">Country *</label>
-                  <input aria-label={t('b2b.field_store_country')} value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="UAE" />
+                  <label className="font-bold block mb-1">{t('b2b.label_store_country')}</label>
+                  <input aria-label={t('b2b.field_store_country')} value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_country')} />
                 </div>
               </div>
               <div>
-                <label className="font-bold block mb-1">Address *</label>
-                <input aria-label={t('b2b.field_store_address')} value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Financial Center Road, Downtown Dubai" />
+                <label className="font-bold block mb-1">{t('b2b.label_store_address')}</label>
+                <input aria-label={t('b2b.field_store_address')} value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_address')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

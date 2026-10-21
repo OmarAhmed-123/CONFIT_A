@@ -11,8 +11,11 @@ Notably:
 import json
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
-from backend.app.models.profile import UserStyleProfile
+from backend.app.models.profile import UserStyleProfile, UserWishlistItem
+from backend.app.models.catalog import Product
+from backend.app.models.catalog_import import BrandAnalyticsEvent
 from backend.app.repositories.profile_repository import ProfileRepository
+from backend.app.core.exceptions import ResourceNotFoundError
 
 
 class ProfileService:
@@ -56,6 +59,101 @@ class ProfileService:
 
     def update_consents(self, user_id: int, changes: Dict[str, Any]) -> Dict[str, Any]:
         return self.profile_repo.update_consent_state(user_id, changes)
+
+    # ---- Account Wishlist / Favorites ( strictly isolated per user_id ) -----
+    def get_wishlist(self, user_id: int) -> list[int]:
+        rows = (
+            self.db.query(UserWishlistItem.product_id)
+            .join(Product, Product.id == UserWishlistItem.product_id)
+            .filter(UserWishlistItem.user_id == user_id)
+            .order_by(UserWishlistItem.created_at.desc(), UserWishlistItem.id.desc())
+            .all()
+        )
+        return [int(r[0]) for r in rows]
+
+    def add_wishlist_item(self, user_id: int, product_id: int) -> list[int]:
+        product = self.db.query(Product).filter(Product.id == product_id).first()
+        if not product:
+            raise ResourceNotFoundError("Product", product_id)
+        existing = (
+            self.db.query(UserWishlistItem)
+            .filter(
+                UserWishlistItem.user_id == user_id,
+                UserWishlistItem.product_id == product_id,
+            )
+            .first()
+        )
+        if not existing:
+            self.db.add(UserWishlistItem(user_id=user_id, product_id=product_id))
+            evt_id = f"wishlist:{user_id}:{product_id}"
+            if not self.db.query(BrandAnalyticsEvent.id).filter_by(event_id=evt_id).first():
+                self.db.add(
+                    BrandAnalyticsEvent(
+                        event_id=evt_id,
+                        brand_id=product.brand_id,
+                        product_id=product.id,
+                        user_id=user_id,
+                        event_type="wishlist_save",
+                        attribution_source="wishlist",
+                        event_metadata_json="{}",
+                    )
+                )
+            self.db.commit()
+        return self.get_wishlist(user_id)
+
+    def remove_wishlist_item(self, user_id: int, product_id: int) -> list[int]:
+        (
+            self.db.query(UserWishlistItem)
+            .filter(
+                UserWishlistItem.user_id == user_id,
+                UserWishlistItem.product_id == product_id,
+            )
+            .delete(synchronize_session=False)
+        )
+        self.db.commit()
+        return self.get_wishlist(user_id)
+
+    def sync_wishlist(self, user_id: int, product_ids: list[int]) -> list[int]:
+        cleaned: list[int] = []
+        seen: set[int] = set()
+        for raw in product_ids:
+            if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 and raw not in seen:
+                seen.add(raw)
+                cleaned.append(raw)
+        if cleaned:
+            valid_products = (
+                self.db.query(Product.id, Product.brand_id)
+                .filter(Product.id.in_(cleaned))
+                .all()
+            )
+            valid_map = {int(pid): int(bid) for pid, bid in valid_products}
+            already = {
+                int(r[0])
+                for r in self.db.query(UserWishlistItem.product_id)
+                .filter(
+                    UserWishlistItem.user_id == user_id,
+                    UserWishlistItem.product_id.in_(list(valid_map.keys())),
+                )
+                .all()
+            }
+            for pid in cleaned:
+                if pid in valid_map and pid not in already:
+                    self.db.add(UserWishlistItem(user_id=user_id, product_id=pid))
+                    evt_id = f"wishlist:{user_id}:{pid}"
+                    if not self.db.query(BrandAnalyticsEvent.id).filter_by(event_id=evt_id).first():
+                        self.db.add(
+                            BrandAnalyticsEvent(
+                                event_id=evt_id,
+                                brand_id=valid_map[pid],
+                                product_id=pid,
+                                user_id=user_id,
+                                event_type="wishlist_save",
+                                attribution_source="wishlist_sync",
+                                event_metadata_json="{}",
+                            )
+                        )
+            self.db.commit()
+        return self.get_wishlist(user_id)
 
     # ---- Formatting --------------------------------------------------------
     def _format_usp(self, usp: UserStyleProfile) -> Dict[str, Any]:

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -540,7 +540,7 @@ def export_admin_bi_csv_endpoint(
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     return Response(
-        content=buf.getvalue(),
+        content=("\ufeff" + buf.getvalue()).encode("utf-8"),
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="confit-admin-bi-{stamp}.csv"'},
     )

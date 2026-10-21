@@ -1976,5 +1976,88 @@ class BrandCatalogService:
                     suggestion = "Use mens, womens or unisex"
                 else:
                     suggestion = f"Verify {field} matches the required catalog format"
-            writer.writerow([row_num, field, val, msg, suggestion])
-        return output.getvalue()
+            writer.writerow([
+                BrandCatalogService._csv_safe_cell(row_num),
+                BrandCatalogService._csv_safe_cell(field),
+                BrandCatalogService._csv_safe_cell(val),
+                BrandCatalogService._csv_safe_cell(msg),
+                BrandCatalogService._csv_safe_cell(suggestion),
+            ])
+        return "\ufeff" + output.getvalue()
+
+    @staticmethod
+    def _csv_safe_cell(value: Any) -> Any:
+        """Neutralize spreadsheet formula triggers (=, +, -, @, tab, CR) on CSV export."""
+        if value is None or isinstance(value, (int, float, bool)):
+            return value
+        text = str(value)
+        stripped = text.lstrip(" ")
+        if stripped and stripped[0] in ("=", "+", "-", "@", "\t", "\r"):
+            return "'" + text
+        if text[:1] in ("\t", "\r"):
+            return "'" + text
+        return text
+
+    def export_catalog_csv(self, brand_id: int) -> str:
+        """Export strictly the caller's brand catalog + SKUs as UTF-8 BOM CSV with formula neutralization."""
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "product_id",
+            "slug",
+            "title",
+            "title_ar",
+            "category_slug",
+            "gender",
+            "currency",
+            "base_price",
+            "compare_at_price",
+            "sku_code",
+            "size",
+            "color",
+            "price_override",
+            "stock_level",
+            "is_in_stock",
+        ])
+        products = self.brand_repo.get_brand_products(brand_id)
+        for p in products:
+            cat_slug = p.category.slug if p.category else ""
+            skus = list(p.skus or [])
+            if not skus:
+                writer.writerow([
+                    p.id,
+                    self._csv_safe_cell(p.slug),
+                    self._csv_safe_cell(p.title),
+                    self._csv_safe_cell(p.title_ar or ""),
+                    self._csv_safe_cell(cat_slug),
+                    self._csv_safe_cell(p.gender or "unisex"),
+                    self._csv_safe_cell(p.currency or "USD"),
+                    str(p.base_price),
+                    str(p.compare_at_price) if p.compare_at_price is not None else "",
+                    "",
+                    "",
+                    self._csv_safe_cell(p.color_family or ""),
+                    "",
+                    0,
+                    False,
+                ])
+            else:
+                for sku in skus:
+                    writer.writerow([
+                        p.id,
+                        self._csv_safe_cell(p.slug),
+                        self._csv_safe_cell(p.title),
+                        self._csv_safe_cell(p.title_ar or ""),
+                        self._csv_safe_cell(cat_slug),
+                        self._csv_safe_cell(p.gender or "unisex"),
+                        self._csv_safe_cell(p.currency or "USD"),
+                        str(p.base_price),
+                        str(p.compare_at_price) if p.compare_at_price is not None else "",
+                        self._csv_safe_cell(sku.sku_code),
+                        self._csv_safe_cell(sku.size),
+                        self._csv_safe_cell(sku.color),
+                        str(sku.price_override) if sku.price_override is not None else "",
+                        int(sku.stock_level or 0),
+                        bool(sku.is_in_stock),
+                    ])
+        return "\ufeff" + output.getvalue()

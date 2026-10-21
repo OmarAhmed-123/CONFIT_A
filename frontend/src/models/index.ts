@@ -1742,6 +1742,12 @@ export interface BiDashboardResponse {
   branches: BiBranchItem[];
   inventory: BiInventoryHealth;
   promotions: BiPromotionItem[];
+  media_engagement?: {
+    gallery_photo_views: number;
+    fit_recommendations: number;
+    wishlist_saves: number;
+    photo_index_breakdown: Record<string, number>;
+  };
   insights: BiInsightItem[];
   methodology: string;
 }

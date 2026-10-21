@@ -195,7 +195,7 @@ def media_payload(rows: Sequence[ProductImage]) -> List[dict]:
             "bytes": r.bytes,
             "role": r.role,
             "is_primary": bool(r.is_primary),
-            "source_type": r.source_type,
+            "source_type": r.source_type or "catalog",
             "provider": r.provider,
             "attribution": r.attribution,
             "photo_index": photo_index_of(r),

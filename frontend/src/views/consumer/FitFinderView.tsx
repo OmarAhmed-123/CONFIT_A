@@ -6,7 +6,7 @@ import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useConsentStore } from '../../privacy/consentStore';
-import { tryOnService } from '../../services/apiServices';
+import { catalogService, tryOnService } from '../../services/apiServices';
 import { measurementService } from '../../services/measurementService';
 import { NoPhotoFitResult, Product } from '../../models';
 import { RulerIcon, SparkleIcon, TryOnIcon } from '../../components/icons/ConfitIcons';
@@ -260,13 +260,23 @@ export const FitFinderView: React.FC = () => {
       });
       if (calcSeq.current !== mySeq) return; // form changed mid-flight — drop it
       setResult(res);
+      if (res.recommended_size) {
+        void catalogService.recordEngagementEvent({
+          event_id: `fit-page:${selectedProduct.id}:${res.recommended_size}:${mySeq}`,
+          product_id: selectedProduct.id,
+          event_type: 'fit_recommendation',
+          attribution_source: 'fit_finder_page',
+          recommended_size: res.recommended_size,
+          confidence_band: res.confidence_band,
+        });
+      }
     } catch (err: any) {
       if (calcSeq.current !== mySeq) return;
       const fields = err?.details?.error?.fields;
       setCalcError(
         fields
-          ? `The server rejected these measurements: ${Object.values(fields).join('; ')}`
-          : err?.message || 'The sizing engine could not process these measurements.'
+          ? t('fit_finder.error_rejected_fields', { details: Object.values(fields).join('; ') })
+          : err?.message || t('fit_finder.error_generic')
       );
     } finally {
       if (calcSeq.current === mySeq) setCalcLoading(false);
@@ -398,7 +408,7 @@ export const FitFinderView: React.FC = () => {
                 }}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
               >
-                <option value="">— Select a product —</option>
+                <option value="">{t('fit_finder.select_placeholder')}</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.brand_name} · {p.title} (
@@ -414,9 +424,7 @@ export const FitFinderView: React.FC = () => {
             )}
             {selectedProduct && (
               <p className="text-[11px] text-brand-muted font-light">
-                Sizing is computed against{' '}
-                <span className="font-semibold text-slate-700">{selectedProduct.brand_name}</span>'s
-                own chart when they publish one — the result below states which chart was used.
+                {t('fit_finder.brand_chart_note', { brand: selectedProduct.brand_name })}
               </p>
             )}
           </div>
@@ -897,8 +905,13 @@ export const FitFinderView: React.FC = () => {
                   </p>
                 )}
                 <button data-motion="admin"
-                  onClick={() => navigate(`/product/${selectedProduct?.slug}`)}
-                  className="w-full py-2.5 rounded-xl bg-brand-charcoal hover:bg-black text-white text-[11px] font-bold transition-all"
+                  onClick={() => {
+                    const sizeQuery = result?.recommended_size
+                      ? `?size=${encodeURIComponent(result.recommended_size)}`
+                      : '';
+                    navigate(`/product/${selectedProduct?.slug}${sizeQuery}`);
+                  }}
+                  className="w-full min-h-11 py-2.5 rounded-xl bg-brand-charcoal hover:bg-black text-white text-[11px] font-bold transition-all"
                 >
                   {t('fit_finder.open_product', { brand: selectedProduct?.brand_name })}
                 </button>

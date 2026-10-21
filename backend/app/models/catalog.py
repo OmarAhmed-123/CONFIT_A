@@ -157,6 +157,24 @@ class ProductImage(Base):
 
     __table_args__ = (
         Index("ix_product_images_product_photo", "product_id", "photo_index"),
+        #: ONE ROW PER (photograph, ratio, format) — and the reason this is
+        #: declared here rather than only in a migration.
+        #:
+        #: Production carried ``UNIQUE (product_id, ratio, format)`` from 0035.
+        #: That rule predates the idea of a second photograph, so it refuses
+        #: photograph 1's 4:5 JPEG (same product, same ratio, same format) and
+        #: made multi-photo storage impossible there. It was invisible to the
+        #: suite because tests build their schema from this class, which never
+        #: declared the constraint — so ``create_all`` produced a permissive
+        #: table and every gallery test passed against a schema production does
+        #: not have. Measured 2026-10-21: green tests, feature dead on deploy.
+        #:
+        #: Declaring it here means the test schema and the migrated schema now
+        #: agree, so a regression fails in CI instead of in production.
+        UniqueConstraint(
+            "product_id", "photo_index", "ratio", "format",
+            name="uq_product_image_photo_ratio_format",
+        ),
     )
 
     product = relationship("Product", back_populates="media")

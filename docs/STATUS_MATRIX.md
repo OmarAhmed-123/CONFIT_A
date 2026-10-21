@@ -385,3 +385,102 @@ cannot fit. Regression test added; it fails on the previous revision at
 | INP / real-user field data | **NOT TESTED** — requires production RUM, which does not exist |
 | Media-upload success path | **BLOCKED** — see 10.3 |
 | CLS fix on `/` | **NOT FIXED** — defect documented, remedy requires a product decision |
+
+## 11. Phase 5 — critical remediation, upload contract, performance evidence (2026-10-21)
+
+**Tested candidate:** `08b281b` + `0cdbae4` (CLS) + `38ed8b7` (upload), branch `work/production-hardening`.
+**Environment:** local build served from `127.0.0.1:43124` (gzip) with `/api` proxied to a
+local API on the **verify database** (`confit_fixverify`, DB revision `0046` vs code `0045`
+→ gate `ahead`, non-blocking). Performance figures remain **laboratory** measurements on
+this host, not field data.
+
+### 11.1 P1A — homepage CLS (VERIFIED cause, IMPLEMENTED, TESTED-PASS, production unmeasured)
+
+| Item | Result |
+|---|---|
+| Baseline CLS on `/` (412×915, web-vitals attribution, n=3) | **0.8088** |
+| Ablation `/catalog/capabilities` only | **0.0147** |
+| Control ablation `/catalog/occasions` | 0.7641 (defect survives → capability call is the cause) |
+| Shift sources | 3, all at t≈1,600–1,690 ms: hero `section` 205→251, container 207→183, a 16 px `li` 16→0 |
+| Root cause | the announcement bar is committed ~1.6 s after first paint and pushes the hero down 46 px |
+| Option A reserve / B overlay / C pre-render data | A **0.0088**, B **0.0088** but paints the bar over the hero, C **0.8077** (zero-latency data does not help: React still commits after paint) |
+| Reserve-then-release (rejected) | **0.8145** — worse than the defect; never re-introduce a mid-session release |
+
+Shipped behaviour (`frontend/src/components/home/AnnouncementSlot.tsx`): 46 px decided at
+first paint, never released; a remembered `confit.announcement.policy.v1 = "none"` suppresses
+it on later visits; only a *real* capabilities answer may write that hint, discriminated from a
+failed fetch by identity against `HONEST_FALLBACK_CAPABILITIES`.
+
+| Branch | CLS (median of 3) | slot / bar | heroTop | bodyHeight |
+|---|---|---|---|---|
+| A policy present | **0.0145** | 46 / 46 | 253 | 11,888 |
+| B capability fetch aborted | **0.0145** (was 0.8088) | 46 / none | 253 | 11,904 |
+| C no policy, remembered | **0.0147** | 0 / none | 207 | 11,858 |
+| Arabic (`confit_lang=ar`, RTL) | **0.0257** | 46 / 46 | 259 | — |
+
+Final geometry is identical between the reserve/no-reserve branches: nothing is hidden or
+moved, only the timing of an existing 46 px is pinned. Artefacts:
+`a11y/p5.cls-branches.json`, `a11y/p5.cls-ar.json`. Tests: 10, all passing.
+**Production post-fix: PENDING APPROVAL — no deployment was performed.**
+
+### 11.2 P1B — upload contract (BUG-VERIFIED → IMPLEMENTED → TESTED-PASS)
+
+Reproduced on the verify stack: `/catalog/capabilities` reported
+`photo_upload_available=false`, `storage_mode=local`, and `POST /api/v1/wardrobe/upload`
+answered **201 Created** with a row pointing at `/uploads/wardrobe/1/<hash>.png`.
+
+Root cause: `require_production_storage()` keyed durability on `settings.is_production`
+only, so any non-production deployment on an ephemeral filesystem accepted bytes it could
+not keep. Four corrections, each with a test: the ephemeral-host signal
+(`VERCEL`/`AWS_LAMBDA_FUNCTION_NAME`) is now part of the gate; a storage transport failure is
+**502 PROVIDER_ERROR** (retryable) instead of 422-with-the-endpoint-in-the-message; an object
+written before a metadata failure is deleted, and that case is **503**; `key_for_url()`
+strips a presigned query string before the traversal guard.
+
+| Contract state | Result | Evidence |
+|---|---|---|
+| Enabled + persistent | **PASS** — 201, presigned URL, object on disk, readable from another process | `a11y/p5.upload-s3-http.json` (18/18) |
+| Disabled by config | **PASS** — 501 `FEATURE_NOT_CONFIGURED`, no row | `test_upload_storage_contract.py` |
+| Storage unreachable | **PASS** — 502 `PROVIDER_ERROR`, retryable, no row, no endpoint leak | same |
+| Storage fails mid-upload | **PASS** — real connection-refused, no row left | same |
+| Object written, metadata fails | **PASS** — 503 and the object is removed | same |
+| Retry after partial failure | **PASS** — duplicate, same item id, one row, no second copy | `p5.upload-s3-http.json` |
+
+The persistent path is a **real S3 protocol server backed by a directory** with the
+application's own boto3 client — not a mock. The project's production bucket
+(`confit-a-media`) was never contacted, and no new cloud resource was created.
+
+### 11.3 P2B — `/catalog/brands` (~2,256 ms p50): network round trips, not compute
+
+| Measurement | Result |
+|---|---|
+| `SELECT 1` round trip to the database | **143.4 ms** median |
+| Repository pattern (1 + 2 queries per brand; 4 brands = 9 queries) | **1,574.1 ms** median |
+| Same data as one grouped query | **429.6 ms** median |
+| `EXPLAIN ANALYZE` for the per-brand product lookup | **0.042 ms**, Seq Scan, 4 buffers (9 active products) |
+
+The query plans are optimal and execution is negligible; the endpoint's latency is
+`round_trip × query_count`. Batching is the fix (≈5× fewer round trips). Artefact:
+`a11y/p5.brands-profile.json`.
+
+### 11.4 P2A — initial bundle: why `index-*.js` is 1,428 kB
+
+`src/router` statically imports **30 view modules** and uses `import()` for only 4. Every
+screen, and every library those screens pull in (23 modules import `framer-motion`), is in
+the initial chunk. Route-level code splitting is the remedy; it has **not** been
+implemented. No budget exists in the repository, so any target is a **PROPOSED** number for
+owner approval, not a requirement.
+
+### 11.5 Phase 5 gates
+
+`npm run verify` **EXIT 0** — 155 files / 2,292 tests (was 154/2,282). Backend suite
+**4,528 passed / 25 skipped / 0 failed**. `tsc --noEmit` 0. `npm run build` 0.
+`gitleaks` success on the pushed head.
+
+| Item | State |
+|---|---|
+| `Workers Builds: confit-a` | **FAIL** — also fails on base `43377d8`; root cause not established, not attributable to this branch |
+| `test_product_lifecycle_e2e::test_a_brand_owner_upload_reaches_the_public_catalog` | **pre-existing, order-dependent** — reproduces on the unmodified tree with the same `-k` selection (`MultipleResultsFound` on `product_skus`) |
+| NVDA / JAWS / VoiceOver / TalkBack / Orca | **BLOCKED** — unchanged |
+| Real High Contrast, physical devices, production RUM | **NOT TESTED** / **BLOCKED** |
+| Production deployment of any Phase-5 fix | **PENDING APPROVAL** |

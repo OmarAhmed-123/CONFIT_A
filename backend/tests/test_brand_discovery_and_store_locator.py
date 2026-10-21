@@ -41,10 +41,10 @@ def test_customer_brands_endpoint(client, db_session):
 
 def test_customer_brands_search_and_filter(client, db_session):
     """GET /api/v1/catalog/brands with query, category and sorting."""
-    res = client.get("/api/v1/catalog/brands?q=Massimo")
+    res = client.get("/api/v1/catalog/brands?q=Atelier")
     assert res.status_code == 200
     brands = res.json()
-    assert any("massimo" in b["brand_name"].lower() for b in brands)
+    assert any("atelier" in b["brand_name"].lower() for b in brands)
 
     # Empty search query returns nothing matching absurd string
     res_empty = client.get("/api/v1/catalog/brands?q=NonExistentBrandXYZ123")

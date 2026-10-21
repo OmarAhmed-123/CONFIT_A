@@ -269,6 +269,7 @@ class TestNoDeveloperMachineReferencesReachProduction:
         "backend/app/core/config.py",     # CORS + REDIS_URL development defaults (documented)
         "backend/app/core/security.py",   # SSRF blocklist: localhost is DENIED there
         "backend/app/providers/qwen_vision/provider.py",  # SSRF blocklist: localhost/loopback DENIED there
+        "backend/app/core/net_guard.py",  # SSRF blocklist: loopback/private/reserved DENIED there
     }
 
     def test_localhost_only_in_documented_places(self):

@@ -2,8 +2,8 @@
 
 **Generated:** 2026-10-19 · **Workspace:** cloud workspace, clone of `OmarAhmed-123/CONFIT_A`
 **Working branch:** `fix/wizard-reappearing` (the only branch)
-**`main` head:** `271b065` — PR #359 **merged** 2026-10-19 (merge commit, not squash)
-**Commits:** `0763c8b` (Slice A code) · `1b70978` + `d8e050a` (matrix) · this revision adds Slice C
+**`main` head:** `b138c1e` — PR #364 **merged** 2026-10-20 (merge commit, not squash); previously `3d52d95` (PR #363) and `271b065` (PR #359)
+**Commits:** `0763c8b` (Slice A code) · `1b70978` + `d8e050a` (matrix) · `5c909d7` (Slice C) · `4141`-test audit · `d446690` (SplashScreen timer fix) · this revision adds the dataset-selection record (§7A)
 **Status vocabulary:** VERIFIED (ran & passed) · FAILED (ran & failed) · BLOCKED (cannot run — environment/policy) · NOT TESTED (not attempted / no surface)
 
 > **Evidence rule (constitution Principle I):** every row cites something run or read. "Verified by running" and "verified by reading" are labelled distinctly. Implementation status and verification status are tracked separately. No value of any credential appears in this document.
@@ -191,6 +191,29 @@ No message was sent, no object uploaded, no DNS record touched, no GPU job start
 ### Checks on `main` at `271b065` (post-merge, by SHA)
 
 `backend` **success** · `frontend` **success** · `release gate (production schema parity)` **success** · `postgres migration chain + schema gate` **success** · `production parity (deployment contract)` **success** · `gitleaks` **success** · `stylist drawer browser gate` **success** · `Vercel Preview Comments` **success** · `Workers Builds: confit-a` **failure — non-required**, an external Cloudflare pipeline with no definition in this repository.
+
+## 7A. Catalog track · Slice 1 — dataset selection (licence-first), 2026-10-20
+
+**Scope:** documentation only. No data imported, no `backend/app` change, no migration.
+Full analysis, verbatim licence quotes and the sign-off block live in
+**[`docs/DATASETS.md`](DATASETS.md)**.
+
+| Item | Decision / finding | Status |
+|---|---|---|
+| **Dataset decision** | **Unsplash License** recommended as the image basis, **Pexels License** as approved secondary. Both are irreversible-but-irrevocable commercial grants and both are already the source of the 50 stock images in production | **DECIDED (proposed)** — awaiting owner sign-off on `DATASETS.md` §8 |
+| Rejected — non-commercial | DeepFashion (CUHK): "available for **non-commercial** research purposes only"; forbidden to "sell, trade, resell or exploit for any commercial purposes… any portion of the images and any portion of derived data" | **REJECTED** (licence) |
+| Rejected — competition-only | H&M Personalized Fashion Recommendations (Kaggle): "**DATA ACCESS AND USE**: Non-Commercial Purposes & Academic Research" | **REJECTED** (licence) |
+| Rejected — unsafe provenance | Fashion Product Images (Small): Kaggle licence field says "MIT", but the images are scraped retailer photography carrying third-party brands; the uploader holds no rights to license | **REJECTED** · **NEEDS-OWNER-CONFIRM** |
+| Unresolved | Fashionpedia: no dataset-level licence; rights are per-image via a COCO `licenses` array. Its **ontology** (27 categories / 294 attributes) is reusable as a vocabulary; its **images** need per-image triage | **NEEDS-OWNER-CONFIRM** |
+| Rejected — fit | Fashion-MNIST: MIT and clean, but 28×28 greyscale with no price/URL/SKU field | **REJECTED** (fit) |
+| Catalog state (measured read-only, production) | 12 products = 9 seed + 3 via the real import path (`brand-<id>-<hash>` slug); 28 SKUs; 54 `product_images` (50 stock / 4 generated); 6 categories; all prices USD 75–395; `alembic_version` = `0040` | **VERIFIED by querying** (read-only transaction) |
+| Import path to reuse | `BrandCatalogService` (`preview_csv`/`process_csv_import`/`process_json_import`/`import_products`) behind `require_brand_access("catalog:write")` — **not** raw SQL | **VERIFIED by reading** |
+| Blocking constraint | Import writes only `Product.thumbnail_url`/`images`; it **never** writes `product_images`, so provenance + the 4:5/1:1/3:2/16:9 ladder are absent for imported rows | **VERIFIED by reading** |
+| Blocking constraint | CSP `img-src` allows only `self`, `data:`, `blob:`, unsplash, pexels, placehold.co and the Neon bucket — any other host needs a policy change | **VERIFIED by reading** (`vercel.json:43`) |
+| Defect found (not fixed — out of scope) | `generate_sample_csv()` emits categories `shirts`/`trousers` which do not exist, so 2 of the template's own 4 sample rows fail validation; the error hint repeats the same non-existent slugs | **VERIFIED by reading** (`brand_catalog_service.py:173,713,719` vs `seed_data.py:194-201`) |
+| Defect found (not fixed — out of scope) | `send_notifications` defaults to `True` on the CSV import route — a bulk load would email customers unless explicitly disabled | **VERIFIED by reading** (`brand_controller.py:474`, `brand_catalog_service.py:546`) |
+
+**No import work begins until `DATASETS.md` §8 questions 1 and 2 are answered.**
 
 ## 8. Known limitations & open items
 

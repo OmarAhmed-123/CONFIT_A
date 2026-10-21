@@ -588,6 +588,14 @@ class Settings(BaseSettings):
     # static MARKET_FX_RATES table — e.g. during a treasury freeze.
     FX_LIVE_RATES_ENABLED: bool = True
     FX_RATE_TTL_SECONDS: int = 21600
+    # Maximum acceptable age (seconds) of a rate's publication timestamp
+    # (`as_of` / `MARKET_FX_RATES_AS_OF`) for catalogue price conversion.
+    # 48 hours covers weekend central-bank publication windows while rejecting stale multi-day snapshots.
+    FX_MAX_AGE_SECONDS: int = 172800
+    MARKET_FX_RATES_AS_OF: Optional[str] = None
+    # Maximum lifetime (days) of a verified brand domain before re-verification
+    # of its DNS TXT record is required for new image imports.
+    BRAND_DOMAIN_VERIFICATION_TTL_DAYS: int = 90
     FULFILL_PACE: str = "demo"
     BNPL_DEFAULT_PROVIDER: str = "tabby"
     PAYMENT_DEFAULT_PROVIDER: str = "mock"
@@ -645,6 +653,23 @@ class Settings(BaseSettings):
     STORAGE_PROBE_ENABLED: bool = False
     STORAGE_PROBE_TIMEOUT_SECONDS: float = 5.0
     STORAGE_PROBE_TTL_SECONDS: float = 300.0
+
+    # Catalogue CSV import — first-party image sources.
+    #
+    # The media materialiser classifies every ingested picture by provenance.
+    # `stock` means licensed third-party photography and is restricted to an
+    # allowlist of commercial-use hosts (Unsplash, Pexels). A boutique's OWN
+    # product photography usually lives on its own CDN, which is not — and must
+    # not be — on that allowlist; it is `own`, and the media service already
+    # supports that provenance without a licence check.
+    #
+    # Importing such a URL from a CSV is still an owner decision, because the
+    # server will fetch an address a third party typed. Default OFF: a row that
+    # declares `image_source=own` is then rejected with an actionable message
+    # rather than silently accepted or silently ignored. Flipping this to true
+    # routes every such fetch through `core.net_guard`, which refuses private
+    # addresses and re-checks each redirect hop.
+    CATALOG_IMPORT_ALLOW_OWN_IMAGES: bool = False
 
 
     # Onboarding wizard version (Phase 0.2). Stamped onto

@@ -69,3 +69,9 @@ mediapipe>=1.0.0
 reportlab==5.0.1
 # Error tracking — GlitchTip is Sentry-SDK compatible (core/error_tracking.py)
 sentry-sdk[fastapi]==2.20.0
+# DNS TXT lookups for brand domain verification (services/image_ownership.py).
+# A brand proves it controls the host it imports images from by publishing a
+# `confit-verify=<token>` TXT record. Without this pinned dependency the lookup
+# raises ImportError, which the verifier treats as a FAILED check — never a pass —
+# so ownership could not be established at all.
+dnspython==2.7.0

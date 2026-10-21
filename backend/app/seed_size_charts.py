@@ -150,4 +150,11 @@ def size_chart_json_for_slug(slug: str) -> str:
     standard or refuses, and it says which in the response.
     """
     chart = SIZE_CHARTS_BY_SLUG.get(slug)
-    return json.dumps(chart, ensure_ascii=False) if chart else "{}"
+    if not chart:
+        return "{}"
+    # Seeded charts are stored data, so they go through the same contract a brand
+    # would: a chart this build refuses must never reach the column merely
+    # because it lives in a Python literal here.
+    from backend.app.services.size_chart_schema import validate_or_raise
+
+    return validate_or_raise(chart).normalised

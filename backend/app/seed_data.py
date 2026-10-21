@@ -78,11 +78,16 @@ def seed_database(target_engine=None, force=False):
     )
     db.add(admin_user)
 
+    # FICTIONAL house brands. The demo catalogue previously impersonated four
+    # real retailers (Massimo Dutti, COS, Reiss, Arket) — their names, their
+    # domain-shaped contact addresses and their positioning text, on products
+    # they have nothing to do with. These four are invented; any resemblance to
+    # a real company is unintended and is a defect, not a feature.
     brand_users_defs = [
-        ("brand@massimodutti.com", "Massimo Dutti Brand Manager"),
-        ("brand@cos.com", "COS Brand Manager"),
-        ("brand@reiss.com", "Reiss Brand Manager"),
-        ("brand@arket.com", "Arket Brand Manager"),
+        ("brand@ateliersable.com", "Atelier Sable Brand Manager"),
+        ("brand@casalumen.com", "Casa Lumen Brand Manager"),
+        ("brand@rivenstudio.com", "Riven Studio Brand Manager"),
+        ("brand@nordhaus.com", "Nordhaus Brand Manager"),
     ]
 
     brand_user_objs = []
@@ -123,7 +128,7 @@ def seed_database(target_engine=None, force=False):
         budget_monthly_min=250.0,
         budget_monthly_max=1500.0,
         budget_per_outfit_max=450.0,
-        preferred_brands=json.dumps(["Massimo Dutti", "COS", "Reiss", "Arket"]),
+        preferred_brands=json.dumps(["Atelier Sable", "Casa Lumen", "Riven Studio", "Nordhaus"]),
         blacklisted_brands=json.dumps([]),
         occasion_weights=json.dumps({"work": 0.40, "casual": 0.35, "party": 0.15, "sports": 0.10}),
         size_tops="M",
@@ -142,8 +147,8 @@ def seed_database(target_engine=None, force=False):
     brands_data = [
         {
             "user_id": brand_user_objs[0].id,
-            "brand_name": "Massimo Dutti",
-            "slug": "massimo-dutti",
+            "brand_name": "Atelier Sable",
+            "slug": "atelier-sable",
             "logo_url": "https://images.unsplash.com/photo-1544441893-675973e31985?w=200&auto=format&fit=crop&q=80",
             "description": "Refined urban elegance crafted with premium Italian fabrics.",
             "description_ar": "أناقة حضرية راقية بأقمشة إيطالية فاخرة.",
@@ -153,8 +158,8 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "user_id": brand_user_objs[1].id,
-            "brand_name": "COS",
-            "slug": "cos",
+            "brand_name": "Casa Lumen",
+            "slug": "casa-lumen",
             "logo_url": "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=200&auto=format&fit=crop&q=80",
             "description": "Contemporary, reinvented classics and wardrobe essentials.",
             "description_ar": "قطع كلاسيكية معاد ابتكارها وأساسيات خزانة معاصرة.",
@@ -164,8 +169,8 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "user_id": brand_user_objs[2].id,
-            "brand_name": "Reiss",
-            "slug": "reiss",
+            "brand_name": "Riven Studio",
+            "slug": "riven-studio",
             "logo_url": "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=200&auto=format&fit=crop&q=80",
             "description": "Modern British tailoring with an uncompromising eye on detail.",
             "description_ar": "تفصيل بريطاني عصري مع اهتمام استثنائي بالتفاصيل.",
@@ -175,8 +180,8 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "user_id": brand_user_objs[3].id,
-            "brand_name": "Arket",
-            "slug": "arket",
+            "brand_name": "Nordhaus",
+            "slug": "nordhaus",
             "logo_url": "https://images.unsplash.com/photo-1445205170230-053b83016050?w=200&auto=format&fit=crop&q=80",
             "description": "Nordic simplicity and sustainable, durable wardrobe foundations.",
             "description_ar": "بساطة اسكندنافية وقطع مستدامة تدوم طويلاً.",
@@ -274,8 +279,8 @@ def seed_database(target_engine=None, force=False):
             "style_compatibility_base": 98,
             "is_featured": True,
             "skus": [
-                {"sku_code": "REISS-TUX-BLK-38", "size": "38", "color": "Midnight Black", "color_hex": "#111111", "stock_level": 8},
-                {"sku_code": "REISS-TUX-BLK-40", "size": "40", "color": "Midnight Black", "color_hex": "#111111", "stock_level": 14}
+                {"sku_code": "RIVN-TUX-BLK-38", "size": "38", "color": "Midnight Black", "color_hex": "#111111", "stock_level": 8},
+                {"sku_code": "RIVN-TUX-BLK-40", "size": "40", "color": "Midnight Black", "color_hex": "#111111", "stock_level": 14}
             ]
         },
         {
@@ -300,9 +305,9 @@ def seed_database(target_engine=None, force=False):
             "style_compatibility_base": 95,
             "is_featured": False,
             "skus": [
-                {"sku_code": "COS-SHR-WHT-S", "size": "S", "color": "Optic White", "color_hex": "#FAF9F6", "stock_level": 15},
-                {"sku_code": "COS-SHR-WHT-M", "size": "M", "color": "Optic White", "color_hex": "#FAF9F6", "stock_level": 20},
-                {"sku_code": "COS-SHR-WHT-L", "size": "L", "color": "Optic White", "color_hex": "#FAF9F6", "stock_level": 12}
+                {"sku_code": "LUMN-SHR-WHT-S", "size": "S", "color": "Optic White", "color_hex": "#FAF9F6", "stock_level": 15},
+                {"sku_code": "LUMN-SHR-WHT-M", "size": "M", "color": "Optic White", "color_hex": "#FAF9F6", "stock_level": 20},
+                {"sku_code": "LUMN-SHR-WHT-L", "size": "L", "color": "Optic White", "color_hex": "#FAF9F6", "stock_level": 12}
             ]
         },
         {
@@ -354,8 +359,8 @@ def seed_database(target_engine=None, force=False):
             "style_compatibility_base": 98,
             "is_featured": True,
             "skus": [
-                {"sku_code": "REISS-DRS-GLD-6", "size": "6", "color": "Champagne Gold", "color_hex": "#D4AF37", "stock_level": 9},
-                {"sku_code": "REISS-DRS-GLD-8", "size": "8", "color": "Champagne Gold", "color_hex": "#D4AF37", "stock_level": 14}
+                {"sku_code": "RIVN-DRS-GLD-6", "size": "6", "color": "Champagne Gold", "color_hex": "#D4AF37", "stock_level": 9},
+                {"sku_code": "RIVN-DRS-GLD-8", "size": "8", "color": "Champagne Gold", "color_hex": "#D4AF37", "stock_level": 14}
             ]
         },
         {
@@ -407,8 +412,8 @@ def seed_database(target_engine=None, force=False):
             "style_compatibility_base": 96,
             "is_featured": False,
             "skus": [
-                {"sku_code": "REISS-SND-GLD-38", "size": "38", "color": "Metallic Gold", "color_hex": "#C5A059", "stock_level": 7},
-                {"sku_code": "REISS-SND-GLD-39", "size": "39", "color": "Metallic Gold", "color_hex": "#C5A059", "stock_level": 11}
+                {"sku_code": "RIVN-SND-GLD-38", "size": "38", "color": "Metallic Gold", "color_hex": "#C5A059", "stock_level": 7},
+                {"sku_code": "RIVN-SND-GLD-39", "size": "39", "color": "Metallic Gold", "color_hex": "#C5A059", "stock_level": 11}
             ]
         },
         {
@@ -433,7 +438,7 @@ def seed_database(target_engine=None, force=False):
             "style_compatibility_base": 97,
             "is_featured": False,
             "skus": [
-                {"sku_code": "REISS-TIE-EMR-OS", "size": "One Size", "color": "Emerald Green", "color_hex": "#2D4A3E", "stock_level": 25}
+                {"sku_code": "RIVN-TIE-EMR-OS", "size": "One Size", "color": "Emerald Green", "color_hex": "#2D4A3E", "stock_level": 25}
             ]
         },
         {
@@ -458,7 +463,7 @@ def seed_database(target_engine=None, force=False):
             "style_compatibility_base": 97,
             "is_featured": False,
             "skus": [
-                {"sku_code": "REISS-CLT-GLD-OS", "size": "One Size", "color": "Black & Gold", "color_hex": "#C5A059", "stock_level": 12}
+                {"sku_code": "RIVN-CLT-GLD-OS", "size": "One Size", "color": "Black & Gold", "color_hex": "#C5A059", "stock_level": 12}
             ]
         }
     ]
@@ -484,11 +489,11 @@ def seed_database(target_engine=None, force=False):
 
     # 6. Physical Stores (for BOPIS and Store Locator)
     stores_data = [
-        # Massimo Dutti
+        # Atelier Sable
         {
             "brand_id": brand_objs[0].id,
-            "name": "Massimo Dutti — The Dubai Mall",
-            "name_ar": "ماسيمو دوتي — دبي مول",
+            "name": "Atelier Sable — The Dubai Mall",
+            "name_ar": "أتيليه سابل — دبي مول",
             "address": "Fashion Avenue, Level 1, Financial Center Rd",
             "city": "Dubai",
             "country": "UAE",
@@ -500,8 +505,8 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "brand_id": brand_objs[0].id,
-            "name": "Massimo Dutti — Mall of the Emirates",
-            "name_ar": "ماسيمو دوتي — مول الإمارات",
+            "name": "Atelier Sable — Mall of the Emirates",
+            "name_ar": "أتيليه سابل — مول الإمارات",
             "address": "Sheikh Zayed Rd, Al Barsha 1",
             "city": "Dubai",
             "country": "UAE",
@@ -513,8 +518,8 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "brand_id": brand_objs[0].id,
-            "name": "Massimo Dutti — Cairo Festival City",
-            "name_ar": "ماسيمو دوتي — كايرو فستيفال سيتي",
+            "name": "Atelier Sable — Cairo Festival City",
+            "name_ar": "أتيليه سابل — كايرو فستيفال سيتي",
             "address": "Level 1, North Wing, Cairo Festival City Mall",
             "city": "Cairo",
             "country": "Egypt",
@@ -527,7 +532,7 @@ def seed_database(target_engine=None, force=False):
         # COS
         {
             "brand_id": brand_objs[1].id,
-            "name": "COS — Mall of Arabia",
+            "name": "Casa Lumen — Mall of Arabia",
             "name_ar": "كوس — مول العرب",
             "address": "Juffali St, Al Hamra District",
             "city": "Jeddah",
@@ -540,7 +545,7 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "brand_id": brand_objs[1].id,
-            "name": "COS — The Dubai Mall",
+            "name": "Casa Lumen — The Dubai Mall",
             "name_ar": "كوس — دبي مول",
             "address": "Ground Floor, Grand Atrium, The Dubai Mall",
             "city": "Dubai",
@@ -554,7 +559,7 @@ def seed_database(target_engine=None, force=False):
         # Reiss
         {
             "brand_id": brand_objs[2].id,
-            "name": "Reiss — Mall of Egypt",
+            "name": "Riven Studio — Mall of Egypt",
             "name_ar": "ريس — مول مصر",
             "address": "Wahat Rd, Al Wahat Rd, 6th of October City",
             "city": "Giza",
@@ -567,7 +572,7 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "brand_id": brand_objs[2].id,
-            "name": "Reiss — City Centre Almaza",
+            "name": "Riven Studio — City Centre Almaza",
             "name_ar": "ريس — سيتي سنتر ألماظة",
             "address": "Suez Rd, Sheraton Al Matar, El Nozha",
             "city": "Cairo",
@@ -581,7 +586,7 @@ def seed_database(target_engine=None, force=False):
         # Arket
         {
             "brand_id": brand_objs[3].id,
-            "name": "Arket — Dubai Hills Mall",
+            "name": "Nordhaus — Dubai Hills Mall",
             "name_ar": "آركت — دبي هيلز مول",
             "address": "Al Khail Rd, Dubai Hills Estate",
             "city": "Dubai",
@@ -594,7 +599,7 @@ def seed_database(target_engine=None, force=False):
         },
         {
             "brand_id": brand_objs[3].id,
-            "name": "Arket — Zamalek Concept Space",
+            "name": "Nordhaus — Zamalek Concept Space",
             "name_ar": "آركت — فضاء الزمالك الإبداعي",
             "address": "14 Hassan Sabry St, Zamalek",
             "city": "Cairo",
@@ -634,7 +639,7 @@ def seed_database(target_engine=None, force=False):
         category="Outerwear",
         color_name="Navy Blue",
         color_hex="#1B1F3B",
-        brand_name="Massimo Dutti",
+        brand_name="Atelier Sable",
         image_url="https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500",
         purchase_price=280.0
     ))
@@ -708,7 +713,7 @@ def seed_database(target_engine=None, force=False):
         product_id=product_objs[0].id,
         brand_id=brand_objs[0].id,
         product_title="Tailored Italian Wool Double-Breasted Blazer",
-        brand_name="Massimo Dutti",
+        brand_name="Atelier Sable",
         size="M",
         color="Navy Blue",
         unit_price=289.0,

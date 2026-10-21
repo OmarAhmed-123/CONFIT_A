@@ -379,10 +379,10 @@ export const FitFinderView: React.FC = () => {
         {/* Inputs */}
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-3">
-            <h3 className="font-serif text-base font-bold text-brand-charcoal flex items-center gap-2">
+            <h2 className="font-serif text-base font-bold text-brand-charcoal flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-brand-charcoal text-white text-[11px] flex items-center justify-center font-sans font-bold">1</span>
               {t('fit_finder.step_garment')}
-            </h3>
+            </h2>
             {catalogLoading ? (
               <div className="h-10 rounded-xl bg-slate-100 animate-pulse" aria-label={t('fit_finder.loading_catalog')} />
             ) : (
@@ -424,10 +424,10 @@ export const FitFinderView: React.FC = () => {
           {/* Measurements */}
           <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-serif text-base font-bold text-brand-charcoal flex items-center gap-2">
+              <h2 className="font-serif text-base font-bold text-brand-charcoal flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-brand-charcoal text-white text-[11px] flex items-center justify-center font-sans font-bold">2</span>
                 {t('fit_finder.step_measurements')}
-              </h3>
+              </h2>
               <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold" role="group" aria-label={t('fit_finder.unit_system')}>
                 <button data-motion="filter"
                   type="button"
@@ -612,7 +612,7 @@ export const FitFinderView: React.FC = () => {
 
           {calcError && !calcLoading && (
             <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 space-y-2" role="alert">
-              <h3 className="font-serif text-base font-bold text-rose-800">{t('fit_finder.engine_error')}</h3>
+              <h2 className="font-serif text-base font-bold text-rose-800">{t('fit_finder.engine_error')}</h2>
               <p className="text-xs text-rose-700 leading-relaxed">{calcError}</p>
               <button data-motion="recovery"
                 onClick={handleCalculate}
@@ -626,7 +626,7 @@ export const FitFinderView: React.FC = () => {
           {!result && !calcLoading && !calcError && (
             <div className="bg-brand-wash rounded-3xl border border-dashed border-slate-300 p-6 text-center space-y-2">
               <RulerIcon size={26} color="#94A3B8" />
-              <h3 className="font-serif text-base font-bold text-slate-700">{t('fit_finder.recommendation_placeholder')}</h3>
+              <h2 className="font-serif text-base font-bold text-slate-700">{t('fit_finder.recommendation_placeholder')}</h2>
               <p className="text-[11px] text-brand-muted font-light leading-relaxed">
                 {t('fit_finder.placeholder_body')}
               </p>
@@ -642,9 +642,9 @@ export const FitFinderView: React.FC = () => {
               role="status"
               aria-live="polite"
             >
-              <h3 className="font-serif text-base font-bold text-amber-900">
+              <h2 className="font-serif text-base font-bold text-amber-900">
                 {t('fit_finder.no_rec_title')}
-              </h3>
+              </h2>
               <p className="text-xs text-amber-900 leading-relaxed">{result.confidence_disclosure}</p>
               {result.missing && result.missing.length > 0 && (
                 <div className="surface-solid rounded-2xl px-3 py-2">

@@ -82,6 +82,8 @@ class SearchService:
         brand_id: Optional[int] = None,
         color: Optional[str] = None,
         occasion: Optional[str] = None,
+        gender: Optional[str] = None,
+        style: Optional[str] = None,
         min_price: Optional[float] = None,
         max_price: Optional[float] = None,
         page: int = 1,
@@ -117,10 +119,50 @@ class SearchService:
             base_query = base_query.filter(Product.brand_id == brand_id)
         if color:
             base_query = base_query.filter(Product.color_family.ilike(f"%{color}%"))
+        if gender:
+            from backend.app.services import catalog_field_contract as _fc
+            try:
+                canon_g, _ = _fc.normalize_gender(gender)
+            except ValueError:
+                return SearchResponseOut(
+                    query=clean_q,
+                    total_matches=0,
+                    page=max(1, min(1000, page)),
+                    limit=min(100, max(1, limit)),
+                    results=[],
+                    facets=self._compute_search_facets([], category, brand_id, color),
+                    did_you_mean=did_you_mean,
+                    execution_time_ms=round((time.time() - start_time) * 1000.0, 2),
+                )
+            if not canon_g:
+                return SearchResponseOut(
+                    query=clean_q,
+                    total_matches=0,
+                    page=max(1, min(1000, page)),
+                    limit=min(100, max(1, limit)),
+                    results=[],
+                    facets=self._compute_search_facets([], category, brand_id, color),
+                    did_you_mean=did_you_mean,
+                    execution_time_ms=round((time.time() - start_time) * 1000.0, 2),
+                )
+            base_query = base_query.filter(Product.gender == canon_g)
+        if style:
+            clean_style = style.strip()[:80].replace("%", "").replace("_", " ")
+            if clean_style:
+                base_query = base_query.filter(Product.style_tags.ilike(f"%{clean_style}%"))
         if occasion:
-            # Same fix as CatalogRepository.filter_products: tags are stored
-            # lowercase; matching must be case-insensitive.
-            base_query = base_query.filter(Product.occasion_tags.ilike(f"%{occasion}%"))
+            from backend.app.services import catalog_field_contract as _fc
+            clean_occ = occasion.strip()[:80].replace("%", "")
+            canon_occ, _ = _fc.canonical_tags([clean_occ], kind="occasion")
+            if canon_occ and canon_occ[0].lower() != clean_occ.lower():
+                base_query = base_query.filter(
+                    or_(
+                        Product.occasion_tags.ilike(f"%{clean_occ}%"),
+                        Product.occasion_tags.ilike(f"%{canon_occ[0]}%"),
+                    )
+                )
+            elif clean_occ:
+                base_query = base_query.filter(Product.occasion_tags.ilike(f"%{clean_occ}%"))
         if min_price is not None:
             base_query = base_query.filter(Product.base_price >= min_price)
         if max_price is not None:
@@ -228,7 +270,7 @@ class SearchService:
         brand_lower = product.brand.brand_name.lower() if product.brand else ""
         cat_lower = product.category.name.lower() if product.category else ""
         color_lower = product.color_family.lower()
-        tags_str = (product.style_tags or "") + " " + (product.occasion_tags or "")
+        tags_str = (product.style_tags or "") + " " + (product.occasion_tags or "") + " " + (product.gender or "")
 
         # 1. Exact SKU Code Match (Top Priority)
         for sku in product.skus:

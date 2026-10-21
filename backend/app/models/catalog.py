@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -39,6 +39,27 @@ class Product(Base):
     # badge ONLY from this column, never by computing one.
     compare_at_price = Column(Numeric(12, 2), nullable=True)
     currency = Column(String(10), default="USD", nullable=False)
+
+    # ── price provenance (migration 0044) ────────────────────────────────────
+    # How `base_price` came to be the number it is, when it did not start that
+    # way. A brand may supply a row in EGP; the importer normalises it into
+    # `currency` once, at import, and records the arithmetic here so the
+    # conversion is auditable and reproducible.
+    #
+    # All five stay NULL for a row that was priced in the book currency — NULL
+    # is the truthful value for "no conversion happened", and it is what stops a
+    # converted price from being mistaken for one the brand typed in USD.
+    #
+    # These are a SNAPSHOT, not a live calculation: a later rate change must
+    # never reprice a catalogue row. That is the same immutability rule
+    # `orders.fx_rate_used` follows, for the same reason.
+    price_source_currency = Column(String(3), nullable=True)   # e.g. "EGP"
+    price_source_amount = Column(Numeric(12, 2), nullable=True)  # as supplied
+    #: The published rate, priced-book → source (1 USD = 52.09 EGP). Recorded in
+    #: the SAME direction as `orders.fx_rate_used` so the two are comparable.
+    price_fx_rate = Column(Numeric(18, 8), nullable=True)
+    price_fx_source = Column(String(32), nullable=True)        # live | configured
+    price_fx_as_of = Column(String(64), nullable=True)         # provider timestamp
     material = Column(String(255), nullable=True)
     care_instructions = Column(String(500), nullable=True)
 
@@ -137,6 +158,13 @@ class ProductImage(Base):
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
     bytes = Column(Integer, nullable=False)
+    #: WHICH source photograph this row is a rendition of (migration 0041).
+    #: 0 is the hero photograph — every row that existed before the column did
+    #: is photograph 0, which is why the server default needs no backfill. The
+    #: gallery is the set of distinct ``photo_index`` values, ordered; ``ratio``
+    #: alone cannot express it, and conflating the two is what made a second
+    #: supplied photo overwrite the first one's files.
+    photo_index = Column(Integer, nullable=False, default=0, server_default="0", index=False)
     #: hero (the primary card/first-frame asset) | gallery | detail
     role = Column(String(20), nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
@@ -147,6 +175,28 @@ class ProductImage(Base):
     attribution = Column(String(200), nullable=True)
     checksum = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (
+        Index("ix_product_images_product_photo", "product_id", "photo_index"),
+        #: ONE ROW PER (photograph, ratio, format) — and the reason this is
+        #: declared here rather than only in a migration.
+        #:
+        #: Production carried ``UNIQUE (product_id, ratio, format)`` from 0035.
+        #: That rule predates the idea of a second photograph, so it refuses
+        #: photograph 1's 4:5 JPEG (same product, same ratio, same format) and
+        #: made multi-photo storage impossible there. It was invisible to the
+        #: suite because tests build their schema from this class, which never
+        #: declared the constraint — so ``create_all`` produced a permissive
+        #: table and every gallery test passed against a schema production does
+        #: not have. Measured 2026-10-21: green tests, feature dead on deploy.
+        #:
+        #: Declaring it here means the test schema and the migrated schema now
+        #: agree, so a regression fails in CI instead of in production.
+        UniqueConstraint(
+            "product_id", "photo_index", "ratio", "format",
+            name="uq_product_image_photo_ratio_format",
+        ),
+    )
 
     product = relationship("Product", back_populates="media")
 

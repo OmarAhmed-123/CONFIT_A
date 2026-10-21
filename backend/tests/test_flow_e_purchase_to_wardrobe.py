@@ -637,7 +637,51 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     #    wizard reappeared. Adds the completion instant and the wizard
     #    revision that was satisfied (both nullable; the instant is
     #    deliberately NOT backfilled — it was never recorded).
-    assert expected_head_revision() == "0040_onboarding_completion_metadata"
+    # -> 0041 (product_images.photo_index). The head moved consciously: the
+    # registry could describe renditions of exactly ONE photograph, and the
+    # importer therefore kept only the first of a brand's supplied images. A
+    # second photograph had nowhere to live — same storage key, same ratio rows
+    # — so importing a gallery either overwrote the hero or lost the images
+    # silently while reporting success. The column adds the missing dimension;
+    # every existing row is photograph 0 via the server default, so no data
+    # moves and `images` keeps its pinned "one frame per ratio" meaning.
+    # -> 0042 (uq_product_image_photo_ratio_format). The head moved consciously,
+    # and for a reason 0041 could not cover: 0041 added the column but left
+    # `UNIQUE (product_id, ratio, format)` in place, so a product's second 4:5
+    # JPEG was still refused — the same (product, ratio, format) as its first.
+    # Measured on PostgreSQL 16 against production's real constraint set:
+    # photograph 0 inserted, photograph 1 rejected. The suite could not see it
+    # because the ORM declared no such constraint and `create_all` therefore
+    # built a permissive table. 0042 replaces the rule with one that includes
+    # `photo_index` (strictly weaker — every existing row is 0 — so it cannot
+    # fail on existing data), and the model now declares it so the test schema
+    # and the migrated schema agree.
+    # -> 0043 (catalog_import_jobs). Then the import head moved, for the same
+    # kind of reason: the endpoint answered 202 and did the work inline, and the
+    # job table had nowhere to put the file, no attempt counter and no heartbeat
+    # — so nothing durable could consume a queued job. The new columns are the
+    # work item (payload), the run configuration, and the lease that lets a dead
+    # worker's job be recovered instead of stranded in 'processing'.
+    # -> 0044 (products price provenance). The head moved for the last piece of
+    # the same story: the importer can now accept a row priced in EGP and
+    # normalise it into the price book once, at a verified rate. Once
+    # `base_price` has been converted, "31.00" no longer explains itself — so
+    # the row records the original amount, the rate, its source and its
+    # timestamp. All five columns are nullable, which is the truthful state for
+    # a price that was never converted.
+    # -> 0045 (brand_domains). The head moved for a reason the importer could not
+    # answer: `image_source=own` in a CSV was the ONLY thing standing between a
+    # brand and copying a competitor's photography into the catalogue, because
+    # the deployment flag asked "may this server fetch first-party URLs at all",
+    # never "whose host is this". A brand now proves control of a hostname with a
+    # DNS TXT claim, per-brand, and imports are authorized against that record at
+    # validation, at commit and on every redirect hop. Additive table only.
+    assert expected_head_revision() == "0045_brand_verified_domains"
+    assert chain["0045_brand_verified_domains"] == "0044_product_price_provenance"
+    assert chain["0044_product_price_provenance"] == "0043_import_job_payload"
+    assert chain["0043_import_job_payload"] == "0042_photo_unique_with_index"
+    assert chain["0042_photo_unique_with_index"] == "0041_photo_index"
+    assert chain["0041_photo_index"] == "0040_onboarding_completion_metadata"
     assert chain["0040_onboarding_completion_metadata"] == "0039_brand_memberships"
     assert chain["0039_brand_memberships"] == "0038_vton_job_retention"
     assert chain["0036_recently_viewed_unique"] == "0035_product_images"

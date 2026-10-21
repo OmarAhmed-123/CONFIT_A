@@ -62,7 +62,7 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
 
         <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200">
           <span className="block text-[10px] uppercase text-rose-800 font-bold">
-            {t('bi.out_of_stock', 'Out of Stock SKUs (0)')}
+            {t('bi.out_of_stock_skus')}
           </span>
           <span className="font-mono text-xl font-bold text-rose-700 mt-1 block">
             {inventory.out_of_stock_count}
@@ -112,11 +112,36 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
                             : 'bg-amber-100 text-amber-800 border border-amber-200'
                         }`}
                       >
-                        {item.status === 'out_of_stock' ? 'Out of Stock' : 'Low Stock'}
+                        {item.status === 'out_of_stock'
+                          ? t('bi.status_out_of_stock')
+                          : t('bi.status_low_stock')}
                       </span>
                     </td>
-                    <td className="py-2 text-right font-mono font-bold text-brand-coral">
-                      +{item.recommended_reorder} units
+                    <td className="py-2 text-right">
+                      {typeof item.recommended_reorder === 'number' ? (
+                        <>
+                          <span className="font-mono font-bold text-brand-coral">
+                            {t('bi.reorder_units', { count: item.recommended_reorder })}
+                          </span>
+                          {/*
+                            The number is a rule of thumb (20 when out of stock,
+                            otherwise 15 - stock). It has no demand history,
+                            lead time or safety stock behind it, so it is
+                            labelled as an estimate rather than shown as though
+                            the system had calculated a reorder point.
+                          */}
+                          <span
+                            className="block text-[9px] text-slate-400"
+                            title={t('bi.reorder_estimate_hint')}
+                          >
+                            {t('bi.reorder_estimate')}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">
+                          {t('bi.reorder_unavailable')}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

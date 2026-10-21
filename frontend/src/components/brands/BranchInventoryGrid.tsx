@@ -55,7 +55,7 @@ export const BranchInventoryGrid: React.FC<BranchInventoryGridProps> = ({
               />
               <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
                 {item.discount_percent && (
-                  <span className="rounded-md bg-brand-coral px-2 py-0.5 text-[11px] font-bold text-white shadow-xs">
+                  <span className="rounded-md bg-brand-coral px-2 py-0.5 text-[11px] font-bold text-brand-charcoal shadow-xs">
                     -{item.discount_percent}% OFF
                   </span>
                 )}
@@ -85,7 +85,7 @@ export const BranchInventoryGrid: React.FC<BranchInventoryGridProps> = ({
             {/* Product Meta */}
             <div className="mt-3.5 flex flex-1 flex-col justify-between space-y-3">
               <div>
-                <span className="text-[10px] font-bold tracking-wider uppercase text-neutral-400">
+                <span className="text-[10px] font-bold tracking-wider uppercase text-brand-muted">
                   {item.brand_name}
                 </span>
                 <h4 className="font-serif text-sm font-bold text-brand-charcoal line-clamp-1 mt-0.5">
@@ -99,7 +99,7 @@ export const BranchInventoryGrid: React.FC<BranchInventoryGridProps> = ({
                     {item.currency} {Number(item.base_price).toLocaleString()}
                   </span>
                   {item.compare_at_price && Number(item.compare_at_price) > Number(item.base_price) && (
-                    <span className="text-xs text-neutral-400 line-through">
+                    <span className="text-xs text-brand-muted line-through">
                       {item.currency} {Number(item.compare_at_price).toLocaleString()}
                     </span>
                   )}
@@ -173,9 +173,9 @@ export const BranchInventoryGrid: React.FC<BranchInventoryGridProps> = ({
                       ? 'bg-brand-charcoal text-white hover:bg-brand-charcoal/90'
                       : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
                   }`}
-                  aria-label={t('brands.hold_item_aria')}
                 >
                   {t('brands.hold_in_store')}
+                  <span className="sr-only"> — {item.title}</span>
                 </button>
               </div>
             </div>

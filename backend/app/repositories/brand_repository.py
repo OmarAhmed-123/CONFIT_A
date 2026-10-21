@@ -80,6 +80,26 @@ class BrandRepository:
         self.db.commit()
         return bp
 
+    # --- Identity (name / slug / store name) ------------------------------
+    # There was no rename path at all: brand_name and slug could only be set
+    # once, at registration, and copy containing a third party's trademark was
+    # therefore permanent. These two methods are the only writers, so a rename
+    # goes through the same validated, audited path as every other brand edit
+    # instead of an ad-hoc UPDATE.
+    def set_brand_identity(self, brand_id: int, brand_name: str, slug: str) -> BrandProfile:
+        brand = self.db.query(BrandProfile).filter(BrandProfile.id == brand_id).first()
+        if not brand:
+            raise ValueError(f"brand {brand_id} not found")
+        brand.brand_name, brand.slug = brand_name.strip(), slug.strip().lower()
+        return brand
+
+    def set_store_name(self, store_id: int, name: str) -> StoreLocation:
+        store = self.db.query(StoreLocation).filter(StoreLocation.id == store_id).first()
+        if not store:
+            raise ValueError(f"store {store_id} not found")
+        store.name = name.strip()
+        return store
+
     def set_brand_verification(self, brand_id: int, is_verified: bool) -> BrandProfile:
         bp = self.db.get(BrandProfile, brand_id)
         if not bp:

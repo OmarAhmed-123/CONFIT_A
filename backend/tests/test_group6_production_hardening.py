@@ -44,11 +44,11 @@ def create_test_user_and_brand(db, email_suffix=""):
         db.commit()
         db.refresh(cat)
     if email_suffix in ["isolation1", "isolation2"]:
-        email = "brand@massimodutti.com" if email_suffix == "isolation1" else "brand@cos.com"
+        email = "brand@ateliersable.com" if email_suffix == "isolation1" else "brand@casalumen.com"
         user = db.query(User).filter(User.email == email).first()
         brand = db.query(BrandProfile).filter(BrandProfile.user_id == user.id).first()
         return user, brand, cat
-    email = "brand@massimodutti.com"
+    email = "brand@ateliersable.com"
     user = db.query(User).filter(User.email == email).first()
     brand = db.query(BrandProfile).filter(BrandProfile.user_id == user.id).first()
     return user, brand, cat

@@ -48,9 +48,9 @@ from backend.app.models.user import BrandProfile
 #: One flagship per brand plus a second door for the larger catalogues.
 #: Real addresses in the markets CONFIT already prices for (AE / SA / EG).
 STORE_BLUEPRINT: Dict[str, List[dict]] = {
-    "Massimo Dutti": [
+    "Atelier Sable": [
         {
-            "name": "Massimo Dutti — The Dubai Mall",
+            "name": "Atelier Sable — The Dubai Mall",
             "name_ar": "ماسيمو دوتي — دبي مول",
             "address": "Fashion Avenue, Level 1, Financial Center Rd",
             "city": "Dubai", "country": "AE",
@@ -59,7 +59,7 @@ STORE_BLUEPRINT: Dict[str, List[dict]] = {
             "pickup_instructions": "Collect at the Fashion Avenue concierge desk, Level 1.",
         },
         {
-            "name": "Massimo Dutti — Mall of the Emirates",
+            "name": "Atelier Sable — Mall of the Emirates",
             "name_ar": "ماسيمو دوتي — مول الإمارات",
             "address": "Sheikh Zayed Rd, Al Barsha 1",
             "city": "Dubai", "country": "AE",
@@ -68,9 +68,9 @@ STORE_BLUEPRINT: Dict[str, List[dict]] = {
             "pickup_instructions": "Ground floor, opposite the central atrium.",
         },
     ],
-    "Arket": [
+    "Nordhaus": [
         {
-            "name": "Arket — Dubai Hills Mall",
+            "name": "Nordhaus — Dubai Hills Mall",
             "name_ar": "آركت — دبي هيلز مول",
             "address": "Al Khail Rd, Dubai Hills Estate",
             "city": "Dubai", "country": "AE",
@@ -79,9 +79,9 @@ STORE_BLUEPRINT: Dict[str, List[dict]] = {
             "pickup_instructions": "Pickup counter beside the fitting rooms.",
         },
     ],
-    "COS": [
+    "Casa Lumen": [
         {
-            "name": "COS — Mall of Arabia",
+            "name": "Casa Lumen — Mall of Arabia",
             "name_ar": "كوس — مول العرب",
             "address": "Juffali St, Al Hamra District",
             "city": "Jeddah", "country": "SA",
@@ -90,9 +90,9 @@ STORE_BLUEPRINT: Dict[str, List[dict]] = {
             "pickup_instructions": "Ask at the till for an online collection.",
         },
     ],
-    "Reiss": [
+    "Riven Studio": [
         {
-            "name": "Reiss — Mall of Egypt",
+            "name": "Riven Studio — Mall of Egypt",
             "name_ar": "ريس — مول مصر",
             "address": "Wahat Rd, Al Wahat Rd, 6th of October City",
             "city": "Giza", "country": "EG",
@@ -101,7 +101,7 @@ STORE_BLUEPRINT: Dict[str, List[dict]] = {
             "pickup_instructions": "Collection desk at the store entrance.",
         },
         {
-            "name": "Reiss — City Centre Almaza",
+            "name": "Riven Studio — City Centre Almaza",
             "name_ar": "ريس — سيتي سنتر ألماظة",
             "address": "Suez Rd, Sheraton Al Matar, El Nozha",
             "city": "Cairo", "country": "EG",

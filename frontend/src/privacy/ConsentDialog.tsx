@@ -106,7 +106,7 @@ export const ConsentDialog: React.FC<ConsentDialogProps> = ({ purpose, onAccept,
               {t('consent.rights_link')}
             </Link>
           </p>
-          <p className="text-[10px] uppercase tracking-wide text-neutral-400">
+          <p className="text-[10px] uppercase tracking-wide text-brand-muted">
             {t('consent.notice_version', { version: NOTICE_VERSION })}
           </p>
         </div>

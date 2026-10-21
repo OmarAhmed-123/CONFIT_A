@@ -9,7 +9,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 
 const mockUser = {
   id: 42,
-  email: 'director@massimodutti.com',
+  email: 'director@ateliersable.com',
   full_name: 'Massimo Dutti Brand Director',
   role: 'brand_owner',
   preferred_language: 'en',

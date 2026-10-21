@@ -74,10 +74,61 @@ export interface Category {
   icon_name: string;
 }
 
+/**
+ * One registered asset, as the catalogue API serialises it.
+ *
+ * `source_type` is the honesty field: `stock` means the photograph is licensed
+ * editorial imagery, not the boutique's own product shot, and `attribution`
+ * names whose it is. The storefront must surface that distinction rather than
+ * letting a stock picture pass as first-party product photography.
+ */
+export interface ProductMedia {
+  ratio: "4x5" | "1x1" | "3x2" | "16x9" | "master" | string;
+  url: string;
+  width: number;
+  height: number;
+  format: string;
+  source_type: "stock" | "own" | "partner" | string;
+  attribution?: string | null;
+  is_primary: boolean;
+  bytes?: number | null;
+  /** Which supplied photograph this rendition belongs to (0 = hero). */
+  photo_index?: number;
+}
+
+/**
+ * ONE photograph of a product, with its own rendition ladder.
+ *
+ * `images`/`media` describe renditions of the hero only — a list keyed by
+ * ratio cannot hold a second photograph, which is why a brand's back and
+ * detail shots had no way onto the page. `photos` is the gallery: one entry per
+ * supplied image, in the order supplied. Optional, because list payloads and
+ * products whose media predates the gallery contract do not carry it.
+ */
+export interface ProductPhoto {
+  position: number;
+  is_primary: boolean;
+  /** Best single frame for this photograph (its 4:5 portrait). */
+  url: string;
+  /** ratio -> URL for this photograph's own renditions. */
+  images: Record<string, string>;
+  source_ref?: string | null;
+  source_type: "stock" | "own" | "partner" | string;
+  provider?: string | null;
+  attribution?: string | null;
+  frames?: ProductMedia[];
+}
+
 export interface ProductSKU {
   id: number;
   product_id: number;
-  sku_code: string;
+  /**
+   * Internal inventory key. WITHHELD on the public product page since
+   * 2026-10-20: it embeds historical brand initials ("REISS-DRS-GLD-6") and the
+   * endpoint is unauthenticated. The brand-owner and admin surfaces still
+   * receive it, and no consumer-side view reads it for a shopper.
+   */
+  sku_code?: string | null;
   size: string;
   color: string;
   color_hex: string;
@@ -93,6 +144,31 @@ export interface BrandSummary {
   logo_url?: string;
   return_rate_benchmark: number;
   current_return_rate: number;
+}
+
+export interface SizeChartV1 {
+  schema_version?: '1.0' | string;
+  unit?: 'cm' | 'in' | string;
+  type?: 'body' | 'garment' | string;
+  fit_type?: 'slim' | 'regular' | 'relaxed' | 'oversized' | string;
+  source?: string;
+  notes?: string[];
+  sizes?: Record<string, Record<string, [number, number] | number>>;
+}
+
+export interface BrandVerifiedDomain {
+  id: number;
+  hostname: string;
+  status: 'pending' | 'verified' | 'revoked' | string;
+  token: string;
+  dns_record: string;
+  imports_allowed: boolean;
+  is_expired?: boolean;
+  expires_at?: string | null;
+  verified_at?: string | null;
+  last_checked_at?: string | null;
+  last_error?: string | null;
+  created_at?: string | null;
 }
 
 export interface Product {
@@ -120,8 +196,16 @@ export interface Product {
   thumbnail_url: string;
   color_family: string;
   dominant_hex: string;
+  gender?: 'mens' | 'womens' | 'unisex' | string | null;
   style_tags: string[];
   occasion_tags: string[];
+  price_provenance?: {
+    source_currency?: string | null;
+    source_amount?: number | null;
+    fx_rate?: number | null;
+    fx_source?: string | null;
+    fx_as_of?: string | null;
+  } | null;
   rating: number;
   style_compatibility_score?: number | null;
   ai_fit_score?: number | null;
@@ -131,6 +215,18 @@ export interface Product {
   material?: string;
   care_instructions?: string;
   images?: string[];
+  /**
+   * Every registered asset with the facts needed to attribute it.
+   *
+   * The server has shipped this since the media pass, including `source_type`
+   * (`stock` | `own` | `partner`) and a human `attribution` string, but the
+   * client model did not declare it — so the field was dropped on parse and a
+   * stock photograph was rendered exactly like the boutique's own shot. It is
+   * optional because list payloads do not carry the full registry.
+   */
+  media?: ProductMedia[];
+  /** Every supplied photograph, ordered. Empty/absent for legacy products. */
+  photos?: ProductPhoto[];
   size_chart?: Record<string, any>;
   skus?: ProductSKU[];
   bnpl_monthly_installment?: number | null;
@@ -1435,6 +1531,8 @@ export interface CatalogImportPreviewRecord {
   stock: number;
   size: string;
   color: string;
+  /** mens | womens | unisex — the value the stylist filters on. */
+  gender?: string;
   thumbnail_url?: string;
   branch_id?: number | null;
   error_message?: string;
@@ -1447,6 +1545,9 @@ export interface CatalogImportPreviewResponse {
   warning_rows_count: number;
   duplicate_rows_count: number;
   can_import: boolean;
+  /** Reasons NOTHING would land (no storage, disabled image source, …).
+   *  `can_import` is false whenever this is non-empty. */
+  blocked_reasons?: string[];
   preview_records: CatalogImportPreviewRecord[];
   errors: Array<{
     row: number;
@@ -1459,18 +1560,42 @@ export interface CatalogImportPreviewResponse {
     row: number;
     field: string;
     message: string;
+    /** Row 0/1 = a file-level note; >1 is a data row. */
+    blocking?: boolean;
   }>;
 }
 
 export interface CatalogImportResult {
   job_id: number;
-  status: 'completed' | 'partially_completed' | 'failed' | 'processing';
+  /**
+   * The five states the job table constrains. `queued` is a real state now that
+   * the import runs on a worker: the endpoint persists the job and returns
+   * before any row is touched, so a fresh job is queued, not processing.
+   */
+  status: 'queued' | 'processing' | 'completed' | 'partially_completed' | 'failed';
   total_rows: number;
   accepted_rows: number;
   rejected_rows: number;
   duplicate_rows: number;
+  /** Rows the worker has actually handled so far, persisted as it goes. */
+  processed_rows?: number;
+  /** How many times a worker has claimed the job (bounded by the server). */
+  attempts?: number;
+  /** Why the last attempt failed, when there is one. */
+  last_error?: string | null;
+  /** Where this job can be polled; returned by the acceptance response. */
+  status_url?: string;
   notifications_queued?: number;
   notification_recipients_count?: number;
+  /** Derived completeness facts the API already returns — surfaced so the
+   *  summary cannot claim success while hiding an untranslated catalogue. */
+  media_rows_registered?: number;
+  rows_missing_title_ar?: number;
+  rows_missing_description_ar?: number;
+  rows_gender_inferred?: number;
+  /** Photographs supplied but not imported (one entry per dropped image). */
+  photos_not_imported?: number;
+  media_warnings?: Array<{ row?: number | null; field?: string; message: string }>;
   errors?: any[];
 }
 
@@ -1605,6 +1730,10 @@ export interface BiDashboardResponse {
   kpis: BiKpis;
   comparison_kpis?: BiKpis | null;
   growth: Record<string, number | null>;
+  /** Why each growth figure is a number, or absent.
+   *  `ok` | `no_prior_baseline` (P=0, C>0) | `no_activity` (both 0) |
+   *  `not_comparable` (a period was not measured). Never render a null as 0%. */
+  growth_basis?: Record<string, 'ok' | 'no_prior_baseline' | 'no_activity' | 'not_comparable'>;
   trends: BiTrendPoint[];
   categories: BiCategoryItem[];
   products: BiProductItem[];
@@ -1638,6 +1767,10 @@ export interface AdminBiDashboardResponse {
   kpis: BiKpis;
   comparison_kpis?: BiKpis | null;
   growth: Record<string, number | null>;
+  /** Why each growth figure is a number, or absent.
+   *  `ok` | `no_prior_baseline` (P=0, C>0) | `no_activity` (both 0) |
+   *  `not_comparable` (a period was not measured). Never render a null as 0%. */
+  growth_basis?: Record<string, 'ok' | 'no_prior_baseline' | 'no_activity' | 'not_comparable'>;
   gmv_by_currency: Record<string, number>;
   brands_performance: AdminBiBrandPerformance[];
   trends: BiTrendPoint[];

@@ -234,7 +234,7 @@ export const BrandsView: React.FC = () => {
       {/* Top Banner / Breadcrumb Bar */}
       <div className="border-b border-neutral-200 bg-neutral-50/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-neutral-500">
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 min-w-0 text-neutral-500">
             <Link to="/" className="hover:text-brand-charcoal transition-colors">
               Home
             </Link>
@@ -245,7 +245,7 @@ export const BrandsView: React.FC = () => {
                   {t('brands.title')}
                 </Link>
                 <span aria-hidden="true">/</span>
-                <span className="font-semibold text-brand-charcoal">
+                <span className="font-semibold text-brand-charcoal break-words min-w-0">
                   {activeBrandDetail.brand_name}
                 </span>
                 {activeBranch && (
@@ -268,7 +268,6 @@ export const BrandsView: React.FC = () => {
             onClick={requestLocation}
             disabled={geoStatus === 'loading'}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 bg-white text-xs font-semibold text-brand-charcoal hover:bg-neutral-50 transition-colors shadow-2xs"
-            aria-label={t('brands.detect_location_aria')}
           >
             <svg
               className={`w-3.5 h-3.5 ${geoStatus === 'loading' ? 'motion-safe:animate-spin text-brand-coral' : 'text-emerald-600'}`}
@@ -293,7 +292,7 @@ export const BrandsView: React.FC = () => {
           <div className="space-y-8">
             {/* Header Hero */}
             <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-widest text-brand-coral">
+              <span className="text-xs font-bold uppercase tracking-widest text-brand-charcoal">
                 {t('brands.partner_houses')}
               </span>
               <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-brand-charcoal">
@@ -318,7 +317,7 @@ export const BrandsView: React.FC = () => {
                     aria-label={t('brands.search_aria')}
                   />
                   <svg
-                    className="w-4 h-4 absolute left-3 top-3 text-neutral-400"
+                    className="w-4 h-4 absolute left-3 top-3 text-brand-field"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -402,7 +401,7 @@ export const BrandsView: React.FC = () => {
                       setHasOffersOnly(false);
                       setSortBy('alphabetical');
                     }}
-                    className="text-xs font-bold text-brand-coral hover:underline"
+                    className="text-xs font-bold text-brand-charcoal hover:underline"
                   >
                     {t('brands.reset_filters')}
                   </button>
@@ -412,7 +411,7 @@ export const BrandsView: React.FC = () => {
 
             {/* Error state */}
             {brandsError && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-xs text-red-800">
+              <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-xs text-red-800">
                 <p className="font-bold">{t('brands.error_loading_brands')}</p>
                 <p className="mt-1">{brandsError}</p>
                 <button data-motion="recovery"
@@ -495,8 +494,12 @@ export const BrandsView: React.FC = () => {
               )}
 
               {detailError && (
-                <div className="p-6 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800">
-                  <p className="font-bold">{t('brands.error_loading_brand')}</p>
+                <div role="alert" className="p-6 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800">
+                  {/* Tailwind preflight resets heading size/weight, so this
+                      renders exactly as the <p> it replaces — but the page now
+                      has a heading instead of none, and the failure is
+                      announced instead of being silent. */}
+                  <h1 className="font-bold">{t('brands.error_loading_brand')}</h1>
                   <p className="mt-1">{detailError}</p>
                 </div>
               )}
@@ -537,7 +540,7 @@ export const BrandsView: React.FC = () => {
                     {/* Meta stats */}
                     <div className="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-neutral-200 pt-4 sm:pt-0 sm:pl-6 text-left">
                       <div>
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-brand-muted block">
                           {t('brands.physical_network')}
                         </span>
                         <span className="text-base font-bold text-brand-charcoal">
@@ -545,7 +548,7 @@ export const BrandsView: React.FC = () => {
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-brand-muted block">
                           {t('brands.catalog')}
                         </span>
                         <span className="text-base font-bold text-brand-charcoal">
@@ -612,7 +615,7 @@ export const BrandsView: React.FC = () => {
               <div className="mt-12 pt-8 border-t border-neutral-200 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-coral">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-charcoal">
                       {t('brands.live_availability')}
                     </span>
                     <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-brand-charcoal">
@@ -627,7 +630,7 @@ export const BrandsView: React.FC = () => {
                     href={activeBranch.google_maps_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-coral text-white text-xs font-bold hover:bg-brand-coral/90 shadow-xs transition-colors self-start sm:self-center"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-coral text-brand-charcoal text-xs font-bold hover:bg-brand-coral/90 shadow-xs transition-colors self-start sm:self-center"
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                       <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
@@ -746,7 +749,7 @@ export const BrandsView: React.FC = () => {
               <button data-motion="neutral" data-motion-tone="icon"
                 type="button"
                 onClick={() => setReservationNotice(null)}
-                className="text-neutral-400 hover:text-neutral-600 text-sm font-bold"
+                className="text-brand-muted hover:text-neutral-600 text-sm font-bold"
                 aria-label={t('brands.close_dialog')}
               >
                 ✕
@@ -775,7 +778,7 @@ export const BrandsView: React.FC = () => {
                 <p className="text-neutral-500">
                   Size: <span className="font-semibold text-brand-charcoal">{reservationNotice.sku.size}</span> • {reservationNotice.sku.color}
                 </p>
-                <p className="font-bold text-brand-coral">
+                <p className="font-bold text-brand-charcoal">
                   {reservationNotice.item.currency} {Number(reservationNotice.item.base_price).toLocaleString()}
                 </p>
               </div>

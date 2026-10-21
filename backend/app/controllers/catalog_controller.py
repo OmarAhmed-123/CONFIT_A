@@ -16,13 +16,17 @@ from backend.app.services.product_context_service import ProductContextService
 from backend.app.services.product_media_service import (
     gallery_images,
     media_payload,
+    photos_payload,
     primary_url,
 )
+from backend.app.services.size_chart_schema import validate as validate_size_chart
+from backend.app.core.logging import logger
 from backend.app.schemas.catalog import (
     CategoryOut,
     ProductSummaryOut,
     ProductDetailOut,
     ProductMediaOut,
+    ProductPhotoOut,
     StoreInventoryOut,
     SearchResponseOut,
     AutocompleteResponse,
@@ -107,6 +111,8 @@ def search_catalog(
     brand_id: Optional[int] = Query(None),
     color: Optional[str] = Query(None),
     occasion: Optional[str] = Query(None),
+    gender: Optional[str] = Query(None),
+    style: Optional[str] = Query(None),
     min_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     max_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     sort_by: str = Query("relevance", description="'relevance', 'price_asc', 'price_desc', 'rating', 'newest'"),
@@ -122,6 +128,8 @@ def search_catalog(
         brand_id=brand_id,
         color=color,
         occasion=occasion,
+        gender=gender,
+        style=style,
         min_price=fx.to_pricing(min_price),
         max_price=fx.to_pricing(max_price),
         page=page,
@@ -158,6 +166,8 @@ def list_products(
     brand_id: Optional[int] = Query(None),
     color: Optional[str] = Query(None),
     occasion: Optional[str] = Query(None),
+    gender: Optional[str] = Query(None),
+    style: Optional[str] = Query(None),
     min_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     max_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     search: Optional[str] = Query(None),
@@ -188,6 +198,8 @@ def list_products(
         brand_id=brand_id,
         color=_clean(color),
         occasion=_clean(occasion),
+        gender=_clean(gender),
+        style=_clean(style),
         # Filters arrive in the DISPLAYED currency, so they are converted
         # back to the price book before they touch SQL (see
         # PresentationCurrency.to_pricing).
@@ -234,11 +246,23 @@ def get_product_detail(
 
     context = ProductContextService(db).enrich_product(p, user)
 
+    # `sku_code` is deliberately NOT serialised here.
+    #
+    # The storefront never displays it — `ProductDetailView` reads id, size,
+    # colour, price_override and stock only — while the code itself is an
+    # internal inventory identifier that embeds the brand's historical initials
+    # ("REISS-DRS-GLD-6", "MD-BLZ-NVY-S"). This endpoint is public and
+    # unauthenticated: measured 2026-10-20 it was serving
+    # "sku_code": "REISS-DRS-GLD-6" on a page about a product now sold under a
+    # different brand name, which is both an information leak of internal
+    # inventory keys and a remnant of the retired trademarks.
+    #
+    # Brand-owner and admin surfaces keep their sku_code: those callers need it
+    # to operate the catalogue, and they are scoped to their own tenant.
     skus_out = [
         {
             "id": s.id,
             "product_id": s.product_id,
-            "sku_code": s.sku_code,
             "size": s.size,
             "color": s.color,
             "color_hex": s.color_hex,
@@ -258,12 +282,22 @@ def get_product_detail(
         "current_return_rate": p.brand.current_return_rate
     }
 
-    try:
-        size_chart = json.loads(p.size_chart_json) if p.size_chart_json else {}
-        if not isinstance(size_chart, dict):
-            size_chart = {}
-    except (TypeError, ValueError):
+    # The chart is served through the same contract it is written through. A
+    # malformed stored chart is reported rather than silently presented as "no
+    # chart": the two mean different things to a shopper (no guidance published
+    # vs. guidance that failed to load), and the old bare try/except made them
+    # indistinguishable to the client as well as to the log.
+    chart_result = validate_size_chart(p.size_chart_json)
+    if chart_result.ok and chart_result.has_chart:
+        size_chart = json.loads(chart_result.normalised)
+    else:
         size_chart = {}
+        if not chart_result.ok:
+            logger.warning(
+                "size_chart_invalid",
+                product_id=p.id,
+                errors=[e.as_dict() for e in chart_result.errors[:3]],
+            )
 
     bnpl = context.get("bnpl") or {}
     installment = bnpl.get("installment_amount") if bnpl.get("eligible") else None
@@ -279,6 +313,9 @@ def get_product_detail(
     media_rows = repo.images_for_product(p.id)
     media_out = [ProductMediaOut(**m) for m in media_payload(media_rows)]
     registered_images = gallery_images(media_rows)
+    # The gallery: one entry per supplied photograph. ``registered_images``
+    # above remains the hero photograph's ratio ladder, unchanged.
+    photos_out = [ProductPhotoOut(**ph) for ph in photos_payload(media_rows)]
     primary_media_url = primary_url(media_rows)
     legacy_images = []
     if p.images:
@@ -323,7 +360,9 @@ def get_product_detail(
         care_instructions=p.care_instructions,
         images=registered_images or legacy_images,
         media=media_out,
+        photos=photos_out,
         size_chart=size_chart,
+        size_chart_error=chart_result.as_dict()["errors"] if not chart_result.ok else [],
         skus=skus_out,
         bnpl_monthly_installment=installment,
         bnpl=bnpl,
@@ -766,7 +805,6 @@ def get_store_inventory_catalog(
         sku_list = [
             BranchSKUAvailabilityOut(
                 sku_id=s["sku_id"],
-                sku_code=s["sku_code"],
                 size=s["size"],
                 color=s["color"],
                 color_hex=s["color_hex"],

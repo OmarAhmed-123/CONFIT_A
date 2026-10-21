@@ -40,6 +40,18 @@ const COLOR_VALUES = COLOR_SWATCHES.map((c) => c.value).filter(Boolean);
 // vocabulary endpoint already orders by product count descending.
 const MAX_OCCASION_PILLS = 6;
 const SORT_VALUES = ["recommended", "price_asc", "price_desc", "rating", "newest"];
+const GENDER_OPTIONS = [
+  { value: "Women", labelKey: "discover.gender_womens" },
+  { value: "Men", labelKey: "discover.gender_mens" },
+  { value: "Unisex", labelKey: "discover.gender_unisex" },
+];
+const GENDER_URL_MAP: Record<string, string> = {
+  womens: "womens",
+  women: "Women",
+  mens: "mens",
+  men: "Men",
+  unisex: "Unisex",
+};
 
 /** One pill, one contract: 44px floor, aria-pressed state, luxury easing.
  *  Previously this styling was hand-rolled FIVE times in this file. */
@@ -75,6 +87,10 @@ export const DiscoverView: React.FC = () => {
     occasions = [],
     selectedCategory,
     setSelectedCategory,
+    selectedGender = "",
+    setSelectedGender = () => {},
+    selectedStyle = "",
+    setSelectedStyle = () => {},
     selectedOccasion,
     setSelectedOccasion,
     selectedColor,
@@ -130,6 +146,10 @@ export const DiscoverView: React.FC = () => {
     hydratedRef.current = true;
     const pal = searchParams.get("palette");
     if (pal && COLOR_VALUES.includes(pal)) setSelectedColor(pal);
+    const gen = (searchParams.get("gender") || "").trim().toLowerCase();
+    if (gen && GENDER_URL_MAP[gen]) setSelectedGender(GENDER_URL_MAP[gen]);
+    const sty = (searchParams.get("style") || "").trim();
+    if (sty) setSelectedStyle(sty);
     const q = searchParams.get("q");
     if (q) setSearchQuery(q);
     const sort = searchParams.get("sort");
@@ -259,6 +279,17 @@ export const DiscoverView: React.FC = () => {
   const activeFilters = [
     activeCategory
       ? t('discover.active_category', { name: categoryLabel(activeCategory) })
+      : null,
+    selectedGender
+      ? t('discover.active_gender', {
+          name: t(
+            GENDER_OPTIONS.find((g) => g.value.toLowerCase() === selectedGender.toLowerCase())?.labelKey ??
+              `discover.gender_${selectedGender.toLowerCase()}`,
+          ),
+        })
+      : null,
+    selectedStyle
+      ? t('discover.active_style', { name: selectedStyle })
       : null,
     selectedOccasion
       ? t('discover.active_occasion', { name: occasionLabel(selectedOccasion) })
@@ -460,14 +491,19 @@ export const DiscoverView: React.FC = () => {
             )}
           </div>
 
+          {/* The accessible name must CONTAIN the visible words (WCAG 2.5.3):
+              a speech user saying "Photo match" has to hit this control, and
+              an aria-label that replaced the visible text made that fail. The
+              sr-only span keeps a name when the visible label is hidden on
+              narrow viewports, where there is no visible text to match. */}
           <button data-motion="creative"
             onClick={openVisualSearch}
             type="button"
-            aria-label={t('discover.search_by_photo')}
             className="min-h-11 px-4 py-3 rounded-2xl bg-brand-wash hover:bg-brand-charcoal hover:text-white border border-brand-field text-brand-charcoal text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             <span aria-hidden="true"><VisualSearchIcon size={16} color="currentColor" /></span>
             <span className="hidden sm:inline">{t('discover.photo_match')}</span>
+            <span className="sr-only">{t('discover.search_by_photo')}</span>
           </button>
             </div>
           </HeroLightCard>
@@ -529,6 +565,34 @@ export const DiscoverView: React.FC = () => {
               }}
             >
               {categoryLabel(cat)}
+            </FilterPill>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-[11px] font-bold text-brand-muted uppercase tracking-wider shrink-0">
+            {t('discover.gender_label')}
+          </span>
+          <FilterPill
+            selected={selectedGender === ""}
+            onClick={() => {
+              setSelectedGender("");
+              syncParams({ gender: null });
+            }}
+          >
+            {t('discover.filter_all')}
+          </FilterPill>
+          {GENDER_OPTIONS.map((opt) => (
+            <FilterPill
+              key={opt.labelKey}
+              selected={selectedGender.toLowerCase() === opt.value.toLowerCase()}
+              onClick={() => {
+                const token = opt.value.toLowerCase() === 'women' ? 'womens' : opt.value.toLowerCase() === 'men' ? 'mens' : 'unisex';
+                setSelectedGender(token);
+                syncParams({ gender: token });
+              }}
+            >
+              {t(opt.labelKey)}
             </FilterPill>
           ))}
         </div>
@@ -644,10 +708,12 @@ export const DiscoverView: React.FC = () => {
           <button data-motion="filter"
             onClick={() => {
               setSelectedCategory("");
+              setSelectedGender("");
+              setSelectedStyle("");
               setSelectedOccasion("");
               setSelectedColor("");
               setSearchQuery("");
-              syncParams({ category: null, occasion: null, palette: null, q: null });
+              syncParams({ category: null, gender: null, style: null, occasion: null, palette: null, q: null });
             }}
             className="inline-flex min-h-11 items-center text-xs font-bold text-brand-charcoal underline underline-offset-4 transition-colors duration-300 ease-luxury hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal rounded-lg"
           >
@@ -683,10 +749,12 @@ export const DiscoverView: React.FC = () => {
           actionText={t('discover.reset_filters')}
           onAction={() => {
             setSelectedCategory("");
+            setSelectedGender("");
+            setSelectedStyle("");
             setSelectedOccasion("");
             setSelectedColor("");
             setSearchQuery("");
-            syncParams({ category: null, occasion: null, palette: null, q: null });
+            syncParams({ category: null, gender: null, style: null, occasion: null, palette: null, q: null });
           }}
         />
       ) : (

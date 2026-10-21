@@ -45,7 +45,7 @@ def main() -> int:
     args = parser.parse_args()
 
     db = SessionLocal()
-    updated, skipped, foreign, missing = [], [], [], []
+    updated, skipped, foreign, missing, refused = [], [], [], [], []
     try:
         for slug in sorted(SIZE_CHARTS_BY_SLUG):
             product = db.query(Product).filter(Product.slug == slug).one_or_none()
@@ -64,6 +64,18 @@ def main() -> int:
                 (skipped if same else foreign).append(slug)
                 continue
 
+            # The backfill writes what the seed module produced, but it validates
+            # again at the point of persistence: this script is also run by
+            # operators against real databases, and a chart that fails the
+            # contract must stop the write rather than be discovered by a shopper.
+            from backend.app.services.size_chart_schema import validate_or_raise
+
+            try:
+                intended = validate_or_raise(intended).normalised
+            except ValueError as exc:
+                print(f"  REFUSED {slug}: {exc}")
+                refused.append(slug)
+                continue
             if not args.dry_run:
                 product.size_chart_json = intended
             updated.append(slug)
@@ -83,6 +95,10 @@ def main() -> int:
         print(f"LEFT ALONE — carries a different chart we did not author: {len(foreign)}")
         for s in foreign:
             print(f"  ! {s}")
+    if refused:
+        print(f"REFUSED — failed the size chart contract, nothing written: {len(refused)}")
+        for s in refused:
+            print(f"  x {s}")
     if missing:
         print(f"not present in this catalogue: {len(missing)}")
         for s in missing:

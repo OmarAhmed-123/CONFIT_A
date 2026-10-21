@@ -65,7 +65,10 @@ class BrandService:
         self._assert_brand_ownership(user, brand_id)
         products = self.brand_repo.get_brand_products(brand_id)
         results = []
+        from backend.app.services.size_chart_schema import validate as _validate_chart
         for p in products:
+            chart_res = _validate_chart(p.size_chart_json)
+            parsed_chart = json.loads(chart_res.normalised) if (chart_res.ok and chart_res.has_chart) else {}
             skus_out = [
                 {
                     "id": s.id,
@@ -89,17 +92,35 @@ class BrandService:
                 "title": p.title,
                 "title_ar": p.title_ar,
                 "slug": p.slug,
+                "description": p.description,
+                "description_ar": p.description_ar,
+                "material": p.material,
+                "care_instructions": p.care_instructions,
                 "base_price": p.base_price,
+                "compare_at_price": p.compare_at_price,
+                "gender": p.gender or "unisex",
                 "currency": p.currency,
                 "thumbnail_url": p.thumbnail_url,
                 "color_family": p.color_family,
                 "dominant_hex": p.dominant_hex,
+                "size_chart": parsed_chart,
                 "style_tags": json.loads(p.style_tags) if p.style_tags else [],
                 "occasion_tags": json.loads(p.occasion_tags) if p.occasion_tags else [],
                 "rating": p.rating,
                 "style_compatibility_score": None,
                 "ai_fit_score": None,
                 "is_featured": p.is_featured,
+                # How this price came to be, when it was converted on import
+                # (migration 0044). Null for a row the brand priced in the book
+                # currency. A merchandiser asking "why is this coat $31?" gets
+                # the arithmetic here instead of a support ticket.
+                "price_provenance": ({
+                    "source_currency": p.price_source_currency,
+                    "source_amount": str(p.price_source_amount) if p.price_source_amount is not None else None,
+                    "rate": str(p.price_fx_rate) if p.price_fx_rate is not None else None,
+                    "rate_source": p.price_fx_source,
+                    "as_of": p.price_fx_as_of,
+                } if p.price_source_currency else None),
                 "skus": skus_out
             })
         return results
@@ -255,6 +276,61 @@ class BrandService:
             "is_verified": bp.is_verified,
             "created_at": bp.created_at
         }
+
+    # --- Identity rename (imitation-free catalogue) -----------------------
+    def rename_brand(self, brand_id: int, brand_name: str, slug: Optional[str] = None,
+                     commit: bool = True) -> Dict[str, Any]:
+        """Rename a brand and (optionally) its public slug, in one validated step.
+
+        Validation is the point: a rename must be as strict as registration, so
+        an empty name, an over-long name, or a duplicate slug is refused here
+        rather than written and discovered later by a broken link. The slug is
+        derived from the new name when not supplied, exactly as registration
+        derives it.
+        """
+        clean = (brand_name or "").strip()
+        if len(clean) < 2:
+            raise ValidationDomainError("brand_name must be at least 2 characters")
+        if len(clean) > 120:
+            raise ValidationDomainError("brand_name must be at most 120 characters")
+
+        brand = self.brand_repo.get_by_id(brand_id) if hasattr(self.brand_repo, "get_by_id") else None
+        if brand is None:
+            brand = self.db.query(BrandProfile).filter(BrandProfile.id == brand_id).first()
+        if brand is None:
+            raise ResourceNotFoundError("Brand", brand_id)
+
+        target_slug = (slug or "").strip().lower()
+        if not target_slug:
+            target_slug = re.sub(r"[^a-z0-9]+", "-", clean.lower()).strip("-") or f"brand-{brand_id}"
+        clash = self.brand_repo.get_by_slug(target_slug)
+        if clash is not None and clash.id != brand_id:
+            raise ValidationDomainError(f"slug '{target_slug}' already belongs to another brand")
+
+        before = {"brand_name": brand.brand_name, "slug": brand.slug}
+        updated = self.brand_repo.set_brand_identity(brand_id, clean, target_slug)
+        if commit:
+            self.db.commit()
+            self.db.refresh(updated)
+        return {"id": updated.id, "before": before,
+                "after": {"brand_name": updated.brand_name, "slug": updated.slug}}
+
+    def rename_store(self, store_id: int, brand_id: int, name: str, commit: bool = True) -> Dict[str, Any]:
+        """Rename a store location inside its own tenant. Cross-tenant is refused."""
+        clean = (name or "").strip()
+        if len(clean) < 2:
+            raise ValidationDomainError("store name must be at least 2 characters")
+        store = self.db.query(StoreLocation).filter(StoreLocation.id == store_id).first()
+        if store is None:
+            raise ResourceNotFoundError("Store", store_id)
+        if store.brand_id != brand_id:
+            raise AuthorizationError("Tenant scope violation: store does not belong to this brand")
+        before = store.name
+        updated = self.brand_repo.set_store_name(store_id, clean)
+        if commit:
+            self.db.commit()
+            self.db.refresh(updated)
+        return {"id": updated.id, "before": before, "after": updated.name}
 
     def register_brand(
         self,

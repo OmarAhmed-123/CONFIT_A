@@ -379,7 +379,7 @@ export function CardStack<T extends CardStackItem>({
           </span>
         </button>
 
-        <span className="text-[11px] font-semibold text-foreground/60" dir="ltr">
+        <span className="text-[11px] font-semibold text-foreground/75" dir="ltr">
           {active + 1} / {len}
         </span>
         <span className="sr-only" role="status" aria-live="polite">

@@ -178,7 +178,13 @@ class PartnerLeadOut(BaseModel):
 
 
 class BrandProductOut(ProductSummaryOut):
-    """Partner catalog needs variants; public product summaries omit them."""
+    """Partner catalog needs variants and editable contract fields."""
+    description: Optional[str] = None
+    description_ar: Optional[str] = None
+    material: Optional[str] = None
+    care_instructions: Optional[str] = None
+    size_chart: Dict[str, Any] = Field(default_factory=dict)
+    price_provenance: Optional[Dict[str, Any]] = None
     skus: List[ProductSKUOut]
 
 

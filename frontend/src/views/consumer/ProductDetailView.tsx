@@ -5,6 +5,7 @@ import { Product, StoreInventoryLocation } from "../../models";
 import { useUIStore } from "../../stores/uiStore";
 import { formatMoney } from "../../i18n/format";
 import { buildVariantOptions, skuForColour } from "../../lib/productVariants";
+import { localizedTitle } from "../../lib/localizedText";
 import { useCartStore } from "../../stores/cartStore";
 import {
   TryOnIcon,
@@ -190,7 +191,7 @@ const AccordionSection: React.FC<{
         inside a heading, so screen-reader users can jump between the
         page's sections by heading navigation. Preflight zeroes the
         h3's own margin/size, so the visual stays identical. */}
-    <h3>
+    <h2>
       <button data-motion="progressive" data-motion-tone="icon"
         onClick={onToggle}
         aria-expanded={open}
@@ -204,7 +205,7 @@ const AccordionSection: React.FC<{
           {open ? "−" : "+"}
         </span>
       </button>
-    </h3>
+    </h2>
     {open && <div className="pb-2 confit-fade-in">{children}</div>}
   </div>
 );
@@ -224,7 +225,7 @@ export const ProductDetailView: React.FC = () => {
   // and disagreed with the Discover grid. One shared device list now.
   const { toggleWishlist, isWishlisted: isInWishlist } = useDeviceWishlist();
   const [activeAccordion, setActiveAccordion] = useState<
-    "materials" | "bopis" | "delivery" | null
+    "materials" | "size_chart" | "bopis" | "delivery" | null
   >("materials");
   const [isLoading, setIsLoading] = useState(true);
   const [isSlowLoad, setIsSlowLoad] = useState(false);
@@ -349,9 +350,8 @@ export const ProductDetailView: React.FC = () => {
   // next page can never inherit a product name.
   useEffect(() => {
     if (!product) return;
-    setRouteTitleOverride(
-      (lang === "ar" && product.title_ar) || product.title,
-    );
+    // One helper for both, so the tab and the page cannot disagree again.
+    setRouteTitleOverride(localizedTitle(product, lang));
     return () => setRouteTitleOverride(null);
   }, [product, lang]);
 
@@ -367,7 +367,12 @@ export const ProductDetailView: React.FC = () => {
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.title,
-      image: product.images?.length ? product.images : [product.thumbnail_url],
+      image:
+        (product.photos ?? []).length > 0
+          ? (product.photos ?? []).map((p) => p.url)
+          : product.images?.length
+            ? product.images
+            : [product.thumbnail_url],
       brand: { "@type": "Brand", name: product.brand_name },
       offers: {
         "@type": "Offer",
@@ -451,10 +456,42 @@ export const ProductDetailView: React.FC = () => {
   const { colours, selectedColour, sizesForColour, totalStock } =
     buildVariantOptions(product, selectedSkuId);
 
+  /*
+   * The gallery: ONE FRAME PER PHOTOGRAPH.
+   *
+   * `product.images` is the hero photograph's ratio ladder (one URL per aspect
+   * ratio) — it is not a gallery, and a brand's back/detail shots cannot live
+   * in it. `product.photos` is the ordered set of supplied photographs, each
+   * already reduced to its portrait frame by the server. When it is present the
+   * rail shows every photograph the brand supplied; when it is absent (older
+   * payloads, or a product whose media predates the gallery contract) the page
+   * behaves exactly as it did before.
+   */
+  const galleryPhotos = (product.photos ?? []).filter((p) => !!p?.url);
   const images =
-    product.images && product.images.length > 0
-      ? product.images
-      : [product.thumbnail_url];
+    galleryPhotos.length > 0
+      ? galleryPhotos.map((p) => p.url)
+      : product.images && product.images.length > 0
+        ? product.images
+        : [product.thumbnail_url];
+
+  /*
+   * Whose photograph is on screen.
+   *
+   * The registry labels every asset `stock` | `own` | `partner` and carries an
+   * attribution string, but this page rendered the picture and dropped the
+   * facts — so licensed editorial imagery looked exactly like the boutique's
+   * own studio shot. The disclosure below restores the distinction the server
+   * already made. It is derived ONLY from served fields: no attribution is
+   * invented, and a payload without media simply renders nothing.
+   */
+  const stockMedia = (product.media ?? []).filter(
+    (m) => m.source_type === "stock",
+  );
+  const stockAttribution = Array.from(
+    new Set(stockMedia.map((m) => (m.attribution || "").trim()).filter(Boolean)),
+  );
+  const showsStockPhotography = stockMedia.length > 0;
   const bnpl = product.bnpl;
   const styleScore = product.style_compatibility_available
     ? product.style_compatibility_score
@@ -762,6 +799,19 @@ export const ProductDetailView: React.FC = () => {
               ))}
             </div>
           )}
+
+          {showsStockPhotography && (
+            <p
+              className="mt-2 text-[11px] leading-relaxed text-brand-muted"
+              data-testid="product-photo-attribution"
+            >
+              {stockAttribution.length > 0
+                ? t("product.photo_attribution_licensed", {
+                    credits: stockAttribution.join(" · "),
+                  })
+                : t("product.photo_attribution_licence_only")}
+            </p>
+          )}
         </div>
 
         {/* Buy column stays in view while the gallery scrolls — the
@@ -772,7 +822,14 @@ export const ProductDetailView: React.FC = () => {
               {product.brand_name}
             </span>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-brand-charcoal leading-tight">
-              {product.title}
+              {/*
+                The visible heading must be in the same language as the page.
+                It used to be English on an RTL Arabic page while the DOCUMENT
+                title (below, line ~353) was already Arabic: the tab said one
+                thing and the page said another. title_ar is populated for all
+                12 products, so the data was never the problem.
+              */}
+              {localizedTitle(product, lang)}
             </h1>
             <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mt-2">
               <span className="text-2xl font-serif font-black text-brand-charcoal">
@@ -1065,6 +1122,12 @@ export const ProductDetailView: React.FC = () => {
               }
             >
               <div className="text-brand-muted space-y-1.5 leading-relaxed">
+                {product.gender && (
+                  <div>
+                    <strong>{t('product.department_label')}</strong>{" "}
+                    {t(`discover.gender_${product.gender}`, { defaultValue: product.gender })}
+                  </div>
+                )}
                 <div>
                   <strong>{t('product.composition_label')}</strong>{" "}
                   {product.material || t('product.not_specified')}
@@ -1073,11 +1136,127 @@ export const ProductDetailView: React.FC = () => {
                   <strong>{t('product.care_label')}</strong>{" "}
                   {product.care_instructions || t('product.see_garment_label')}
                 </div>
+                {((product.style_tags && product.style_tags.length > 0) ||
+                  (product.occasion_tags && product.occasion_tags.length > 0)) && (
+                  <div className="flex flex-wrap gap-1.5 pt-1" data-testid="pdp-taxonomy-tags">
+                    {(product.style_tags || []).map((tag) => (
+                      <span
+                        key={`style-${tag}`}
+                        className="rounded-full border border-brand-hairline bg-brand-wash px-2.5 py-0.5 text-[11px] font-medium text-brand-charcoal"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {(product.occasion_tags || []).map((occ) => (
+                      <span
+                        key={`occ-${occ}`}
+                        className="rounded-full border border-brand-hairline bg-white px-2.5 py-0.5 text-[11px] font-medium text-brand-muted"
+                      >
+                        {occ}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {product.description && (
                   <p className="pt-1">{product.description}</p>
                 )}
               </div>
             </AccordionSection>
+
+            {product.size_chart &&
+              product.size_chart.sizes &&
+              typeof product.size_chart.sizes === "object" &&
+              Object.keys(product.size_chart.sizes).length > 0 && (() => {
+                const chart = product.size_chart!;
+                const sizeEntries = Object.entries(
+                  chart.sizes as Record<string, Record<string, [number, number] | number>>,
+                );
+                const dimensionKeys = Array.from(
+                  new Set(sizeEntries.flatMap(([, dims]) => Object.keys(dims || {}))),
+                );
+                const notesList = Array.isArray(chart.notes) ? chart.notes : [];
+                return (
+                  <AccordionSection
+                    title={t('product.size_guide_title')}
+                    open={activeAccordion === "size_chart"}
+                    onToggle={() =>
+                      setActiveAccordion(
+                        activeAccordion === "size_chart" ? null : "size_chart",
+                      )
+                    }
+                  >
+                    <div className="space-y-3 text-brand-muted" data-testid="pdp-size-chart-panel">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                        {chart.unit && (
+                          <span className="rounded-full bg-brand-wash px-2.5 py-0.5 font-semibold text-brand-charcoal">
+                            {t('product.size_unit_badge', { unit: chart.unit })}
+                          </span>
+                        )}
+                        {chart.type && (
+                          <span className="rounded-full bg-brand-wash px-2.5 py-0.5 font-semibold text-brand-charcoal">
+                            {t('product.size_basis_badge', { basis: chart.type })}
+                          </span>
+                        )}
+                        {chart.fit_type && (
+                          <span className="rounded-full bg-brand-wash px-2.5 py-0.5 font-semibold text-brand-charcoal">
+                            {t('product.size_fit_badge', { fit: chart.fit_type })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="overflow-x-auto rounded-xl border border-brand-hairline">
+                        <table className="w-full text-start text-[11px]">
+                          <caption className="sr-only">{t('product.size_guide_title')}</caption>
+                          <thead>
+                            <tr className="border-b border-brand-hairline bg-brand-wash text-brand-charcoal">
+                              <th scope="col" className="px-3 py-2 font-bold">{t('product.size_col_size')}</th>
+                              {dimensionKeys.map((dim) => (
+                                <th key={dim} scope="col" className="px-3 py-2 font-bold capitalize">
+                                  {dim.replace(/_/g, ' ')} {chart.unit ? `(${chart.unit})` : ''}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-brand-hairline bg-white">
+                            {sizeEntries.map(([sz, dims]) => (
+                              <tr key={sz}>
+                                <td className="px-3 py-2 font-bold text-brand-charcoal">{sz}</td>
+                                {dimensionKeys.map((dim) => {
+                                  const val = dims?.[dim];
+                                  const formatted = Array.isArray(val)
+                                    ? val[0] === val[1]
+                                      ? `${val[0]}`
+                                      : `${val[0]}–${val[1]}`
+                                    : val != null
+                                      ? String(val)
+                                      : '—';
+                                  return (
+                                    <td key={dim} className="px-3 py-2 text-brand-charcoal">
+                                      {formatted}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {chart.source && (
+                        <p className="text-[11px] text-brand-muted">
+                          <strong className="text-brand-charcoal">{t('product.size_source_label')}</strong>{' '}
+                          {chart.source}
+                        </p>
+                      )}
+                      {notesList.length > 0 && (
+                        <ul className="list-disc space-y-1 ps-4 text-[11px] text-brand-muted" data-testid="pdp-size-chart-notes">
+                          {notesList.map((note, nIdx) => (
+                            <li key={nIdx}>{note}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </AccordionSection>
+                );
+              })()}
 
             <AccordionSection
               title={t('product.bopis_title')}

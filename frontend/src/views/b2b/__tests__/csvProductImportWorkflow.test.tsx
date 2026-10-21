@@ -95,7 +95,17 @@ vi.mock('../../../services/apiServices', () => ({
       notification_recipients_count: 12,
       errors: [],
     }),
-    exportImportErrors: vi.fn().mockResolvedValue('Row Number,Field,Submitted Value,Error Reason,Corrective Action\n4,base_price,-20.00,Price must be positive,Enter a positive price'),
+    // The API answers text/csv; the client returns a blob plus the server's
+    // filename, so the mock must have that shape or the test would be asserting
+    // against a contract that no longer exists.
+    exportImportErrors: vi.fn().mockResolvedValue({
+      blob: new Blob(['Row Number,Field,Submitted Value,Error Reason,Corrective Action\n4,base_price,-20.00,Price must be positive,Enter a positive price'], { type: 'text/csv' }),
+      filename: 'confit-import-errors.csv',
+    }),
+    downloadCatalogTemplate: vi.fn().mockResolvedValue({
+      blob: new Blob(['product_name,sku,description,category'], { type: 'text/csv' }),
+      filename: 'confit-catalog-template.csv',
+    }),
     updateSKU: vi.fn().mockResolvedValue({ status: 'ok' }),
   },
   adminService: {
@@ -131,7 +141,7 @@ describe('CSV Product Import, Inventory Management & Notifications (B03)', () =>
     vi.clearAllMocks();
   });
 
-  it('renders the "Import Products from CSV" action in the catalog header', async () => {
+  it('renders exactly one import entry point in the catalog header', async () => {
     render(
       <I18nextProvider i18n={i18n}>
         <MemoryRouter>
@@ -140,9 +150,14 @@ describe('CSV Product Import, Inventory Management & Notifications (B03)', () =>
       </I18nextProvider>
     );
 
+    // The header CTA keeps its established B03 name; the modal it opens is
+    // titled "Import Products from CSV". What matters here is that there is ONE
+    // entry point — the second button that POSTed straight to the commit
+    // endpoint (skipping preview) is gone.
     await waitFor(() => {
-      expect(screen.getByText(/Import Products from CSV/i)).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /Bulk CSV Import/i })).toHaveLength(1);
     });
+    expect(screen.queryByRole('button', { name: /Import Products from CSV/i })).toBeNull();
   });
 
   it('opens CSVProductImportModal and displays upload area with template download link', async () => {
@@ -230,5 +245,143 @@ describe('CSV Product Import, Inventory Management & Notifications (B03)', () =>
     const doneBtn = screen.getByText(/View in Catalog Table/i);
     fireEvent.click(doneBtn);
     expect(handleSuccess).toHaveBeenCalled();
+  });
+
+  /**
+   * The behaviours below all guard against the same failure: a modal that tells
+   * the brand owner everything is fine while the API disagreed, or a control
+   * that silently does nothing.
+   */
+  const renderModal = (onSuccess = vi.fn()) =>
+    render(
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter>
+          <CSVProductImportModal isOpen={true} onClose={vi.fn()} onSuccess={onSuccess} />
+        </MemoryRouter>
+      </I18nextProvider>
+    );
+
+  const dropFile = (name = 'catalog.csv') => {
+    const file = new File(['mock'], name, { type: 'text/csv' });
+    const input = screen
+      .getByLabelText(/Drop CSV catalog file here or click to browse/i)
+      .querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+  };
+
+  it('does not opt the customer base into emails by default', async () => {
+    const { container } = renderModal();
+    dropFile();
+    await waitFor(() => expect(screen.getByText(/Confirm & Import/i)).toBeInTheDocument());
+
+    const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox).not.toBeNull();
+    // The API made notifications an explicit opt-in because a 1,000-row load
+    // would otherwise mail every customer on one click.
+    expect(checkbox.checked).toBe(false);
+  });
+
+  it('surfaces the warnings the server actually reported', async () => {
+    (brandService.previewCatalogCSV as any).mockResolvedValueOnce({
+      total_rows: 1,
+      valid_rows_count: 1,
+      error_rows_count: 0,
+      warning_rows_count: 1,
+      duplicate_rows_count: 0,
+      can_import: true,
+      preview_records: [
+        {
+          row_number: 2, status: 'valid', action: 'create', product_name: 'Silk Maxi Dress',
+          sku: 'QA-1', category: 'dresses', price: '97.00', currency: 'USD',
+          stock: 0, size: 'S', color: 'Crimson', gender: 'womens',
+        },
+      ],
+      errors: [],
+      warnings: [
+        { row: 2, field: 'stock_level', message: 'Stock is 0, so the storefront hides this product until it is stocked' },
+        { row: 1, field: 'materiel', message: 'Column "materiel" is not part of the import contract and will be ignored' },
+      ],
+    });
+
+    renderModal();
+    dropFile();
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 warnings/i)).toBeInTheDocument();
+      expect(screen.getByText(/storefront hides this product/i)).toBeInTheDocument();
+      expect(screen.getByText(/will be ignored/i)).toBeInTheDocument();
+    });
+  });
+
+  it('refuses to offer confirmation when the server reports a blocker', async () => {
+    (brandService.previewCatalogCSV as any).mockResolvedValueOnce({
+      total_rows: 1,
+      valid_rows_count: 1,
+      error_rows_count: 0,
+      warning_rows_count: 0,
+      duplicate_rows_count: 0,
+      can_import: false,
+      blocked_reasons: ['Object storage is not configured on this deployment, so no image can be registered'],
+      preview_records: [
+        {
+          row_number: 2, status: 'valid', action: 'create', product_name: 'Shirt',
+          sku: 'QA-2', category: 'tops', price: '27.00', currency: 'USD',
+          stock: 5, size: 'M', color: 'White',
+        },
+      ],
+      errors: [],
+      warnings: [],
+    });
+
+    renderModal();
+    dropFile();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Nothing can be imported yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/Object storage is not configured/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Confirm & Import/i).closest('button')).toBeDisabled();
+  });
+
+  it('downloads the row errors after an import that rejected rows', async () => {
+    const createObjectURL = vi.fn(() => 'blob:mock');
+    const revokeObjectURL = vi.fn();
+    // jsdom implements neither.
+    (URL as any).createObjectURL = createObjectURL;
+    (URL as any).revokeObjectURL = revokeObjectURL;
+
+    (brandService.confirmCatalogImport as any).mockResolvedValueOnce({
+      job_id: 99,
+      status: 'partially_completed',
+      total_rows: 2,
+      accepted_rows: 1,
+      rejected_rows: 1,
+      duplicate_rows: 0,
+      notifications_queued: 0,
+      media_rows_registered: 10,
+      rows_missing_title_ar: 0,
+      rows_gender_inferred: 0,
+      errors: [{ row: 3, field: 'row', message: 'product "Bad Row" was refused: no image_url was supplied' }],
+    });
+
+    renderModal();
+    dropFile();
+    await waitFor(() => expect(screen.getByText(/Confirm & Import/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByText(/Confirm & Import/i));
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 row\(s\) were not imported/i)).toBeInTheDocument();
+      expect(screen.getByText(/no image_url was supplied/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Download Error Report/i));
+    await waitFor(() => {
+      expect(brandService.exportImportErrors).toHaveBeenCalledWith([
+        expect.objectContaining({ row: 3 }),
+      ]);
+      // A blob URL is the only path that works: the endpoint is POST-only, so
+      // the old `window.open(url)` fallback was a guaranteed 405.
+      expect(createObjectURL).toHaveBeenCalled();
+    });
   });
 });

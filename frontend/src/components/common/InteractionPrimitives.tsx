@@ -557,8 +557,22 @@ export const WishlistToggle: React.FC<{
       onClick={handleClick}
       aria-label={t("a11y.toggle_wishlist")}
       aria-pressed={isWishlisted}
+      /*
+       * NO `position` HERE — and that is a bug fix, not a style choice.
+       *
+       * This base class used to start with `relative`. Callers position the
+       * control over a product image with `absolute top-1 end-1`, but a
+       * utility cannot beat another utility: `.relative` and `.absolute` have
+       * equal specificity, so whichever is emitted LAST in the stylesheet
+       * wins — and that was `.relative`. Measured on /discover at 390px: the
+       * button sat in normal flow, 44x44, clipped by the card's overflow and
+       * covering the caption, so 132 controls across the catalogue were
+       * reported as partially obscured (44x14 visible) and the image
+       * container carried a 44px empty band under every photograph.
+       * Position is the caller's decision; this control only owns its size.
+       */
       className={[
-        "relative min-w-[44px] min-h-[44px] flex items-center justify-center",
+        "min-w-[44px] min-h-[44px] flex items-center justify-center",
         className,
       ].join(" ")}
     >

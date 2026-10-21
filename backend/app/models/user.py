@@ -106,6 +106,45 @@ class BrandProfile(Base):
     sponsored_placements = relationship("SponsoredPlacement", back_populates="brand")
 
 
+class BrandDomain(Base):
+    """A hostname a brand has PROVEN it controls (migration 0045).
+
+    Ownership verification, deliberately separate from network safety: a URL
+    still has to survive `core/net_guard` on every hop, and a safe destination
+    still has to belong to the brand asking. Neither check substitutes for the
+    other — see the migration docstring for the defect that separation closes.
+    """
+
+    __tablename__ = "brand_domains"
+
+    id = Column(Integer, primary_key=True, index=True)
+    brand_id = Column(
+        Integer,
+        ForeignKey("brand_profiles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    #: Normalized ASCII hostname — no scheme, no port, no path, no trailing dot.
+    #: Stored in the one form the matcher compares against, so the stored value
+    #: and the compared value cannot drift apart.
+    hostname = Column(String(253), nullable=False, unique=True)
+    #: pending | verified | revoked. Only `verified` authorizes an import.
+    status = Column(String(16), nullable=False, default="pending", server_default="pending")
+    #: The DNS TXT value that proves control. Not a secret: it is a public claim
+    #: only the domain's controller can publish.
+    token = Column(String(64), nullable=False)
+    method = Column(String(16), nullable=False, default="dns_txt", server_default="dns_txt")
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    #: Set when ownership is revoked. A revoked domain authorizes nothing, even
+    #: if `verified_at` is still populated — the pair is what makes revocation
+    #: auditable rather than an erasure.
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(String(300), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False,
+                        default=lambda: datetime.now(timezone.utc))
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

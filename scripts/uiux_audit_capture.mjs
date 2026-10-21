@@ -57,7 +57,7 @@ const GROUPS = {
       '/cart', '/checkout', '/orders', `/orders/${ORDER}`, '/returns', '/profile', '/settings', '/notifications', '/b2b', '/admin'],
   },
   brand: {
-    user: 'brand@cos.com',
+    user: 'brand@casalumen.com',
     routes: ['/b2b', '/b2b/catalog', '/b2b/inventory', '/b2b/orders', '/b2b/analytics', '/b2b/placements', '/partner', '/admin'],
   },
   admin: {

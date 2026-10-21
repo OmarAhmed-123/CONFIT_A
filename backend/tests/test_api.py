@@ -225,7 +225,7 @@ def test_commerce_cart_checkout_and_tracking(client: TestClient):
 
 def test_brand_b2b_dashboard(client: TestClient):
     login_res = client.post("/api/v1/auth/login", json={
-        "email": "brand@massimodutti.com",
+        "email": "brand@ateliersable.com",
         "password": "Password123!"
     })
     token = login_res.json()["access_token"]

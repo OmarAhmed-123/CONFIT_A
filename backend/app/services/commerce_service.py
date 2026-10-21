@@ -352,6 +352,7 @@ class CommerceService:
         # order stays internally consistent: subtotal - discount + tax +
         # shipping == total. A no-op when the market settles in the pricing
         # currency, which is the default configuration.
+        pricing_total = total
         if settlement.converted:
             order_items_payload = [
                 {
@@ -366,6 +367,26 @@ class CommerceService:
             tax = settlement.convert(tax)
             shipping = settlement.convert(shipping)
             total = money_max(subtotal - discount + tax + shipping, Decimal("0.00"))
+
+        expected_quote = checkout_data.get("expected_quote_total")
+        if expected_quote is not None:
+            expected_dec = to_decimal(expected_quote, field="expected_quote_total")
+            quote_ccy = (checkout_data.get("expected_quote_currency") or currency).strip().upper()
+            if quote_ccy == currency:
+                comparable_total = total
+            elif quote_ccy == pricing_ccy:
+                comparable_total = pricing_total
+            else:
+                from backend.app.services.fx_rates import fx_rates as _fx
+                converted_q = _fx.convert_amount(pricing_total, quote_ccy)
+                comparable_total = converted_q if converted_q is not None else total
+                if converted_q is None:
+                    quote_ccy = currency
+            if comparable_total != expected_dec:
+                raise ValidationDomainError(
+                    f"Order total changed from {expected_dec} to {comparable_total} {quote_ccy} since "
+                    f"your cart quote was calculated. Please review and confirm the updated total."
+                )
 
         # Explicit NUMERIC(12,2) range enforcement — never truncate silently.
         # Runs on the SETTLED values: a market currency with a large rate (EGP

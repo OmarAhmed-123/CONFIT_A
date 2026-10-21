@@ -191,7 +191,7 @@ export const BrandBranchesView: React.FC = () => {
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-neutral-50 border border-neutral-200">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted block">
             {t('brand_branches.total_branches')}
           </span>
           <span className="font-serif text-2xl font-bold text-brand-charcoal">
@@ -200,7 +200,7 @@ export const BrandBranchesView: React.FC = () => {
         </div>
 
         <div className="p-5 rounded-2xl bg-neutral-50 border border-neutral-200">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted block">
             {t('brand_branches.verified_locations')}
           </span>
           <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ export const BrandBranchesView: React.FC = () => {
         </div>
 
         <div className="p-5 rounded-2xl bg-neutral-50 border border-neutral-200">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted block">
             {t('brand_branches.bopis_enabled')}
           </span>
           <span className="font-serif text-2xl font-bold text-purple-700">
@@ -235,7 +235,7 @@ export const BrandBranchesView: React.FC = () => {
             aria-label={t('brand_branches.search_aria')}
           />
           <svg
-            className="w-4 h-4 absolute left-3 top-3 text-neutral-400"
+            className="w-4 h-4 absolute left-3 top-3 text-brand-field"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -273,7 +273,7 @@ export const BrandBranchesView: React.FC = () => {
       {/* Empty State */}
       {!isLoading && !error && filteredBranches.length === 0 && (
         <div className="rounded-3xl border border-dashed border-neutral-300 p-12 text-center bg-neutral-50/50 space-y-3">
-          <div className="mx-auto h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+          <div className="mx-auto h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center text-brand-muted">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -329,7 +329,7 @@ export const BrandBranchesView: React.FC = () => {
 
                 {b.pickup_instructions && (
                   <div className="mt-3 text-xs p-3 rounded-xl bg-neutral-50 border border-neutral-200/80 text-neutral-600">
-                    <span className="font-bold text-[10px] uppercase tracking-wider text-neutral-400 block mb-0.5">
+                    <span className="font-bold text-[10px] uppercase tracking-wider text-brand-muted block mb-0.5">
                       Instructions
                     </span>
                     {b.pickup_instructions}
@@ -410,7 +410,7 @@ export const BrandBranchesView: React.FC = () => {
               <button data-motion="admin" data-motion-tone="icon"
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-neutral-400 hover:text-neutral-600 text-sm font-bold"
+                className="text-brand-muted hover:text-neutral-600 text-sm font-bold"
               >
                 ✕
               </button>

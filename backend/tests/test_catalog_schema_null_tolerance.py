@@ -94,12 +94,38 @@ class TestRequiredFieldsAreStillStrict:
         with pytest.raises(ValidationError):
             ProductSummaryOut.model_validate(payload)
 
-    @pytest.mark.parametrize("field", ["id", "sku_code", "size"])
+    # `sku_code` was removed from this list on 2026-10-20 BY DESIGN, not to make
+    # a test pass. It is an internal inventory key that embeds historical brand
+    # initials ("REISS-DRS-GLD-6"), and the product-detail endpoint is public and
+    # unauthenticated; it was serving that string on pages for products since
+    # renamed. The public serializer no longer emits it, so the schema must not
+    # require it. id and size remain genuinely required: a SKU with no size
+    # cannot be selected and a SKU with no id cannot be ordered.
+    @pytest.mark.parametrize("field", ["id", "size"])
     def test_sku_missing_identifier_is_rejected(self, field):
         payload = _sku()
         payload.pop(field)
         with pytest.raises(ValidationError):
             ProductSKUOut.model_validate(payload)
+
+    def test_sku_code_may_be_withheld_from_a_public_payload(self):
+        """The public product page omits it; the model must accept that."""
+        payload = _sku()
+        payload.pop("sku_code")
+
+        parsed = ProductSKUOut.model_validate(payload)
+
+        assert parsed.sku_code is None
+        assert parsed.size  # everything a shopper selects is still present
+
+    def test_tenant_surfaces_still_carry_sku_code(self):
+        """Removing it from the public page must not remove it from the portal.
+
+        The brand-owner catalogue lists SKUs by code and the admin editor edits
+        them; both are tenant-scoped and both still populate the field.
+        """
+        parsed = ProductSKUOut.model_validate(_sku())
+        assert parsed.sku_code == "SKU-1"
 
     def test_null_identifier_is_rejected(self):
         with pytest.raises(ValidationError):

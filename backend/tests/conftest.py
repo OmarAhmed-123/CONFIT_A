@@ -308,3 +308,33 @@ def _reset_email_transport_observation():
     yield
     email_service._LAST_TRANSPORT.clear()
     email_service._LAST_TRANSPORT["observed"] = False
+
+
+@pytest.fixture(autouse=True)
+def _offline_media_materialization(monkeypatch):
+    """Keep the import path's media step offline and deterministic.
+
+    The catalog import now refuses a row whose image cannot actually resolve
+    (a registered row AND a stored object AND a canonical key). Exercises that
+    test import *mechanics* therefore need real materialisation to succeed —
+    but reaching images.pexels.com from the test suite would make 4,000 tests
+    depend on the network, on someone else's uptime, and on a 30s timeout.
+
+    So the fetch step is replaced with a locally synthesised image of the same
+    shape. Everything downstream — centre-crop, ratio ladder, encoding, storage
+    write, canonical key, row registration, verification — runs for real. Only
+    the remote GET is stubbed, which is the one step a unit test must not
+    perform.
+    """
+    from backend.app.services import media_materialization_service as mms
+
+    def _fake_fetch(url: str) -> bytes:
+        from io import BytesIO
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.new("RGB", (1600, 1600), (40, 48, 64)).save(buf, format="JPEG", quality=90)
+        return buf.getvalue()
+
+    monkeypatch.setattr(mms.MediaMaterializationService, "_get_fetch", lambda self: _fake_fetch)
+    yield

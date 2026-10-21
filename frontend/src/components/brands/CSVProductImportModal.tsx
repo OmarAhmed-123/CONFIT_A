@@ -28,6 +28,28 @@ interface CSVProductImportModalProps {
   onSuccess: (result: CatalogImportResult) => void;
 }
 
+/**
+ * The five states the job table's CHECK constraint allows. Only three are
+ * terminal, so only those three stop the poller — a job that is still running
+ * must never be reported as finished.
+ */
+const TERMINAL_JOB_STATES = new Set(['completed', 'partially_completed', 'failed']);
+/**
+ * Poll schedule: eager at first (a small CSV finishes in seconds), then slower
+ * so a 5,000-row import with image downloads does not hammer the API. The total
+ * budget is ~7 minutes; when it runs out the modal says it stopped watching
+ * instead of freezing on a stale "processing".
+ */
+const POLL_INTERVAL_MS = 2000;
+const POLL_BACKOFF_AFTER = 10;
+const POLL_INTERVAL_SLOW_MS = 6000;
+const MAX_POLLS = 60;
+
+/** A job nobody is working on yet. Never "done", never "failed". */
+const isJobSettled = (status: string) =>
+  status === 'completed' || status === 'partially_completed';
+const isJobFailed = (status: string) => status === 'failed';
+
 export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
   isOpen,
   onClose,
@@ -43,8 +65,18 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [previewData, setPreviewData] = useState<CatalogImportPreviewResponse | null>(null);
   const [importResult, setImportResult] = useState<CatalogImportResult | null>(null);
-  const [sendNotifications, setSendNotifications] = useState(true);
+  // OFF by default, matching the API contract. `confirm-import` used to default
+  // to sending and was changed to an explicit opt-in, with the reasoning: a bulk
+  // catalog load of a thousand rows would fire a campaign nobody asked for. The
+  // modal still defaulted to `true`, so the one-click accident the API closed
+  // was re-opened by the UI. Notifications are now a deliberate choice.
+  const [sendNotifications, setSendNotifications] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // True while the poller is still following this job; false once it has
+  // stopped (terminal state or budget exhausted).
+  const [polling, setPolling] = useState(false);
+  const [pollElapsed, setPollElapsed] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useModalFocus<HTMLDivElement>(onClose, isOpen);
@@ -65,12 +97,77 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
       setPreviewData(null);
       setImportResult(null);
       setErrorMsg(null);
+      setPolling(false);
+      setPollElapsed(0);
       setTargetStoreId(undefined);
     }
   }, [isOpen]);
 
-  const handleDownloadTemplate = () => {
-    window.location.href = '/api/v1/partner/catalog/template.csv';
+  /**
+   * Follow a job the server accepted but has not finished.
+   *
+   * `confirm-import` answers with the job id before the rows are committed, so
+   * the result screen used to sit on a `processing` snapshot forever: the
+   * import had not failed, the UI had simply stopped asking. This polls the
+   * job row the worker writes to, so the counts on screen are the server's
+   * counts and the screen moves to a terminal state on its own.
+   */
+  useEffect(() => {
+    if (step !== 'result' || !importResult || TERMINAL_JOB_STATES.has(importResult.status)) return;
+    let cancelled = false;
+    let polls = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const nextDelay = () =>
+      polls < POLL_BACKOFF_AFTER ? POLL_INTERVAL_MS : POLL_INTERVAL_SLOW_MS;
+    const tick = async () => {
+      polls += 1;
+      setPollElapsed(polls);
+      try {
+        const job = await brandService.getCatalogImportJob(importResult.job_id);
+        if (cancelled) return;
+        if (job) {
+          setImportResult(job);
+          if (TERMINAL_JOB_STATES.has(job.status)) return;
+        }
+      } catch {
+        // A transient poll failure is not a failed import: keep the last known
+        // server state on screen and try again until the bound is reached.
+      }
+      if (!cancelled && polls < MAX_POLLS) timer = setTimeout(tick, nextDelay());
+      // Out of budget: the job may well still be running server-side. Say that
+      // rather than leave a spinner implying we are still watching it.
+      else if (!cancelled) setPolling(false);
+    };
+    setPolling(true);
+    timer = setTimeout(tick, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+    // Re-running on status is the point: a non-terminal status is what keeps
+    // the loop alive; a terminal one lets the cleanup below stop it.
+  }, [step, importResult?.job_id, importResult?.status]);
+
+  const saveBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // The template comes from the API that validates against it, so the header a
+  // brand downloads can never drift from the header the importer accepts.
+  const handleDownloadTemplate = async () => {
+    try {
+      const { blob, filename } = await brandService.downloadCatalogTemplate();
+      saveBlob(blob, filename || 'confit-catalog-template.csv');
+    } catch (err: any) {
+      setErrorMsg(err?.message || t('b2b.cat.err_template_download'));
+    }
   };
 
   const handleProcessFileForPreview = async (file: File) => {
@@ -118,9 +215,34 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
       setImportResult(result);
       setStep('result');
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Import failed. Check error log and retry.');
+      // A refusal is not an import failure: the server refused to accept the
+      // job (queue down, 503) or rejected the file (4xx). Saying "import
+      // failed" for a job that was never created would send the brand hunting
+      // for rows that do not exist.
+      setErrorMsg(err?.message || t('b2b.cat.err_not_accepted'));
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  /**
+   * Retry a failed job. The server still holds the file, so this needs no
+   * re-upload; it re-queues the SAME job and the poller above picks it up
+   * because the status leaves the terminal set.
+   */
+  const handleRetryImport = async () => {
+    if (!importResult) return;
+    setIsRetrying(true);
+    setErrorMsg(null);
+    try {
+      const job = await brandService.retryCatalogImport(importResult.job_id);
+      setImportResult(job);
+      setPollElapsed(0);
+      setPolling(true);
+    } catch (err: any) {
+      setErrorMsg(err?.message || t('b2b.cat.err_retry_refused'));
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -131,24 +253,29 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
     onClose();
   };
 
+  /**
+   * Download the row errors as CSV — from the PREVIEW or from the IMPORT.
+   *
+   * The old implementation called a JSON parser on a text/csv response (so it
+   * always threw) and then "fell back" to `window.open` on an endpoint that
+   * only accepts POST (so it answered 405). Both downloads were broken; there
+   * was no working path at all. Single path now, and it reports failure instead
+   * of silently opening a blank tab.
+   */
   const handleDownloadErrorReport = async () => {
-    if (!previewData?.errors || previewData.errors.length === 0) return;
+    const errors = importResult?.errors?.length
+      ? importResult.errors
+      : previewData?.errors ?? [];
+    if (errors.length === 0) return;
     try {
-      const csvStr = await brandService.exportImportErrors(previewData.errors);
-      const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'confit-import-errors.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      // Fallback manual CSV trigger
-      window.open('/api/v1/partner/catalog/export-errors', '_blank');
+      const { blob, filename } = await brandService.exportImportErrors(errors);
+      saveBlob(blob, filename || 'confit-import-errors.csv');
+    } catch (err: any) {
+      setErrorMsg(err?.message || t('b2b.cat.err_report_download'));
     }
   };
+
+  const errorCount = importResult?.errors?.length ?? previewData?.errors?.length ?? 0;
 
   if (!isOpen) return null;
 
@@ -176,7 +303,10 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 <span className="h-1 w-1 rounded-full bg-slate-300" />
                 <span className="text-[10px] font-semibold text-slate-500">
                   {step === 'upload' && t('b2b.cat.step_upload')}
-                  {step === 'preview' && t('b2b.cat.step_preview')}
+                  {step === 'preview' && !isImporting && t('b2b.cat.step_preview')}
+                  {/* While the rows commit, say so: the preview label claimed
+                      "Validate & Preview" during a write. */}
+                  {step === 'preview' && isImporting && t('b2b.cat.step_processing')}
                   {step === 'result' && t('b2b.cat.step_result')}
                 </span>
               </div>
@@ -363,6 +493,44 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 </div>
               </div>
 
+              {/* Warnings: real, non-blocking findings from the server. The
+                  counter badge above has existed since the first cut, but the
+                  API always returned `[]`, so this section was dead. */}
+              {(previewData.warnings?.length ?? 0) > 0 && (
+                <div data-testid="csv-preview-warnings" className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    {t('b2b.cat.warnings_title', { n: previewData.warnings?.length ?? 0 })}
+                  </div>
+                  <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-amber-900">
+                    {(previewData.warnings ?? []).slice(0, 8).map((w, i) => (
+                      <li key={`${w.field}-${i}`} className="flex gap-2">
+                        <span className="font-mono text-amber-700">
+                          {w.row > 1 ? t('b2b.cat.row_label', { row: w.row }) : t('b2b.cat.file_label')}
+                        </span>
+                        <span>{w.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {(previewData.warnings?.length ?? 0) > 8 && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-amber-800">
+                      {t('b2b.cat.warnings_more', { n: (previewData.warnings?.length ?? 0) - 8 })}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* A blocker is not a warning: nothing would land. Say why, and
+                  keep the confirm button disabled (can_import already reflects it). */}
+              {(previewData.blocked_reasons?.length ?? 0) > 0 && (
+                <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900">
+                  <div className="font-bold">{t('b2b.cat.blocked_title')}</div>
+                  <ul className="mt-1.5 list-disc space-y-1 ps-5">
+                    {previewData.blocked_reasons!.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              )}
+
               {/* Data Preview Table */}
               <div className="rounded-2xl border border-slate-200 overflow-hidden">
                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
@@ -382,21 +550,24 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 </div>
                 <div className="overflow-x-auto max-h-72">
                   <table className="w-full text-start text-xs">
+                    <caption className="sr-only">{t('b2b.cat.preview_table_caption')}</caption>
                     <thead>
                       <tr className="border-b border-slate-200 bg-white text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        <th className="py-2.5 px-3">#</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_status')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_action')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_product')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_sku')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_category')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_price')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_stock')}</th>
-                        <th className="py-2.5 px-3">{t('b2b.cat.th_variant')}</th>
+                        <th scope="col" className="py-2.5 px-3">#</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_status')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_action')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_product')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_sku')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_category')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_price')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_stock')}</th>
+                        <th scope="col" className="py-2.5 px-3">{t('b2b.cat.th_variant')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
-                      {previewData.preview_records.map((r, i) => (
+                      {/* Defensive: a preview body without `preview_records` (older API, proxy
+                      error envelope) must render an empty table, not white-screen. */}
+                      {(previewData.preview_records ?? []).map((r, i) => (
                         <tr
                           key={i}
                           className={r.status === 'error' ? 'bg-rose-50/40' : 'hover:bg-slate-50/80'}
@@ -482,17 +653,114 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
           {/* STEP 3: RESULT */}
           {step === 'result' && importResult && (
             <div className="space-y-6 text-center py-4">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-                <CheckCircle2 size={32} />
-              </div>
+              {/* THE ICON AND HEADLINE FOLLOW THE JOB, NOT THE OPTIMISM.
+                  The import is accepted before it runs, so this screen can
+                  legitimately be showing a queued, running or dead job. A green
+                  tick over "Import complete" for any of those is the same lie
+                  the 202-with-a-stale-body used to tell, just moved to the UI. */}
+              {isJobFailed(importResult.status) ? (
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-50 text-rose-600 border border-rose-100">
+                  <XCircle size={32} />
+                </div>
+              ) : isJobSettled(importResult.status) ? (
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  <CheckCircle2 size={32} />
+                </div>
+              ) : (
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 text-amber-600 border border-amber-100">
+                  <RefreshCw size={32} className="motion-safe:animate-spin" />
+                </div>
+              )}
               <div>
                 <h3 className="font-serif text-2xl font-bold text-brand-charcoal">
-                  {t('b2b.cat.result_title')}
+                  {isJobFailed(importResult.status)
+                    ? t('b2b.cat.result_title_failed')
+                    : isJobSettled(importResult.status)
+                      ? t('b2b.cat.result_title')
+                      : t('b2b.cat.result_title_running')}
                 </h3>
                 <p className="mt-1 text-xs text-slate-600">
-                  Import Job #{importResult.job_id} ({importResult.status})
+                  {t('b2b.cat.result_job', {
+                    id: importResult.job_id,
+                    status: t(`b2b.cat.status_${importResult.status}`, {
+                      defaultValue: importResult.status,
+                    }),
+                  })}
                 </p>
               </div>
+
+              {/* Live progress, from the row the worker writes. A percentage is
+                  only shown when the server knows the total. */}
+              {!isJobSettled(importResult.status) && !isJobFailed(importResult.status) && (
+                <div className="mx-auto max-w-2xl rounded-2xl border border-amber-100 bg-amber-50/70 p-4 text-start">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-amber-900">
+                    <span>{t('b2b.cat.progress_processed')}</span>
+                    <span className="font-mono">
+                      {importResult.processed_rows ?? 0}
+                      {importResult.total_rows
+                        ? ` / ${importResult.total_rows}`
+                        : ''}
+                    </span>
+                  </div>
+                  {importResult.total_rows > 0 && (
+                    <div
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={importResult.total_rows}
+                      aria-valuenow={importResult.processed_rows ?? 0}
+                      aria-label={t('b2b.cat.progress_processed')}
+                      className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-amber-200/70"
+                    >
+                      <div
+                        className="h-full rounded-full bg-amber-500 transition-all"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.round(
+                              ((importResult.processed_rows ?? 0) /
+                                Math.max(1, importResult.total_rows)) *
+                                100,
+                            ),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* You may close the modal: the work is server-side now. */}
+                  <p className="mt-2 text-[11px] leading-relaxed text-amber-800">
+                    {t('b2b.cat.progress_safe_to_close')}
+                  </p>
+                  {!polling && (
+                    <p className="mt-1 text-[11px] font-semibold text-amber-900">
+                      {t('b2b.cat.progress_stopped_watching')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* A dead job says why, and offers the retry that actually works. */}
+              {isJobFailed(importResult.status) && (
+                <div className="mx-auto max-w-2xl space-y-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-start">
+                  <p className="text-[11px] leading-relaxed text-rose-900">
+                    {importResult.last_error
+                      ? t('b2b.cat.failed_reason', { reason: importResult.last_error })
+                      : t('b2b.cat.failed_no_reason')}
+                  </p>
+                  <button
+                    data-motion="upload"
+                    type="button"
+                    onClick={handleRetryImport}
+                    disabled={isRetrying}
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2 text-[11px] font-bold text-rose-800 hover:bg-rose-100 disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      size={13}
+                      className={isRetrying ? 'motion-safe:animate-spin' : undefined}
+                    />
+                    <span>{t('b2b.cat.btn_retry_import')}</span>
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -528,6 +796,86 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* The import returns facts the modal never showed: how many
+                  Arabic titles are missing, how many image assets were
+                  registered, and which rows were refused. Reporting "done"
+                  without them would be the summary lying by omission. */}
+              <div className="mx-auto max-w-2xl space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-start text-[11px] leading-relaxed text-slate-700">
+                <div className="flex justify-between gap-3">
+                  <span>{t('b2b.cat.result_media')}</span>
+                  <span className="font-mono font-bold text-brand-charcoal">
+                    {importResult.media_rows_registered ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>{t('b2b.cat.result_missing_ar')}</span>
+                  <span className="font-mono font-bold text-brand-charcoal">
+                    {importResult.rows_missing_title_ar ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>{t('b2b.cat.result_gender_inferred')}</span>
+                  <span className="font-mono font-bold text-brand-charcoal">
+                    {importResult.rows_gender_inferred ?? 0}
+                  </span>
+                </div>
+                {importResult.rows_missing_title_ar ? (
+                  <p className="pt-1 text-amber-800">{t('b2b.cat.result_missing_ar_hint')}</p>
+                ) : null}
+                {/* Images the server refused or could not fetch. The import can
+                    be "completed" with a smaller gallery than the CSV asked
+                    for, and saying so is the difference between a usable
+                    report and a lie by omission. */}
+                {(importResult.photos_not_imported ?? 0) > 0 && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <div className="flex justify-between gap-3">
+                      <span>{t('b2b.cat.result_photos_not_imported')}</span>
+                      <span className="font-mono font-bold text-rose-700">
+                        {importResult.photos_not_imported}
+                      </span>
+                    </div>
+                    <ul className="mt-1 space-y-1 text-[11px] text-rose-800">
+                      {(importResult.media_warnings ?? []).slice(0, 5).map((w, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="font-mono">
+                            {w.row != null && w.row > 1
+                              ? t('b2b.cat.row_label', { row: w.row })
+                              : t('b2b.cat.file_label')}
+                          </span>
+                          <span>{w.message}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {errorCount > 0 && (
+                <div className="mx-auto max-w-2xl rounded-2xl border border-rose-200 bg-rose-50 p-4 text-start">
+                  <div className="text-xs font-bold text-rose-900">
+                    {t('b2b.cat.result_rejected_title', { n: errorCount })}
+                  </div>
+                  <ul className="mt-1.5 space-y-1 text-[11px] text-rose-900">
+                    {(importResult.errors ?? []).slice(0, 5).map((e: any, i: number) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="font-mono text-rose-700">
+                          {e?.row > 1 ? t('b2b.cat.row_label', { row: e.row }) : t('b2b.cat.file_label')}
+                        </span>
+                        <span>{e?.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button data-motion="download"
+                    type="button"
+                    onClick={handleDownloadErrorReport}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-rose-800 hover:underline"
+                  >
+                    <Download size={13} />
+                    {t('b2b.cat.btn_download_error_report')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

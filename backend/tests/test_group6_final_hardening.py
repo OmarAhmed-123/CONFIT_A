@@ -39,11 +39,11 @@ def create_test_user_and_brand(db, suffix=""):
         db.commit()
         db.refresh(cat)
     if suffix in ["isolation1", "isolation2"]:
-        email = "brand@massimodutti.com" if suffix == "isolation1" else "brand@cos.com"
+        email = "brand@ateliersable.com" if suffix == "isolation1" else "brand@casalumen.com"
         user = db.query(User).filter(User.email == email).first()
         brand = db.query(BrandProfile).filter(BrandProfile.user_id == user.id).first()
         return user, brand, cat
-    email = "brand@massimodutti.com"
+    email = "brand@ateliersable.com"
     user = db.query(User).filter(User.email == email).first()
     brand = db.query(BrandProfile).filter(BrandProfile.user_id == user.id).first()
     return user, brand, cat

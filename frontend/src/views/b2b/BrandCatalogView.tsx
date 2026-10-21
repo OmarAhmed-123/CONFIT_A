@@ -7,6 +7,7 @@ import { useBrandViewModel, CatalogImportJob } from '../../viewmodels/useBrandVi
 import { Surface } from '../../components/common/Surface';
 import { HonestProductImage } from '../../components/common/HonestProductImage';
 import { request } from '../../services/apiClient';
+import { brandService } from '../../services/apiServices';
 import { CSVProductImportModal } from '../../components/brands/CSVProductImportModal';
 import { CatalogImportResult } from '../../models';
 
@@ -15,9 +16,20 @@ import { CatalogImportResult } from '../../models';
  * Boutique Branch Inventory Management, and Automated Notifications.
  */
 
+/**
+ * Illustrative row shown in the dialog. It is NOT the download any more — the
+ * download comes from `/partner/catalog/template.csv`, so the file a brand
+ * receives is produced by the code that validates it.
+ *
+ * It was also wrong: it named the category `shirts`, which the seeded catalogue
+ * does not contain (the seeded slugs are outerwear, tops, bottoms, dresses,
+ * footwear, accessories) and it priced in EGP while the price book is
+ * denominated in USD. A brand copying this example was guaranteed two
+ * validation errors. Kept here only as on-screen text, and kept correct.
+ */
 const SAMPLE_CSV = [
-  'product_name,sku,description,category,price,currency,original_price,color,size,stock_quantity,image_url',
-  '"Classic Cotton Shirt",CONFIT-SHIRT-001,"Regular fit crisp cotton shirt",shirts,850.00,EGP,1000.00,White,M,25,https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg',
+  'product_name,sku,description,category,price,currency,original_price,color,size,stock_quantity,image_url,gender',
+  '"Classic Cotton Shirt",CONFIT-SHIRT-001,"Regular fit crisp cotton shirt",tops,27.00,USD,33.50,White,M,25,https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg,unisex',
 ].join('\n') + '\n';
 
 const TERMINAL = new Set(['completed', 'partially_completed', 'failed']);
@@ -33,7 +45,7 @@ export const BrandCatalogView: React.FC = () => {
   const { t } = useTranslation();
   const {
     products, updateSKUInventory, isLoading, importJobs,
-    fetchErrors, refresh, getImportJobStatus, uploadCatalogCSV, isUploading,
+    fetchErrors, refresh,
   } = useBrandViewModel();
 
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
@@ -41,75 +53,286 @@ export const BrandCatalogView: React.FC = () => {
   const [editStock, setEditStock] = useState<number>(20);
   const [editPrice, setEditPrice] = useState<number | undefined>(undefined);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
   const [lastImportResult, setLastImportResult] = useState<CatalogImportResult | CatalogImportJob | null>(null);
   const [tag, setTag] = useState<Record<number, TagPhase>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [domainsOpen, setDomainsOpen] = useState(false);
+  const [domains, setDomains] = useState<any[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domainInput, setDomainInput] = useState('');
+  const [domainBusy, setDomainBusy] = useState(false);
+  const [domainFeedback, setDomainFeedback] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [detailDraft, setDetailDraft] = useState<{
+    title: string;
+    description: string;
+    description_ar: string;
+    material: string;
+    care_instructions: string;
+    gender: string;
+    style_tags: string;
+    occasion_tags: string;
+    chart_unit: 'cm' | 'in';
+    chart_type: 'body' | 'garment';
+    chart_fit: 'slim' | 'regular' | 'relaxed' | 'oversized';
+    chart_source: string;
+    chart_notes: string;
+    chart_rows: string;
+  } | null>(null);
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [detailFeedback, setDetailFeedback] = useState<{ tone: 'ok' | 'warn' | 'err'; text: string } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
 
-  const closeBulkDialog = useCallback(() => { if (!isUploading) setBulkModalOpen(false); }, [isUploading]);
+  const loadDomains = useCallback(async () => {
+    setDomainsLoading(true);
+    try {
+      const res = await brandService.listBrandDomains();
+      setDomains(Array.isArray(res?.domains) ? res.domains : []);
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainsLoading(false);
+    }
+  }, [t]);
 
-  const downloadSampleCsv = useCallback(() => {
-    const blob = new Blob(['\ufeff' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'confit-catalog-template.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleToggleDomains = async () => {
+    const next = !domainsOpen;
+    setDomainsOpen(next);
+    if (next) {
+      await loadDomains();
+    }
+  };
+
+  const handleClaimDomain = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!domainInput.trim() || domainBusy) return;
+    setDomainBusy(true);
+    setDomainFeedback(null);
+    try {
+      const claimed = await brandService.claimBrandDomain(domainInput.trim());
+      setDomainInput('');
+      setDomainFeedback({
+        tone: 'ok',
+        text: t('b2b.cat.domain_claimed_msg', { host: claimed.hostname }),
+      });
+      await loadDomains();
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainBusy(false);
+    }
+  };
+
+  const handleVerifyDomain = async (hostname: string) => {
+    setDomainBusy(true);
+    setDomainFeedback(null);
+    try {
+      const res = await brandService.verifyBrandDomain(hostname);
+      setDomainFeedback({
+        tone: res.imports_allowed ? 'ok' : 'err',
+        text: res.imports_allowed
+          ? t('b2b.cat.domain_verified_msg', { host: res.hostname })
+          : res.last_error || t('b2b.cat.domain_pending_msg', { host: res.hostname }),
+      });
+      await loadDomains();
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainBusy(false);
+    }
+  };
+
+  const handleRevokeOrReleaseDomain = async (hostname: string, release: boolean) => {
+    setDomainBusy(true);
+    setDomainFeedback(null);
+    try {
+      await brandService.revokeBrandDomain(hostname, release);
+      setDomainFeedback({
+        tone: 'ok',
+        text: release
+          ? t('b2b.cat.domain_released_msg', { host: hostname })
+          : t('b2b.cat.domain_revoked_msg', { host: hostname }),
+      });
+      await loadDomains();
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainBusy(false);
+    }
+  };
+
+  const openProductEditor = (p: any) => {
+    if (editingProductId === p.id) {
+      setEditingProductId(null);
+      setDetailDraft(null);
+      setDetailFeedback(null);
+      return;
+    }
+    const sc = p.size_chart && typeof p.size_chart === 'object' ? p.size_chart : {};
+    const sizeLines = sc.sizes && typeof sc.sizes === 'object'
+      ? Object.entries(sc.sizes as Record<string, Record<string, any>>)
+          .map(([sz, dims]) => {
+            const pairs = Object.entries(dims || {}).map(([k, v]) =>
+              Array.isArray(v) ? `${k}:${v[0]}-${v[1]}` : `${k}:${v}`,
+            );
+            return `${sz} | ${pairs.join(', ')}`;
+          })
+          .join('\n')
+      : '';
+    setEditingProductId(p.id);
+    setDetailFeedback(null);
+    setDetailDraft({
+      title: p.title || '',
+      description: p.description || '',
+      description_ar: p.description_ar || '',
+      material: p.material || '',
+      care_instructions: p.care_instructions || '',
+      gender: p.gender || 'unisex',
+      style_tags: Array.isArray(p.style_tags) ? p.style_tags.join(', ') : '',
+      occasion_tags: Array.isArray(p.occasion_tags) ? p.occasion_tags.join(', ') : '',
+      chart_unit: sc.unit === 'in' ? 'in' : 'cm',
+      chart_type: sc.type === 'garment' ? 'garment' : 'body',
+      chart_fit: (['slim', 'regular', 'relaxed', 'oversized'].includes(sc.fit_type)
+        ? sc.fit_type
+        : 'regular') as any,
+      chart_source: sc.source || '',
+      chart_notes: Array.isArray(sc.notes) ? sc.notes.join('\n') : '',
+      chart_rows: sizeLines,
+    });
+  };
+
+  const handleSaveProductDetails = async (productId: number) => {
+    if (!detailDraft || detailSaving) return;
+    setDetailSaving(true);
+    setDetailFeedback(null);
+    try {
+      const styleList = detailDraft.style_tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const occList = detailDraft.occasion_tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const res = await brandService.updateProductDetails(productId, {
+        title: detailDraft.title.trim(),
+        description: detailDraft.description,
+        description_ar: detailDraft.description_ar,
+        material: detailDraft.material,
+        care_instructions: detailDraft.care_instructions,
+        gender: detailDraft.gender,
+        style_tags: styleList,
+        occasion_tags: occList,
+      });
+
+      if (detailDraft.chart_rows.trim()) {
+        const parsedSizes: Record<string, Record<string, [number, number] | number>> = {};
+        for (const rawLine of detailDraft.chart_rows.split('\n')) {
+          const line = rawLine.trim();
+          if (!line) continue;
+          const [szPart, dimsPart] = line.split('|');
+          const sz = (szPart || '').trim();
+          if (!sz || !dimsPart) continue;
+          parsedSizes[sz] = {};
+          for (const seg of dimsPart.split(',')) {
+            const [dimName, rangeStr] = seg.split(':').map((x) => x.trim());
+            if (!dimName || !rangeStr) continue;
+            if (rangeStr.includes('-')) {
+              const [lo, hi] = rangeStr.split('-').map((n) => Number(n.trim()));
+              parsedSizes[sz][dimName] = [lo, hi];
+            } else {
+              parsedSizes[sz][dimName] = Number(rangeStr);
+            }
+          }
+        }
+        const notesArr = detailDraft.chart_notes
+          .split('\n')
+          .map((n) => n.trim())
+          .filter(Boolean);
+        await brandService.putProductSizeChart(productId, {
+          schema_version: '1.0',
+          unit: detailDraft.chart_unit,
+          type: detailDraft.chart_type,
+          fit_type: detailDraft.chart_fit,
+          source: detailDraft.chart_source.trim() || 'Brand garment specification',
+          notes: notesArr,
+          sizes: parsedSizes,
+        });
+      }
+
+      const warnMessages = (res.warnings || []).map((w: any) => w.message).join(' ');
+      setDetailFeedback({
+        tone: warnMessages ? 'warn' : 'ok',
+        text: warnMessages || t('b2b.cat.details_saved_msg'),
+      });
+      refresh();
+    } catch (err: any) {
+      setDetailFeedback({
+        tone: 'err',
+        text: err?.message || t('b2b.cat.details_err_msg'),
+      });
+    } finally {
+      setDetailSaving(false);
+    }
+  };
+
+
+  /**
+   * Download the template the API validates against.
+   *
+   * There used to be two templates: this file's hardcoded string and the
+   * server's `generate_sample_csv()`. They disagreed on the category slugs, so
+   * "download sample" from this dialog produced a file the importer rejected
+   * while "download template" from the other dialog produced one it accepted.
+   * The server is the only authority now; the local string is display-only and
+   * is used as a fallback precisely because it is no longer a second contract.
+   */
+  const downloadSampleCsv = useCallback(async () => {
+    try {
+      const { blob, filename } = await brandService.downloadCatalogTemplate();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'confit-catalog-template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      const blob = new Blob(['\ufeff' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'confit-catalog-template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   }, []);
 
-  const handleFileUpload = async (file: File) => {
-    setFileError(null);
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setFileError(t('b2b.cat.file_err_type'));
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setFileError(t('b2b.cat.file_err_size'));
-      return;
-    }
-    try {
-      const result = await uploadCatalogCSV(file);
-      setLastImportResult(result);
-      if (result?.job_id != null && !TERMINAL.has(result.status)) {
-        followJob(result.job_id, Date.now());
-      } else {
-        refresh();
-      }
-    } catch (err) {
-      /* the view-model already toasts the failure; nothing to fabricate here */
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]);
-  };
-
-  const followJob = useCallback((jobId: number, startedAt: number) => {
-    const step = async () => {
-      const job = await getImportJobStatus(jobId);
-      if (!job) return;
-      setLastImportResult(job);
-      if (TERMINAL.has(job.status)) {
-        refresh();
-        return;
-      }
-      if (Date.now() - startedAt > 90_000) return;
-      pollTimer.current = setTimeout(step, 2500);
+  /**
+   * Keep the import ledger honest while a job is still running.
+   *
+   * The ledger used to be a snapshot: a job that was `queued` when the page
+   * loaded stayed `queued` on screen until a manual reload, even after the
+   * worker finished it. One refetch timer per open page is enough — the modal
+   * follows its own job, this covers "come back later" and parallel imports.
+   */
+  const activeJobs = importJobs.filter((j) => !TERMINAL.has(j.status)).length;
+  useEffect(() => {
+    if (activeJobs === 0) return;
+    pollTimer.current = setTimeout(() => refresh(), 3000);
+    return () => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
     };
-    pollTimer.current = setTimeout(step, 2500);
-  }, [getImportJobStatus, refresh]);
+  }, [activeJobs, refresh]);
 
   const handleSaveSku = async (skuId: number) => {
     if (saving) return;
@@ -121,6 +344,9 @@ export const BrandCatalogView: React.FC = () => {
 
   const handleImportComplete = (result: CatalogImportResult) => {
     setLastImportResult(result);
+    // The modal already followed a non-terminal job to a terminal state before
+    // it reported, so this is a refresh of settled truth — plus the ledger's
+    // own poller picks up anything still running.
     refresh();
   };
 
@@ -220,13 +446,13 @@ export const BrandCatalogView: React.FC = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            data-motion="upload"
+            data-motion="admin"
             type="button"
-            onClick={() => { setFileError(null); setBulkModalOpen(true); }}
-            className={btnPrimary}
+            onClick={handleToggleDomains}
+            data-testid="brand-domains-toggle"
+            className={btnGhost}
           >
-            <UploadIcon size={14} />
-            {t('b2b.cat.bulk_cta')}
+            {t('b2b.cat.domains_cta')}
           </button>
           <button
             data-motion="upload"
@@ -234,11 +460,143 @@ export const BrandCatalogView: React.FC = () => {
             onClick={() => setImportModalOpen(true)}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-coral px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#E76A52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral shadow-xs"
           >
-            <Upload size={14} aria-hidden="true" />
-            {t('b2b.cat.import_products_cta')}
+            {/* The design system's own "upload" verb glyph, not a generic
+                lucide icon: the button may only borrow the vocabulary the
+                brand sheets define, and the labelled text carries the meaning
+                so the glyph stays decorative. */}
+            <UploadIcon size={16} aria-hidden="true" />
+            {/* The established entry point (B03): the modal it opens is titled
+                "Import Products from CSV", but the button keeps its name so the
+                screen's contract — and the audit test that pins it — hold. */}
+            {t('b2b.cat.bulk_cta')}
           </button>
         </div>
       </header>
+
+      {/* ------------------------------------------------------ verified image domains panel */}
+      {domainsOpen && (
+        <Surface variant="solid" as="section" className="space-y-4 rounded-2xl p-6" data-testid="brand-domains-panel">
+          <div className="border-b border-slate-200 pb-3">
+            <h2 className="font-serif text-lg font-bold text-brand-charcoal">
+              {t('b2b.cat.domains_title')}
+            </h2>
+            <p className="mt-1 text-xs text-slate-600">
+              {t('b2b.cat.domains_subtitle')}
+            </p>
+          </div>
+
+          <form onSubmit={handleClaimDomain} className="flex flex-col sm:flex-row gap-3">
+            <label htmlFor="brand-domain-claim-input" className="sr-only">
+              {t('b2b.cat.domain_input_label')}
+            </label>
+            <input
+              id="brand-domain-claim-input"
+              type="text"
+              value={domainInput}
+              onChange={(e) => setDomainInput(e.target.value)}
+              placeholder={t('b2b.cat.domain_placeholder')}
+              className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-brand-charcoal focus:border-brand-charcoal focus:outline-none focus:ring-1 focus:ring-brand-charcoal"
+            />
+            <button
+              data-motion="admin"
+              type="submit"
+              disabled={domainBusy || !domainInput.trim()}
+              className={btnPrimary}
+            >
+              {t('b2b.cat.domain_claim_btn')}
+            </button>
+          </form>
+
+          {domainFeedback && (
+            <div
+              role="status"
+              className={`rounded-xl border p-3 text-xs font-medium ${
+                domainFeedback.tone === 'ok'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-rose-200 bg-rose-50 text-rose-800'
+              }`}
+            >
+              {domainFeedback.text}
+            </div>
+          )}
+
+          {domainsLoading ? (
+            <p className="text-xs text-slate-600">{t('b2b.cat.loading')}</p>
+          ) : domains.length === 0 ? (
+            <p className="text-xs text-slate-600">{t('b2b.cat.domains_empty')}</p>
+          ) : (
+            <div className="space-y-3">
+              {domains.map((dom) => (
+                <div
+                  key={dom.hostname}
+                  className="rounded-xl border border-slate-200 bg-brand-wash p-4 space-y-2 text-xs"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-brand-charcoal">{dom.hostname}</span>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                          dom.imports_allowed
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : dom.is_expired
+                              ? 'bg-amber-100 text-amber-800'
+                              : dom.status === 'revoked'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {dom.is_expired ? t('b2b.cat.domain_status_expired') : dom.status}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        data-motion="admin"
+                        type="button"
+                        disabled={domainBusy}
+                        onClick={() => handleVerifyDomain(dom.hostname)}
+                        className={btnPrimary}
+                      >
+                        {t('b2b.cat.domain_verify_btn')}
+                      </button>
+                      {dom.status !== 'revoked' && (
+                        <button
+                          data-motion="neutral"
+                          type="button"
+                          disabled={domainBusy}
+                          onClick={() => handleRevokeOrReleaseDomain(dom.hostname, false)}
+                          className="min-h-12 rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700"
+                        >
+                          {t('b2b.cat.domain_revoke_btn')}
+                        </button>
+                      )}
+                      <button
+                        data-motion="neutral"
+                        type="button"
+                        disabled={domainBusy}
+                        onClick={() => handleRevokeOrReleaseDomain(dom.hostname, true)}
+                        className="min-h-12 rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700"
+                      >
+                        {t('b2b.cat.domain_release_btn')}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-2.5 font-mono text-[11px] text-brand-charcoal">
+                    TXT @ / {dom.hostname} → {dom.dns_record}
+                  </div>
+                  {dom.expires_at && (
+                    <p className="text-[11px] text-slate-600">
+                      {t('b2b.cat.domain_expires_label', { date: dom.expires_at.slice(0, 10) })}
+                    </p>
+                  )}
+                  {dom.last_error && (
+                    <p className="text-[11px] text-rose-700">{dom.last_error}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Surface>
+      )}
 
       {/* ------------------------------------------------------ import jobs ledger */}
       {fetchErrors.imports && (
@@ -390,16 +748,216 @@ export const BrandCatalogView: React.FC = () => {
                     <span className="ms-2 text-[11px] text-slate-500">ID: {p.id}</span>
                   </div>
                 </div>
-                <button data-motion="creative"
-                  type="button"
-                  disabled={tagState.phase === 'previewing' || tagState.phase === 'applying'}
-                  onClick={() => runTag(p.id, true)}
-                  className={btnGhost}
-                >
-                  <Tags size={14} aria-hidden="true" />
-                  {t('b2b.cat.tag_cta')}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-slate-200 bg-brand-wash px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                    {t('b2b.cat.curation_readonly')}
+                  </span>
+                  <button
+                    data-motion="admin"
+                    type="button"
+                    onClick={() => openProductEditor(p)}
+                    data-testid={`edit-product-${p.id}`}
+                    className={btnGhost}
+                  >
+                    {t('b2b.cat.edit_details_cta')}
+                  </button>
+                  <button data-motion="creative"
+                    type="button"
+                    disabled={tagState.phase === 'previewing' || tagState.phase === 'applying'}
+                    onClick={() => runTag(p.id, true)}
+                    className={btnGhost}
+                  >
+                    <Tags size={14} aria-hidden="true" />
+                    {t('b2b.cat.tag_cta')}
+                  </button>
+                </div>
               </div>
+
+              {editingProductId === p.id && detailDraft && (
+                <div className="space-y-4 rounded-xl border border-slate-200 bg-brand-wash p-4 text-xs" data-testid={`product-editor-${p.id}`}>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_title')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.title}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, title: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_gender')}</span>
+                      <select
+                        value={detailDraft.gender}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, gender: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      >
+                        <option value="womens">{t('discover.gender_womens')}</option>
+                        <option value="mens">{t('discover.gender_mens')}</option>
+                        <option value="unisex">{t('discover.gender_unisex')}</option>
+                      </select>
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_material')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.material}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, material: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_care')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.care_instructions}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, care_instructions: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_style_tags')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.style_tags}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, style_tags: e.target.value })}
+                        placeholder={t('b2b.cat.style_placeholder')}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_occasion_tags')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.occasion_tags}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, occasion_tags: e.target.value })}
+                        placeholder={t('b2b.cat.occasion_placeholder')}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1 sm:col-span-2">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_description')}</span>
+                      <textarea
+                        rows={2}
+                        value={detailDraft.description}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, description: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-3 space-y-3">
+                    <h3 className="font-bold text-brand-charcoal">{t('b2b.cat.chart_section_title')}</h3>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_unit')}</span>
+                        <select
+                          value={detailDraft.chart_unit}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_unit: e.target.value as 'cm' | 'in' })}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        >
+                          <option value="cm">cm</option>
+                          <option value="in">in</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_basis')}</span>
+                        <select
+                          value={detailDraft.chart_type}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_type: e.target.value as 'body' | 'garment' })}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        >
+                          <option value="body">body</option>
+                          <option value="garment">garment</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_fit')}</span>
+                        <select
+                          value={detailDraft.chart_fit}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_fit: e.target.value as any })}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        >
+                          <option value="slim">slim</option>
+                          <option value="regular">regular</option>
+                          <option value="relaxed">relaxed</option>
+                          <option value="oversized">oversized</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_source')}</span>
+                        <input
+                          type="text"
+                          value={detailDraft.chart_source}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_source: e.target.value })}
+                          placeholder={t('b2b.cat.chart_source_placeholder')}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_rows_label')}</span>
+                        <textarea
+                          rows={3}
+                          value={detailDraft.chart_rows}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_rows: e.target.value })}
+                          placeholder={t('b2b.cat.chart_rows_placeholder')}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs text-brand-charcoal"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_notes_label')}</span>
+                        <textarea
+                          rows={3}
+                          value={detailDraft.chart_notes}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_notes: e.target.value })}
+                          placeholder={t('b2b.cat.chart_notes_placeholder')}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {detailFeedback && (
+                    <div
+                      role="status"
+                      className={`rounded-lg border p-2.5 text-xs ${
+                        detailFeedback.tone === 'ok'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : detailFeedback.tone === 'warn'
+                            ? 'border-amber-200 bg-amber-50 text-amber-900'
+                            : 'border-rose-200 bg-rose-50 text-rose-800'
+                      }`}
+                    >
+                      {detailFeedback.text}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      data-motion="neutral"
+                      type="button"
+                      onClick={() => {
+                        setEditingProductId(null);
+                        setDetailDraft(null);
+                      }}
+                      className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700"
+                    >
+                      {t('b2b.cat.cancel')}
+                    </button>
+                    <button
+                      data-motion="admin"
+                      type="button"
+                      disabled={detailSaving}
+                      onClick={() => handleSaveProductDetails(p.id)}
+                      className={btnPrimary}
+                    >
+                      {t('b2b.cat.save')}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* ------------------------------------------ AI tag preview/apply */}
               {tagState.phase !== 'idle' && (
@@ -559,68 +1117,6 @@ export const BrandCatalogView: React.FC = () => {
         onSuccess={handleImportComplete}
       />
 
-      {/* ------------------------------------------------------ bulk CSV modal */}
-      {bulkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.cat.modal_title')}</h2>
-            <div className="space-y-2 text-xs text-slate-600">
-              <p>{t('b2b.cat.modal_required', { cols: 'title, category_slug, base_price, color_family, thumbnail_url' })}</p>
-              <p>{t('b2b.cat.modal_optional', { cols: 'title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images' })}</p>
-              <p className="rounded-lg bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-700">{t('b2b.cat.modal_limits')}</p>
-            </div>
-
-            <div
-              role="button" tabIndex={0} aria-label={t('b2b.choose_csv')}
-              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isUploading) { e.preventDefault(); fileInputRef.current?.click(); } }}
-              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors duration-300 ease-luxury ${dragActive ? 'border-brand-charcoal bg-brand-charcoal/5' : 'border-slate-300 bg-brand-wash'} ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
-            >
-              <input ref={fileInputRef} type="file" accept=".csv" onChange={(e) => { if (e.target.files && e.target.files[0]) handleFileUpload(e.target.files[0]); }} className="hidden" />
-              {isUploading ? (
-                <div className="space-y-2">
-                  <RefreshCw size={22} className="mx-auto motion-safe:animate-spin text-brand-charcoal" aria-hidden="true" />
-                  <p className="text-xs font-semibold text-brand-charcoal">{t('b2b.cat.drop_processing')}</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <UploadIcon size={22} className="mx-auto text-brand-charcoal" />
-                  <p className="text-xs font-semibold text-slate-600">{t('b2b.cat.drop_cta')}</p>
-                  <p className="text-[11px] text-slate-500">{t('b2b.cat.drop_hint')}</p>
-                </div>
-              )}
-            </div>
-
-            {fileError && (
-              <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-2 text-xs font-semibold text-rose-700">
-                {fileError}
-              </p>
-            )}
-
-            <div className="flex justify-end gap-2 pt-1">
-              <button data-motion="neutral" type="button" onClick={() => setBulkModalOpen(false)} disabled={isUploading} className={btnGhost}>
-                {t('b2b.cat.modal_cancel')}
-              </button>
-              <button data-motion="upload" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={btnPrimary}>
-                {t('b2b.cat.modal_browse')}
-              </button>
-            </div>
-
-            <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-slate-700">{t('b2b.cat.sample_title')}</span>
-                <button data-motion="download" type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-brand-charcoal px-3 text-[11px] font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:bg-brand-charcoal hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
-                  {t('b2b.cat.sample_dl')}
-                </button>
-              </div>
-              <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-slate-50 p-2 text-[11px] leading-relaxed">{SAMPLE_CSV}</pre>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

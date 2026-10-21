@@ -118,7 +118,7 @@ def _brand_headers(client: TestClient, email: str) -> dict | None:
 def test_order_lines_arithmetic_is_internally_consistent(client: TestClient) -> None:
     _place_discounted_multi_brand_order(client, "bol_math", "bol-math-1")
 
-    headers = _brand_headers(client, "brand@massimodutti.com")
+    headers = _brand_headers(client, "brand@ateliersable.com")
     if not headers:
         import pytest
 
@@ -152,7 +152,7 @@ def test_totals_cover_the_whole_filtered_set_not_just_the_page(
     """A headline total that only sums the visible page is a lie."""
     _place_discounted_multi_brand_order(client, "bol_page", "bol-page-1")
 
-    headers = _brand_headers(client, "brand@massimodutti.com")
+    headers = _brand_headers(client, "brand@ateliersable.com")
     if not headers:
         import pytest
 
@@ -176,7 +176,7 @@ def test_a_brand_never_sees_another_brands_lines(client: TestClient) -> None:
     """Tenant isolation, asserted against the database rather than inferred."""
     body = _place_discounted_multi_brand_order(client, "bol_tenant", "bol-tenant-1")
 
-    headers = _brand_headers(client, "brand@massimodutti.com")
+    headers = _brand_headers(client, "brand@ateliersable.com")
     if not headers:
         import pytest
 
@@ -186,7 +186,7 @@ def test_a_brand_never_sees_another_brands_lines(client: TestClient) -> None:
     from backend.app.models.user import BrandProfile, User
 
     with TestingSessionLocal() as db:
-        owner = db.query(User).filter(User.email == "brand@massimodutti.com").first()
+        owner = db.query(User).filter(User.email == "brand@ateliersable.com").first()
         profile = (
             db.query(BrandProfile).filter(BrandProfile.user_id == owner.id).first()
         )
@@ -220,7 +220,7 @@ def test_line_states_what_left_inventory(client: TestClient) -> None:
     """Size, colour, quantity and remaining stock are the operational payload."""
     _place_discounted_multi_brand_order(client, "bol_inv", "bol-inv-1")
 
-    headers = _brand_headers(client, "brand@massimodutti.com")
+    headers = _brand_headers(client, "brand@ateliersable.com")
     if not headers:
         import pytest
 

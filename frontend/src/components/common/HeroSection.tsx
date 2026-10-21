@@ -240,7 +240,14 @@ export const HeroMedia: React.FC<{
  */
 export const HeroLightCard: React.FC<{
   to?: string;
-  /** Accessible name for the link variant (the card is one control). */
+  /**
+   * Extra words appended to the card's accessible name (the card is one
+   * control). This is a SUFFIX, not a replacement: an aria-label here used to
+   * override the card's own text, so the name ("Example styled look — open the
+   * outfit builder") did not contain the visible words ("EXAMPLE RESULT",
+   * the look title and its description) — WCAG 2.5.3. The visible text now
+   * forms the name, and this adds the action.
+   */
   label?: string;
   children: React.ReactNode;
   className?: string;
@@ -252,10 +259,10 @@ export const HeroLightCard: React.FC<{
     return (
       <Link
         to={to}
-        aria-label={label}
         className={`${base} min-h-11 transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
       >
         {children}
+        {label ? <span className="sr-only"> {label}</span> : null}
       </Link>
     );
   }

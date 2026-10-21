@@ -66,13 +66,13 @@ function leaf(bundle: unknown, key: string): string | undefined {
 
 describe('consumer data tokens stay English while their labels localize', () => {
   it('finds the full set of token/label pairs (guards against regex rot)', () => {
-    // 6 palette in Discover; 6 occasion + 4 palette + 4 fit in Home.
+    // 6 palette + 3 department/gender in Discover; 6 occasion + 4 palette + 4 fit in Home.
     // (C02 pass 2, 2026-10-07: Discover's 5 hardcoded occasion pairs are
     // GONE — occasion pills now render from GET /catalog/occasions, the
     // live tag vocabulary, so the UI can never advertise an occasion with
     // zero matching products. Their token/label split is pinned below in
     // the occasionLabel() assertions instead.)
-    expect(PAIRS).toHaveLength(20);
+    expect(PAIRS).toHaveLength(23);
   });
 
   it.each(PAIRS.filter((p) => p.value !== ''))(

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requestBlob, request } from "./apiClient";
+import { requestBlob, requestBlobPost, request } from "./apiClient";
 import type { CurrencyCatalog } from "../lib/currency";
 import {
   User,
@@ -38,6 +38,7 @@ import {
   CustomerBrand,
   CustomerBrandDetail,
   StoreBranchSummary,
+  CatalogImportResult,
   BranchInventoryCatalog,
   BrandRegistrationPayload,
   BrandRegistrationResponse,
@@ -89,7 +90,7 @@ export const authService = {
       },
     ),
 
-  getMe: () => request<User>("/auth/me"),
+  getMe: (opts?: { authProbe?: boolean }) => request<User>("/auth/me", opts ?? {}),
 
   logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
 
@@ -333,6 +334,8 @@ export const catalogService = {
     category?: string;
     brand_id?: number;
     color?: string;
+    gender?: string;
+    style?: string;
     occasion?: string;
     min_price?: number;
     max_price?: number;
@@ -412,6 +415,9 @@ export const catalogService = {
     category?: string;
     brand_id?: number;
     color?: string;
+    gender?: string;
+    style?: string;
+    occasion?: string;
     min_price?: number;
     max_price?: number;
     sort_by?: string;
@@ -1277,6 +1283,8 @@ export const commerceService = {
     guest_email?: string;
     shipping_method?: string;
     idempotency_key?: string;
+    expected_quote_total?: number;
+    expected_quote_currency?: string;
   }) =>
     request<Order>("/commerce/checkout", {
       method: "POST",
@@ -1579,6 +1587,43 @@ export const brandService = {
     });
   },
 
+  listBrandDomains: () =>
+    request<{ domains: any[] }>('/partner/brand/domains'),
+
+  claimBrandDomain: (hostname: string) =>
+    request<any>('/partner/brand/domains', {
+      method: 'POST',
+      body: JSON.stringify({ hostname }),
+    }),
+
+  verifyBrandDomain: (hostname: string) =>
+    request<any>(`/partner/brand/domains/${encodeURIComponent(hostname)}/verify`, {
+      method: 'POST',
+    }),
+
+  revokeBrandDomain: (hostname: string, release: boolean = false) =>
+    request<any>(
+      `/partner/brand/domains/${encodeURIComponent(hostname)}${release ? '?release=true' : ''}`,
+      { method: 'DELETE' },
+    ),
+
+  updateProductDetails: (productId: number, payload: Record<string, any>) =>
+    request<{ product: any; warnings: any[]; updated_fields?: string[] }>(
+      `/partner/catalog/products/${productId}`,
+      { method: 'PATCH', body: JSON.stringify(payload) },
+    ),
+
+  getProductSizeChart: (productId: number) =>
+    request<{ product_id: number; size_chart: Record<string, any>; has_chart: boolean }>(
+      `/partner/catalog/products/${productId}/size-chart`,
+    ),
+
+  putProductSizeChart: (productId: number, sizeChart: Record<string, any>) =>
+    request<{ product_id: number; size_chart: Record<string, any>; has_chart: boolean }>(
+      `/partner/catalog/products/${productId}/size-chart`,
+      { method: 'PUT', body: JSON.stringify({ size_chart: sizeChart }) },
+    ),
+
   confirmCatalogImport: (file: File, targetStoreId?: number, sendNotifications: boolean = true) => {
     const form = new FormData();
     form.append('file', file);
@@ -1591,10 +1636,40 @@ export const brandService = {
     });
   },
 
+  /**
+   * The error report is CSV, not JSON. `request()` always parses JSON, so this
+   * used to throw on every call and the component fell back to opening the
+   * POST-only endpoint in a new tab (405). It now goes through the blob path,
+   * which keeps the session/refresh semantics and lets the SERVER name the
+   * file via Content-Disposition.
+   */
   exportImportErrors: (errors: any[]) =>
-    request<string>('/partner/catalog/export-errors', {
+    requestBlobPost('/partner/catalog/export-errors', { errors }),
+
+  /** The official template, straight from the API that validates against it. */
+  downloadCatalogTemplate: () => requestBlob('/partner/catalog/template.csv'),
+
+  /**
+   * One import job, as persisted by the server.
+   *
+   * The commit endpoint answers before the job has finished, so this is the
+   * only honest source of progress: `total_rows`/`accepted_rows` are written by
+   * the worker as it goes, and `status` is one of the five states the job table
+   * constrains. It never invents a percentage.
+   */
+  getCatalogImportJob: (jobId: number) =>
+    request<CatalogImportResult>(`/partner/catalog/imports/${jobId}`),
+
+  /**
+   * Re-dispatch a failed import whose file the server still holds.
+   *
+   * Only a failed (or never-claimed) job can be retried: a finished job would
+   * import the same catalogue twice, so the API answers 409 and this call
+   * surfaces that as an error instead of pretending to have done something.
+   */
+  retryCatalogImport: (jobId: number) =>
+    request<CatalogImportResult>(`/partner/catalog/imports/${jobId}/retry`, {
       method: 'POST',
-      body: JSON.stringify({ errors }),
     }),
 };
 

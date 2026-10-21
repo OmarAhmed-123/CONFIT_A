@@ -471,7 +471,11 @@ def export_catalog_import_errors(
 async def upload_catalog_csv(
     file: UploadFile = File(...),
     target_store_id: Optional[int] = Query(None),
-    send_notifications: bool = Query(True),
+    # Bulk catalog import must not email the customer base by default. A
+    # dataset load of a thousand rows would fire a campaign nobody asked for,
+    # and the previous default (True) made that a one-click accident. Emailing
+    # is now an explicit opt-in.
+    send_notifications: bool = Query(False),
     user: User = Depends(brand_catalog),
     db: Session = Depends(get_db)
 ):
@@ -502,19 +506,516 @@ async def upload_catalog_csv(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid CSV encoding, must be UTF-8")
 
+    # ------------------------------------------------------------------
+    # DURABLE ACCEPTANCE, NOT A SLOW REQUEST
+    # ------------------------------------------------------------------
+    # This endpoint used to declare 202 and then run the entire import — every
+    # row, every image download, every rendition — inside the request. The 202
+    # was therefore a lie: the work was not accepted for later, it was happening
+    # right there, and it died with the connection. The order is now:
+    #
+    #   1. persist the job WITH the file (migration 0042), so it is durable;
+    #   2. dispatch the worker task;
+    #   3. answer 202 with the job id and where to poll it.
+    #
+    # If the dispatch fails the job is marked failed with a reason and we answer
+    # 503 — never "queued" for work nothing will ever pick up. The payload is
+    # kept, so the recovery sweep (or the retry endpoint) can run it later.
     catalog_service = BrandCatalogService(db)
+    job = catalog_service.enqueue_csv_import(
+        csv_text,
+        bp["id"],
+        file.filename,
+        actor_id=user.id,
+        target_store_id=target_store_id,
+        send_notifications=send_notifications,
+    )
+
+    from backend.app.workers.tasks import bulk_catalog_import_task
+
     try:
-        result = catalog_service.process_csv_import(
-            csv_text,
-            bp["id"],
-            file.filename,
-            actor_id=user.id,
-            target_store_id=target_store_id,
-            send_notifications=send_notifications,
+        async_result = bulk_catalog_import_task.delay(job.id)
+        job.celery_task_id = getattr(async_result, "id", None)
+        db.commit()
+    except Exception as exc:  # broker unreachable / task unroutable
+        catalog_service.mark_dispatch_failed(job.id, str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=("The import queue is unavailable, so nothing was imported. "
+                    "The file was kept; retry the import when the worker is back."),
         )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Import interrupted; inspect import history before retrying")
+
+    # Re-read the row after dispatch. Normally it is still 'queued' — nothing has
+    # run yet — but if the worker is fast (or a test runs it eagerly) the honest
+    # answer is the state the database holds now, not a stale copy in memory.
+    db.refresh(job)
+    errors = []
+    if job.errors_json:
+        try:
+            errors = json.loads(job.errors_json)[:50]
+        except (TypeError, ValueError):
+            errors = [{"row": None, "field": "errors_json",
+                       "message": "stored error log is unreadable", "value": None}]
+
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "total_rows": job.total_rows,
+        "processed_rows": job.processed_rows or 0,
+        "accepted_rows": job.accepted_rows,
+        "rejected_rows": job.rejected_rows,
+        "duplicate_rows": job.duplicate_rows,
+        # Errors the worker already recorded (empty on the normal fast path).
+        "errors": errors,
+        # Where to watch it: the brand-scoped job endpoint that already exists.
+        "status_url": f"/api/v1/partner/catalog/imports/{job.id}",
+        "attempts": job.attempts or 0,
+    }
+
+
+@router.patch("/partner/catalog/products/{product_id}")
+@router.patch("/brand/products/{product_id}")
+@limiter.limit("120/hour")
+def patch_brand_product(
+    request: Request,
+    product_id: int,
+    payload: Dict[str, Any],
+    user: User = Depends(brand_catalog),
+    db: Session = Depends(get_db),
+):
+    """Update brand-editable product fields under the shared catalog field contract.
+
+    Admin-owned fields (`is_featured`, `is_active`, `moderation_status`,
+    `verification_status`, `rating`, `review_count`, `sales_count`) are explicitly
+    refused with 422 rather than silently ignored.
+    """
+    from backend.app.models.catalog import Category, Product
+    from backend.app.services import catalog_field_contract as field_contract
+
+    if not isinstance(payload, dict) or not payload:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Request body must be a non-empty JSON object", "errors": []},
+        )
+
+    forbidden = field_contract.forbidden_field_errors(
+        payload,
+        row_number=1,
+        error_factory=lambda row, field, message, value=None: {
+            "field": field,
+            "message": message,
+            "value": value,
+        },
+    )
+    if forbidden:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Protected system-managed fields cannot be set by a brand",
+                "errors": forbidden,
+            },
+        )
+
+    service = BrandService(db)
+    bp = service.get_brand_profile_by_user(user)
+    product = (
+        db.query(Product)
+        .filter(Product.id == product_id, Product.brand_id == bp["id"])
+        .one_or_none()
+    )
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    ALLOWED_PATCH_FIELDS = {
+        "title",
+        "title_ar",
+        "description",
+        "description_ar",
+        "material",
+        "care_instructions",
+        "color_family",
+        "dominant_hex",
+        "gender",
+        "style_tags",
+        "occasion_tags",
+        "category_id",
+        "category_slug",
+    }
+    unknown_keys = sorted(set(payload.keys()) - ALLOWED_PATCH_FIELDS)
+    if unknown_keys:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Unsupported product fields supplied",
+                "errors": [
+                    {"field": k, "message": f"Field {k!r} is not supported on brand product edit."}
+                    for k in unknown_keys
+                ],
+            },
+        )
+
+    errors: List[Dict[str, Any]] = []
+    warnings: List[Dict[str, Any]] = []
+    changed: Dict[str, Any] = {}
+
+    if "title" in payload:
+        val = str(payload.get("title") or "").strip()
+        if not val or len(val) > 255:
+            errors.append({"field": "title", "message": "title must be 1–255 characters."})
+        else:
+            product.title = val
+            changed["title"] = val
+
+    if "title_ar" in payload:
+        val = str(payload.get("title_ar") or "").strip()
+        if not val or len(val) > 255:
+            errors.append({"field": "title_ar", "message": "title_ar must be 1–255 characters."})
+        else:
+            product.title_ar = val
+            changed["title_ar"] = val
+
+    if "description" in payload:
+        val = str(payload.get("description") or "").strip()
+        if not val or len(val) > 2000:
+            errors.append({"field": "description", "message": "description must be 1–2000 characters."})
+        else:
+            product.description = val
+            changed["description"] = val
+
+    if "description_ar" in payload:
+        val = str(payload.get("description_ar") or "").strip()
+        if not val or len(val) > 2000:
+            errors.append({"field": "description_ar", "message": "description_ar must be 1–2000 characters."})
+        else:
+            product.description_ar = val
+            changed["description_ar"] = val
+
+    if "material" in payload:
+        raw_mat = payload.get("material")
+        val_mat = str(raw_mat).strip() if raw_mat is not None else None
+        if val_mat and len(val_mat) > 255:
+            errors.append({"field": "material", "message": "material must be at most 255 characters."})
+        else:
+            product.material = val_mat or None
+            changed["material"] = product.material
+
+    if "care_instructions" in payload:
+        raw_care = payload.get("care_instructions")
+        val_care = str(raw_care).strip() if raw_care is not None else None
+        if val_care and len(val_care) > 500:
+            errors.append({"field": "care_instructions", "message": "care_instructions must be at most 500 characters."})
+        else:
+            product.care_instructions = val_care or None
+            changed["care_instructions"] = product.care_instructions
+
+    if "color_family" in payload:
+        val_col = str(payload.get("color_family") or "").strip()
+        if not val_col or len(val_col) > 50:
+            errors.append({"field": "color_family", "message": "color_family must be 1–50 characters."})
+        else:
+            product.color_family = val_col
+            changed["color_family"] = val_col
+
+    if "dominant_hex" in payload and payload.get("dominant_hex") is not None:
+        import re as _re
+        val_hex = str(payload.get("dominant_hex")).strip()
+        if not _re.fullmatch(r"#[0-9A-Fa-f]{6}", val_hex):
+            errors.append({"field": "dominant_hex", "message": "dominant_hex must match #RRGGBB."})
+        else:
+            product.dominant_hex = val_hex
+            changed["dominant_hex"] = val_hex
+
+    if "gender" in payload:
+        raw_gender = str(payload.get("gender") or "").strip()
+        try:
+            canon_g, _ = field_contract.normalize_gender(raw_gender)
+        except ValueError as exc:
+            errors.append({"field": "gender", "message": str(exc)})
+        else:
+            if not canon_g:
+                errors.append({"field": "gender", "message": "Gender cannot be blank."})
+            else:
+                product.gender = canon_g
+                changed["gender"] = canon_g
+
+    if "style_tags" in payload:
+        raw_st = payload.get("style_tags")
+        try:
+            parsed_st = field_contract.split_tag_cell(raw_st)
+        except ValueError as exc:
+            errors.append({"field": "style_tags", "message": str(exc)})
+        else:
+            canon_st, _ = field_contract.canonical_tags(parsed_st, kind="style")
+            product.style_tags = json.dumps(canon_st)
+            changed["style_tags"] = canon_st
+
+    if "occasion_tags" in payload:
+        raw_oc = payload.get("occasion_tags")
+        try:
+            parsed_oc = field_contract.split_tag_cell(raw_oc)
+        except ValueError as exc:
+            errors.append({"field": "occasion_tags", "message": str(exc)})
+        else:
+            canon_oc, unrec_oc = field_contract.canonical_tags(parsed_oc, kind="occasion")
+            product.occasion_tags = json.dumps(canon_oc)
+            changed["occasion_tags"] = canon_oc
+            if unrec_oc:
+                warnings.append({
+                    "field": "occasion_tags",
+                    "code": "occasion_unrecognised",
+                    "unrecognised": unrec_oc,
+                    "message": (
+                        f"Stored {unrec_oc}, which is outside CONFIT's standard occasion "
+                        f"filter vocabulary ({', '.join(field_contract._taxonomy().OCCASIONS)})."
+                    ),
+                })
+
+    if "category_id" in payload and payload.get("category_id") is not None:
+        cat = db.query(Category).filter(Category.id == int(payload["category_id"])).first()
+        if cat is None:
+            errors.append({"field": "category_id", "message": "Unknown category_id."})
+        else:
+            product.category_id = cat.id
+            changed["category_id"] = cat.id
+    elif "category_slug" in payload and payload.get("category_slug"):
+        cat = db.query(Category).filter(Category.slug == str(payload["category_slug"]).strip().lower()).first()
+        if cat is None:
+            errors.append({"field": "category_slug", "message": "Unknown category_slug."})
+        else:
+            product.category_id = cat.id
+            changed["category_id"] = cat.id
+
+    if errors:
+        db.rollback()
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Product update failed validation", "errors": errors},
+        )
+
+    _audit(db, user, "PRODUCT_CONTRACT_UPDATED", "Product", product.id, {"changed": list(changed.keys())})
+    db.commit()
+    db.refresh(product)
+    refreshed = next(
+        (item for item in service.get_brand_products(user, bp["id"]) if item["id"] == product.id),
+        None,
+    )
+    return {
+        "product": refreshed,
+        "warnings": warnings,
+    }
+
+
+@router.put("/partner/catalog/products/{product_id}/size-chart")
+@limiter.limit("120/hour")
+def put_product_size_chart(
+    request: Request,
+    product_id: int,
+    payload: Dict[str, Any],
+    user: User = Depends(brand_catalog),
+    db: Session = Depends(get_db),
+):
+    """Author a product's size chart, validated before it is stored.
+
+    The chart is what the fit engine scores a shopper against, so an invalid one
+    is not a cosmetic problem: it either silently disappears (the shopper gets
+    no guidance) or produces a confident wrong size. It is therefore validated
+    here, at the write, and the caller gets the exact cell that is wrong.
+
+    Send `{}` or `null` to publish no chart — that is a legitimate state, and it
+    is distinct from an invalid one.
+    """
+    from backend.app.models.catalog import Product
+    from backend.app.services.size_chart_schema import validate as validate_chart
+
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    product = (db.query(Product)
+                 .filter(Product.id == product_id, Product.brand_id == bp["id"])
+                 .one_or_none())
+    if product is None:
+        # Same answer for "does not exist" and "belongs to another brand": a
+        # distinguishable 403 would confirm the existence of another tenant's SKU.
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    chart = payload.get("size_chart") if isinstance(payload, dict) and "size_chart" in payload else payload
+    result = validate_chart(chart)
+    if not result.ok:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Size chart rejected; nothing was saved",
+                "schema_version": result.as_dict()["schema_version"],
+                "errors": result.as_dict()["errors"],
+            },
+        )
+
+    before = product.size_chart_json
+    product.size_chart_json = result.normalised
+    _audit(db, user, "PRODUCT_SIZE_CHART_UPDATED", "Product", product.id,
+           {"has_chart": result.has_chart,
+            "warnings": [w.as_dict() for w in result.warnings]},
+           before={"length": len(before or "")},
+           after={"length": len(result.normalised)})
+    db.commit()
+    return {
+        "product_id": product.id,
+        "has_chart": result.has_chart,
+        "size_chart": json.loads(result.normalised) if result.has_chart else {},
+        "warnings": [w.as_dict() for w in result.warnings],
+    }
+
+
+# ============================================================================
+# Brand image-source ownership (migration 0045)
+# ============================================================================
+# A brand may only import images from hosts it has PROVEN it controls, or from
+# the platform's licensed stock sources. These routes are how it proves that.
+# Every one of them is tenant-scoped server-side: the brand is resolved from the
+# session, never from a request field.
+@router.get("/partner/brand/domains")
+def list_brand_domains(
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """The caller's domain claims and their verification state."""
+    from backend.app.models.user import BrandDomain
+    from backend.app.services.image_ownership import domain_expires_at, is_domain_expired
+
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    records = (db.query(BrandDomain)
+                 .filter(BrandDomain.brand_id == bp["id"])
+                 .order_by(BrandDomain.id)
+                 .all())
+    return {
+        "domains": [{
+            "hostname": r.hostname,
+            "status": r.status,
+            "method": r.method,
+            "verification_record": f"_confit-verify.{r.hostname}",
+            "verification_value": f"confit-verify={r.token}",
+            "verified_at": r.verified_at,
+            "expires_at": domain_expires_at(r),
+            "is_expired": is_domain_expired(r) if r.status == "verified" else False,
+            "revoked_at": r.revoked_at,
+            "last_checked_at": r.last_checked_at,
+            "last_error": r.last_error,
+        } for r in records],
+        "imports_allowed_from": "verified non-expired domains and platform stock sources only",
+    }
+
+
+@router.post("/partner/brand/domains", status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/hour")
+def claim_brand_domain(
+    request: Request,
+    payload: Dict[str, Any],
+    user: User = Depends(brand_profile),
+    db: Session = Depends(get_db),
+):
+    """Claim a domain. Returns the DNS TXT record the brand must publish.
+
+    `brand_profile` capability, not `catalog:write`: claiming a domain is a
+    company-level assertion, not a catalogue edit. A brand staff member who can
+    import products should not be able to assert that the company owns a host.
+    """
+    from backend.app.services.image_ownership import ImageOwnershipService, OwnershipError
+
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    service = ImageOwnershipService(db)
+    try:
+        record = service.request_domain(bp["id"], (payload or {}).get("hostname", ""))
+    except OwnershipError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    _audit(db, user, "BRAND_DOMAIN_CLAIMED", "BrandDomain", record.id,
+           {"hostname": record.hostname})
+    return {
+        "hostname": record.hostname,
+        "status": record.status,
+        "verification_record": f"_confit-verify.{record.hostname}",
+        "verification_value": f"confit-verify={record.token}",
+        "instructions": (
+            f"Publish a DNS TXT record on {record.hostname} with the value "
+            f"confit-verify={record.token}, then verify."
+        ),
+    }
+
+
+@router.post("/partner/brand/domains/verify")
+@limiter.limit("20/hour")
+def verify_brand_domain(
+    request: Request,
+    payload: Dict[str, Any],
+    user: User = Depends(brand_profile),
+    db: Session = Depends(get_db),
+):
+    """Check the DNS TXT claim now.
+
+    Returns the resulting status either way — a failed check is a normal
+    outcome, not an error, and the brand needs to see why.
+    """
+    from backend.app.services.image_ownership import ImageOwnershipService, OwnershipError
+
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    service = ImageOwnershipService(db)
+    try:
+        record = service.verify_domain(bp["id"], (payload or {}).get("hostname", ""))
+    except OwnershipError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    _audit(db, user, "BRAND_DOMAIN_VERIFIED", "BrandDomain", record.id,
+           {"hostname": record.hostname, "status": record.status})
+    from backend.app.services.image_ownership import domain_expires_at, is_domain_expired
+    return {
+        "hostname": record.hostname,
+        "status": record.status,
+        "verified_at": record.verified_at,
+        "expires_at": domain_expires_at(record),
+        "is_expired": is_domain_expired(record) if record.status == "verified" else False,
+        "last_error": record.last_error,
+        "imports_allowed": record.status == "verified" and not is_domain_expired(record),
+    }
+
+
+@router.delete("/partner/brand/domains/{hostname}")
+def revoke_brand_domain(
+    hostname: str,
+    release: bool = Query(False, description="If true, delete the claim completely so the hostname is released."),
+    user: User = Depends(brand_profile),
+    db: Session = Depends(get_db),
+):
+    """Stop authorizing imports from a domain.
+
+    Existing imported media is NOT deleted: revocation governs what may be
+    imported NEXT. Removing photographs that are already published is a
+    separate, deliberate operation with its own consequences (live PDPs).
+    """
+    from backend.app.services.image_ownership import ImageOwnershipService, OwnershipError
+
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    service = ImageOwnershipService(db)
+    if release:
+        try:
+            released_host = service.release_domain(bp["id"], hostname)
+        except OwnershipError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        _audit(db, user, "BRAND_DOMAIN_RELEASED", "BrandDomain", bp["id"],
+               {"hostname": released_host})
+        return {
+            "hostname": released_host,
+            "status": "released",
+            "revoked_at": None,
+            "note": "Domain claim removed and released. Existing materialized catalog images are unchanged.",
+        }
+    try:
+        record = service.revoke_domain(bp["id"], hostname)
+    except OwnershipError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    _audit(db, user, "BRAND_DOMAIN_REVOKED", "BrandDomain", record.id,
+           {"hostname": record.hostname})
+    return {
+        "hostname": record.hostname,
+        "status": record.status,
+        "revoked_at": record.revoked_at,
+        "note": "Future imports from this domain are refused. Existing images are unchanged.",
+    }
 
 
 @router.get("/partner/catalog/imports")
@@ -571,14 +1072,79 @@ def get_catalog_import_status(
         "file_name": job.file_name,
         "status": job.status,
         "total_rows": job.total_rows,
+        # Real progress from persisted state: how many rows the worker has
+        # actually handled, not an estimate that drifts to completion.
+        "processed_rows": job.processed_rows or 0,
         "accepted_rows": job.accepted_rows,
         "rejected_rows": job.rejected_rows,
         "duplicate_rows": job.duplicate_rows,
+        "attempts": job.attempts or 0,
+        # The most recent failure reason, when there is one. Present so a brand
+        # (and an operator reading the same payload) can tell "still running"
+        # from "died", which a bare status string cannot express.
+        "last_error": job.last_error,
         "errors": errors[:50],  # Limit to 50
         "created_at": job.created_at,
         "started_at": job.started_at,
-        "completed_at": job.completed_at
+        "completed_at": job.completed_at,
+        "status_url": f"/api/v1/partner/catalog/imports/{job.id}",
     }
+
+
+@router.post("/partner/catalog/imports/{job_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+def retry_catalog_import(
+    job_id: int,
+    user: User = Depends(brand_catalog),
+    db: Session = Depends(get_db),
+):
+    """Re-dispatch a failed import that still has its file.
+
+    Deliberately narrow: only a job whose status is ``failed`` and whose payload
+    is still stored may be retried, and the section's bounded attempt limit
+    applies (claim_job enforces it). A finished job cannot be "retried" — that
+    would import the same catalogue twice — so it answers 409 rather than
+    pretending to do something.
+    """
+    service = BrandService(db)
+    bp = service.get_brand_profile_by_user(user)
+    repo = BrandRepository(db)
+    job = repo.get_import_job(job_id, bp["id"])
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Import job {job_id} not found for your brand")
+
+    catalog_service = BrandCatalogService(db)
+    if job.status not in ("failed", "queued"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Import job {job_id} is {job.status}; only a failed import can be retried",
+        )
+    if not job.payload_text:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This import's file is no longer stored; upload it again",
+        )
+    if (job.attempts or 0) >= catalog_service.MAX_JOB_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=("This import has already been attempted "
+                    f"{job.attempts} times; upload a corrected file instead"),
+        )
+
+    from backend.app.workers.tasks import bulk_catalog_import_task
+
+    job.status = "queued"
+    db.commit()
+    try:
+        async_result = bulk_catalog_import_task.delay(job.id)
+        job.celery_task_id = getattr(async_result, "id", None)
+        db.commit()
+    except Exception as exc:
+        catalog_service.mark_dispatch_failed(job.id, str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The import queue is unavailable; nothing was imported. Try again later.",
+        )
+    return catalog_service.job_result(job)
 
 
 # ============================================================================

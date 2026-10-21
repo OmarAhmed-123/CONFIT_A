@@ -107,6 +107,43 @@ def test_store_url_round_trips_to_key(s3, monkeypatch, public_base, endpoint, ex
     assert not backend.exists("wardrobe/7/abc.jpg")
 
 
+def test_presigned_url_maps_to_the_same_key_as_its_canonical_form(s3, monkeypatch):
+    """Cleanup must survive a presigned URL.
+
+    Found in the Phase-5 S3 success run: the API serializes `image_url` as a
+    short-lived SigV4 URL by design, while the database keeps the canonical
+    unsigned one. `key_for_url` matched the prefix and returned everything after
+    it — including `?X-Amz-Signature=...` — so a caller holding a presigned URL
+    asked the bucket to delete a key that cannot exist. `delete()` reports
+    failure, the object stays, and the upload is orphaned. Measured directly:
+    HEAD on the returned key answered 404 while the object was present.
+
+    Returning None would be safer but wrong: the URL *was* issued by this
+    backend. The key is simply the path part.
+    """
+    monkeypatch.setattr(settings, "S3_PUBLIC_URL_BASE", None, raising=False)
+    monkeypatch.setattr(settings, "S3_ENDPOINT_URL", None, raising=False)
+    backend = S3StorageBackend()
+    backend.store("wardrobe/7/presigned.png", b"\xff\xd8bytes")
+
+    canonical = backend._url_prefix() + "wardrobe/7/presigned.png"
+    presigned = canonical + "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=A%2Fb&X-Amz-Signature=deadbeef"
+
+    assert backend.key_for_url(canonical) == "wardrobe/7/presigned.png"
+    assert backend.key_for_url(presigned) == "wardrobe/7/presigned.png"
+    # And the key it returns must actually address the object.
+    assert backend.exists(backend.key_for_url(presigned))
+    assert backend.delete(backend.key_for_url(presigned)) is True
+    assert not backend.exists("wardrobe/7/presigned.png")
+
+
+def test_presigned_url_cannot_smuggle_a_path_traversal(s3, monkeypatch):
+    """Stripping the query must not weaken the existing traversal guard."""
+    backend = S3StorageBackend()
+    evil = backend._url_prefix() + "../../secrets?X-Amz-Signature=x"
+    assert backend.key_for_url(evil) is None
+
+
 @pytest.mark.parametrize("foreign", [
     "https://images.unsplash.com/photo-1507679799987",
     "https://other-bucket.s3.eu-central-1.amazonaws.com/wardrobe/7/abc.jpg",

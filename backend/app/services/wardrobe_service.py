@@ -650,6 +650,11 @@ class WardrobeService:
 
         for filename, content_type, data in files:
             entry: Dict[str, Any] = {"filename": filename}
+            # Tracked outside the try so the failure handler can clean up an
+            # object that was written before the row was: without this, a
+            # metadata failure orphans the bytes with no owner and no way to
+            # find them again.
+            image_url: Optional[str] = None
             try:
                 ext = self._validate_image(content_type, data, filename)
                 image_url, digest = self._store_image(user_id, data, ext)
@@ -762,12 +767,26 @@ class WardrobeService:
                 # deployment fact, identical for every file — surface it as 501
                 # instead of N opaque "Upload processing failed." rows.
                 raise
+            except ProviderIntegrationError:
+                # The object store itself failed (unreachable, rejecting). Also a
+                # deployment fact, identical for every file: 502 + retryable
+                # rather than N "your file is bad" rows.
+                raise
             except (ValidationDomainError,) as exc:
                 entry.update({"status": "failed", "detail": str(exc)})
                 failed += 1
             except Exception as exc:  # never let one file kill the batch
                 logger.error("Wardrobe upload failed", filename=filename, error=str(exc))
-                entry.update({"status": "failed", "detail": "Upload processing failed."})
+                # The bytes may already be in the store while the row was never
+                # written: remove the object so a retry cannot leave a second
+                # copy and the bucket cannot fill with unreferenced files.
+                if image_url:
+                    self._delete_owned_image(image_url)
+                entry.update({
+                    "status": "failed",
+                    "detail": "Upload processing failed.",
+                    "retryable": True,
+                })
                 failed += 1
             results.append(entry)
 

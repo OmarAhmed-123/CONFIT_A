@@ -237,7 +237,7 @@ export const BrandDashboardView: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-coral">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
                   {t('brand_onboard.title', 'Brand Onboarding & Setup')}
                 </span>
                 <span
@@ -306,7 +306,7 @@ export const BrandDashboardView: React.FC = () => {
                 <p className="text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">
                   {step.description}
                 </p>
-                <span className="text-[10px] font-bold text-brand-coral block pt-1">
+                <span className="text-[10px] font-bold text-brand-charcoal block pt-1">
                   {step.is_completed ? t('brand_onboard.review_step', 'Review Step →') : t('brand_onboard.complete_step', 'Complete Step →')}
                 </span>
               </Link>

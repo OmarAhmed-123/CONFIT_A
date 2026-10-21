@@ -709,6 +709,7 @@ export const BrandCatalogView: React.FC = () => {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Filter size={14} className="text-slate-500 shrink-0" />
             <select
+              aria-label={t('brands.filter_category_aria')}
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs text-brand-charcoal focus:border-brand-charcoal focus:outline-none focus:ring-1 focus:ring-brand-charcoal"

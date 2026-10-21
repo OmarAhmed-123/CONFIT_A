@@ -32,9 +32,9 @@ export const BiBranchPerformanceTable: React.FC<BiBranchPerformanceTableProps> =
     <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div>
-          <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+          <h2 className="font-serif text-lg font-bold text-brand-charcoal">
             {t('bi.branch_performance', 'Branch & Omnichannel Performance')}
-          </h3>
+          </h2>
           <p className="text-[11px] text-slate-500">
             {t('bi.branch_desc', 'Location-specific sales, completed BOPIS pickup orders, and live on-hand boutique inventory')}
           </p>
@@ -77,7 +77,7 @@ export const BiBranchPerformanceTable: React.FC<BiBranchPerformanceTableProps> =
                 >
                   <td className="py-3 font-bold text-brand-charcoal">
                     <div className="truncate max-w-[180px]">{name}</div>
-                    <div className="text-[10px] text-slate-400 font-normal truncate max-w-[180px]">
+                    <div className="text-[10px] text-brand-muted font-normal truncate max-w-[180px]">
                       {b.address}
                     </div>
                   </td>

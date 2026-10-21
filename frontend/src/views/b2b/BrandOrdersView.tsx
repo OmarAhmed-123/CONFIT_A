@@ -139,12 +139,12 @@ export const BrandOrdersView: React.FC = () => {
             >
               <span
                 className={`block text-[10px] font-bold uppercase tracking-wider ${
-                  k === "net" ? "text-slate-300" : k === "discount" ? "text-brand-coral" : "text-slate-500"
+                  k === "net" ? "text-slate-300" : k === "discount" ? "text-brand-charcoal" : "text-slate-500"
                 }`}
               >
                 {t(`brand_orders.total_${k}`)}
               </span>
-              <span className={`block font-serif text-lg font-bold mt-1 ${k === "discount" ? "text-brand-coral" : ""}`}>{v}</span>
+              <span className={`block font-serif text-lg font-bold mt-1 ${k === "discount" ? "text-brand-charcoal" : ""}`}>{v}</span>
             </div>
           ))}
           {/* The totals describe every matching line, not the visible page. */}
@@ -182,7 +182,7 @@ export const BrandOrdersView: React.FC = () => {
         <div className="overflow-x-auto rounded-3xl border border-slate-200/80 bg-white shadow-2xs">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">{t("brand_orders.table_caption")}</caption>
-            <thead className="bg-brand-wash text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-brand-wash text-[10px] uppercase tracking-wider text-slate-600">
               <tr>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_item")}</th>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_order")}</th>

@@ -20,9 +20,9 @@ export const BiPromotionTable: React.FC<BiPromotionTableProps> = ({
   return (
     <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
       <div className="border-b border-slate-100 pb-3">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+        <h2 className="font-serif text-lg font-bold text-brand-charcoal">
           {t('bi.promotions_performance', 'Promotions & Campaign Performance')}
-        </h3>
+        </h2>
         <p className="text-[11px] text-slate-500">
           {t('bi.promotions_desc', 'Recorded promo code redemption counts, total discount apportionments, and attributable customer order volume')}
         </p>

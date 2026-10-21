@@ -39,9 +39,9 @@ export const BiCategoryDonut: React.FC<BiCategoryDonutProps> = ({
     <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
-          <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+          <h2 className="font-serif text-lg font-bold text-brand-charcoal">
             {t('bi.category_breakdown', 'Category Sales Share')}
-          </h3>
+          </h2>
           <p className="text-[11px] text-slate-500">
             {t('bi.category_desc', 'Revenue contribution and units sold across merchandise departments')}
           </p>

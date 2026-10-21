@@ -17,19 +17,22 @@ export const StoreBranchCard: React.FC<StoreBranchCardProps> = ({
   const { t } = useTranslation();
 
   return (
+    /*
+     * NOT a button. The card contains three real controls — "Get directions",
+     * a tel: link and "View stock" — and a button may not contain other
+     * controls (axe: nested-interactive, WCAG 4.1.2). The old markup made the
+     * table of focus stops unreadable: Tab landed on the card, then on the
+     * links inside it, with no way to tell which level you were on, and
+     * aria-pressed on the card announced a pressed state for a control whose
+     * only job was to contain the ones that do the work.
+     *
+     * The click handler stays so a mouse user can still select by clicking
+     * anywhere on the card; the keyboard path is the "View stock" button,
+     * which performs the same action and is announced as a button.
+     */
     <div
       onClick={() => onSelect(branch.id)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(branch.id);
-        }
-      }}
-      tabIndex={0}
-      role="button"
-      aria-pressed={isSelected}
-      aria-label={`Branch ${branch.name}, ${branch.city}`}
-      className={`group relative cursor-pointer rounded-2xl p-5 transition-all duration-200 border text-left focus:outline-none focus:ring-2 focus:ring-brand-charcoal ${
+      className={`group relative cursor-pointer rounded-2xl p-5 transition-all duration-200 border text-left ${
         isSelected
           ? 'bg-brand-charcoal text-white border-brand-charcoal shadow-lg ring-2 ring-brand-mint'
           : 'bg-white text-brand-charcoal border-neutral-200 hover:border-neutral-400 hover:shadow-sm'

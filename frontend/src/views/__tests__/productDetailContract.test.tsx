@@ -523,7 +523,19 @@ describe("ProductDetailView — C03 contract", () => {
     ).toBeInTheDocument();
   });
 
-  it("accordion sections are heading-navigable (WAI-ARIA disclosure: h3 > button[aria-expanded])", async () => {
+  /*
+   * DELIBERATE CONTRACT UPDATE (2026-10-21). The pattern under test is
+   * unchanged — a disclosure whose control lives INSIDE a heading, so heading
+   * navigation reaches it and aria-expanded reports its state. The heading
+   * level moves h3 -> h2: these three rows are top-level sections of the
+   * product page, and sitting them at h3 directly under the product's h1
+   * skipped a level. A screen-reader user navigating by heading saw
+   * "h1, h3, h3, h3, h2" — the h2 that follows (Complete the look) was the
+   * only level-2 on the page, so the outline implied the accordions belonged
+   * under it. Tailwind's preflight zeroes heading size and weight, so the
+   * rendering is unchanged.
+   */
+  it("accordion sections are heading-navigable (WAI-ARIA disclosure: heading > button[aria-expanded])", async () => {
     renderPdp();
     await settled();
     for (const key of [
@@ -532,7 +544,7 @@ describe("ProductDetailView — C03 contract", () => {
       "product.delivery_returns",
     ]) {
       const heading = screen.getByRole("heading", {
-        level: 3,
+        level: 2,
         name: i18n.t(key) as string,
       });
       const button = screen.getByRole("button", {

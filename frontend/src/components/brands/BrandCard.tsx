@@ -32,18 +32,20 @@ export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
   const showLogo = Boolean(brand.logo_url) && !logoFailed;
 
   return (
+    /*
+     * NOT a button. The card's visible text is a name, a store count,
+     * categories, cities and a call to action — and a control's accessible
+     * name must contain the words that label it (WCAG 2.5.3). Flattening all
+     * of that into one aria-label either loses the text or turns the whole
+     * card into an unreadable announcement. So the card is a container and
+     * the footer action is the real, focusable control.
+     *
+     * Clicking anywhere still selects the brand for mouse users; keyboard
+     * users get one stop with a visible label and an obvious purpose.
+     */
     <div
       onClick={() => onSelect(brand.slug)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(brand.slug);
-        }
-      }}
-      tabIndex={0}
-      role="button"
-      aria-label={`Explore brand ${brand.brand_name}`}
-      className="group relative cursor-pointer rounded-2xl bg-white p-6 border border-neutral-200 shadow-sm transition-all duration-300 hover:border-brand-charcoal hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-charcoal flex flex-col justify-between"
+      className="group relative cursor-pointer rounded-2xl bg-white p-6 border border-neutral-200 shadow-sm transition-all duration-300 hover:border-brand-charcoal hover:shadow-md flex flex-col justify-between"
     >
       <div>
         {/* Brand Header */}
@@ -85,9 +87,9 @@ export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
             )}
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif text-lg font-bold text-brand-charcoal group-hover:text-black">
+                <h2 className="font-serif text-lg font-bold text-brand-charcoal group-hover:text-black">
                   {brand.brand_name}
-                </h3>
+                </h2>
                 {brand.is_verified && (
                   <span
                     className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
@@ -156,9 +158,14 @@ export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
         <span className="text-neutral-500 font-normal">
           {t('brands.available_items', { count: brand.total_products })}
         </span>
-        <span className="group-hover:translate-x-1 transition-transform inline-flex items-center gap-1 text-brand-coral">
+        <button data-motion="creative"
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onSelect(brand.slug); }}
+          className="group-hover:translate-x-1 transition-transform inline-flex items-center gap-1 text-brand-coral font-bold rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
+        >
           {t('brands.explore_stores_catalog')}
-        </span>
+          <span className="sr-only"> — {brand.brand_name}</span>
+        </button>
       </div>
     </div>
   );

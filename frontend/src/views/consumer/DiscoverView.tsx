@@ -460,14 +460,19 @@ export const DiscoverView: React.FC = () => {
             )}
           </div>
 
+          {/* The accessible name must CONTAIN the visible words (WCAG 2.5.3):
+              a speech user saying "Photo match" has to hit this control, and
+              an aria-label that replaced the visible text made that fail. The
+              sr-only span keeps a name when the visible label is hidden on
+              narrow viewports, where there is no visible text to match. */}
           <button data-motion="creative"
             onClick={openVisualSearch}
             type="button"
-            aria-label={t('discover.search_by_photo')}
             className="min-h-11 px-4 py-3 rounded-2xl bg-brand-wash hover:bg-brand-charcoal hover:text-white border border-brand-field text-brand-charcoal text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             <span aria-hidden="true"><VisualSearchIcon size={16} color="currentColor" /></span>
             <span className="hidden sm:inline">{t('discover.photo_match')}</span>
+            <span className="sr-only">{t('discover.search_by_photo')}</span>
           </button>
             </div>
           </HeroLightCard>

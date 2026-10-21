@@ -191,7 +191,7 @@ const AccordionSection: React.FC<{
         inside a heading, so screen-reader users can jump between the
         page's sections by heading navigation. Preflight zeroes the
         h3's own margin/size, so the visual stays identical. */}
-    <h3>
+    <h2>
       <button data-motion="progressive" data-motion-tone="icon"
         onClick={onToggle}
         aria-expanded={open}
@@ -205,7 +205,7 @@ const AccordionSection: React.FC<{
           {open ? "−" : "+"}
         </span>
       </button>
-    </h3>
+    </h2>
     {open && <div className="pb-2 confit-fade-in">{children}</div>}
   </div>
 );

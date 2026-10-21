@@ -326,10 +326,50 @@ export const profileService = {
       method: "PATCH",
       body: JSON.stringify(consents),
     }),
+
+  getWishlist: () =>
+    request<{ product_ids: number[] }>("/me/wishlist"),
+
+  addWishlistItem: (productId: number) =>
+    request<{ product_ids: number[] }>(`/me/wishlist/${productId}`, {
+      method: "PUT",
+    }),
+
+  removeWishlistItem: (productId: number) =>
+    request<{ product_ids: number[] }>(`/me/wishlist/${productId}`, {
+      method: "DELETE",
+    }),
+
+  syncWishlist: (productIds: number[]) =>
+    request<{ product_ids: number[] }>("/me/wishlist/sync", {
+      method: "POST",
+      body: JSON.stringify({ product_ids: productIds }),
+    }),
 };
 
 // 3. Catalog, Search & BOPIS Services (G2.1)
 export const catalogService = {
+  recordEngagementEvent: (payload: {
+    event_id: string;
+    product_id: number;
+    sku_id?: number;
+    event_type:
+      | "view"
+      | "gallery_photo_view"
+      | "fit_recommendation"
+      | "wishlist_save"
+      | "add_to_cart";
+    attribution_source?: string;
+    photo_index?: number;
+    recommended_size?: string;
+    confidence_band?: string;
+    session_token?: string;
+  }) =>
+    request<{ status: string; event_id: string }>("/catalog/events", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }).catch(() => ({ status: "skipped", event_id: payload.event_id })),
+
   getProducts: (params?: {
     category?: string;
     brand_id?: number;

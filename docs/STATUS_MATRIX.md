@@ -226,3 +226,72 @@ Full analysis, verbatim licence quotes and the sign-off block live in
 7. **Three provider read-only surfaces are unusable from here** — Cerebrium 502, FitRoom 503, DNSHE 404. Nothing established about those keys in either direction.
 8. **PR #358** remains open by the owner's instruction.
 9. **Model slugs were not individually validated** — that requires a billed inference call per model, which is not read-only.
+
+---
+
+## 9. Accessibility phase 3 — portals, preferences, reflow (2026-10-21)
+
+**Appended, not substituted.** Sections 0–8 above are the state at their own
+dates and are left as they were; several are now superseded (the branch ledger
+in the header, for instance — `main` has moved to `eb02668` and PR #365 is
+merged and deployed). This section records only what phase 3 measured.
+
+**Tested candidate:** `1db39b2` on `work/production-hardening`, rebased onto the
+integration head `43377d8`. **Environment:** local build served from
+`127.0.0.1:43124` with `/api` proxied to a local API on the **verify database**
+(`confit_fixverify`, revision `0045_brand_verified_domains`) — not production.
+Engines: Chromium 156.0.8078.4, Firefox 157.0, WebKit 27.2.
+
+| Area | State | Evidence |
+|---|---|---|
+| Portal reflow at 320×640, en+ar, 3 engines, 8 brand + 4 admin routes + guest gateway + refusal | **VERIFIED** — 90 loads, 0 horizontal overflow, dir correct per locale, exactly one `h1` | `a11y/p3.final.{ff,wk,cr}320.reflow.json`; a 48px overflow on `/b2b` was found and fixed in `a89c1e8` |
+| Portal target geometry (SC 2.5.8) | **VERIFIED** — 1,644 controls across those loads; **0** failures. 84 nodes are under 24px and rely on the spacing exception; three distinct controls account for them, each identified (`p3.undersized-nodes.json`) | `a11y/p3.final.*.targets.json`, `evidence/target-size-summary.json` |
+| Reduced motion (`prefers-reduced-motion: reduce`) | **VERIFIED by emulation** — 8 routes: 9 animated elements and 11 running animations at `no-preference` → **0 / 0** at `reduce`; no content hidden | `a11y/p3.preferences.json` |
+| Forced colours (`forced-colors: active`) | **VERIFIED by emulation only** — 4 routes, focus ring survives system colours (solid outline 2–3px). **No real Windows High Contrast run.** | `a11y/shots/p3-prefs/forced-colors-*.png` |
+| 200% zoom on a portal dialog | **VERIFIED** — 640×400 CSS viewport, dialog opens, 11 controls reachable, no horizontal overflow | `a11y/shots/p3-prefs/zoom200-dialog.png` |
+| Public axe matrix (15 routes × en/ar × desktop/mobile × 3 engines) | **VERIFIED** — 180 loads, **0** WCAG A/AA violations; 180 keyboard probes with no step missing a focus ring | `a11y/results.p3.{chromium,firefox,webkit}.json` |
+| Authenticated axe matrix (12 routes + 2 negative controls) | **VERIFIED** — 14/14 clean, one `h1` each, no heading-level skips | `evidence/auth-routes.json` |
+| Browser journeys: catalogue/empty state, PDP, wishlist | **VERIFIED** — 13/13 steps | `a11y/p3.journeys.json` |
+| Screen reader (NVDA / JAWS / VoiceOver) | **BLOCKED** — no display server (`DISPLAY` unset), no AT-SPI, no dbus, no Orca; NVDA/JAWS need Windows, VoiceOver needs macOS/iOS. Not attempted, not passed. | `orca: not installed`; environment probe |
+| Real iOS / Android devices | **BLOCKED** — no physical device and no device-farm credentials | — |
+| Workers Builds: confit-a | **FAIL** — fails in **0 s** with 0 annotations (no compilation occurs), on the integration base `43377d8` as well as on this branch; succeeds on `main` `eb02668`. Cause not established: the Cloudflare build log needs credentials this workspace does not have. **Not attributable to this PR; unresolved.** | check-run `output`, `annotations_count: 0` |
+
+**Defects found and fixed in phase 3**
+
+1. `a89c1e8` — `/b2b` scrolled horizontally 48px at 320px (WCAG 1.4.10). Root
+   cause in two layers: `grid-cols-12` unprescribed below `lg` (eleven 32px gaps
+   = 352px in a 320px viewport) **and** `col-span-12` children, which create
+   twelve implicit columns of their own. Both fixed; the regression test fails
+   on the previous commit and pins both layers.
+2. `1db39b2` — `/b2b/analytics` rendered "Reset Filters" in English on the
+   Arabic page, although `bi.reset_filters` existed in both locales unused; the
+   control was also a 72×16 target relying on the spacing exception.
+
+**Measurement corrections made in this phase** (recorded because each one
+briefly produced a wrong number): horizontal overflow must be measured against
+`window.innerWidth`, not `clientWidth` (a scrollbar made WebKit report a
+phantom 5px with no offending element); the accessible name must be read from
+the computed tree, not `aria-label || textContent` (the card image link's name
+comes from its `img alt`); and the wishlist is device-local by design, so
+asserting 401 on a wishlist endpoint tested an endpoint the product
+deliberately does not have.
+
+---
+
+## Phase 4 — Real-World Assistive Technology, End-to-End Journey Closure & Live Production Hardening (2026-10-21)
+
+**Branch:** `feat/realworld-a11y-e2e-hardening` (clean merge of `origin/main` `66bb87f` + PR `#372` `origin/work/production-hardening` `ce74577`).  
+**Executable harness & artifacts:** `scripts/qa/run_live_orca_multiengine_a11y_audit.py` · `docs/qa/live_orca_multiengine_a11y_report.json` · `docs/ACCESSIBILITY_AND_REAL_WORLD_QA_PROTOCOL.md` · `backend/tests/test_realworld_journeys_and_tenant_matrix.py` · `frontend/src/a11y/__tests__/realworld-journeys-a11y-rtl.test.tsx`.
+
+| Area | State | Measured Evidence |
+|---|---|---|
+| Linux Desktop Screen Reader (`Orca 48.1` + `AT-SPI2 2.56.2` + `speech-dispatcher` + `espeak-ng`) on Headed `Firefox 157.0` (`Xvfb :99`) | **VERIFIED** | `docs/qa/live_orca_multiengine_a11y_report.json`: `52` live AT-SPI2 bus events captured over `org.a11y.Bus` / `org.a11y.atspi.Registry`; accessible trees verified across `8` routes in `en` (`dir="ltr"`) & `ar` (`dir="rtl"`) |
+| Native Windows (`NVDA`/`JAWS`), macOS/iOS (`VoiceOver`), Android (`TalkBack`) hardware | **MANUAL PROTOCOL READY** | Physical OS hardware required for non-Linux screen readers; full 7-step bilingual sign-off runbook published in `docs/ACCESSIBILITY_AND_REAL_WORLD_QA_PROTOCOL.md` |
+| Multi-Engine WCAG 2.2 AA & Arabic `aria-label` Parity (`Chromium 156.0.8078.4`, `Firefox 157.0`, `WebKit 27.2`) | **VERIFIED** | `48` route-engine-locale scans: `0` critical/serious violations, `0` English `aria-label` leaks in `ar` (fixed `11` carousel leaks in `HomeView.tsx` + site-wide `ConfitIcons.tsx` default `aria-hidden="true"`), `0px` overflow at `320×640` & `200%` text zoom |
+| Modal Focus Trap, Ancestor-Safe `aria-hidden` Isolation & Focus Restoration (`useModalFocus.ts`) | **VERIFIED** | Verified live on PDP -> `NoPhotoFitModal` in `EN` (`"Find my size"`) & `AR` (`"اعرف مقاسي"`): `3` background containers marked `aria-hidden="true"` while preserving live regions; `Escape` closes dialog, restores background, and returns focus to triggering `<BUTTON>` |
+| Fit Finder -> PDP -> Cart Journey & `EN`/`AR` Parity | **VERIFIED** | `resolveRecommendedInStockSku()`, `?size=<recommended_size>` query handoff, `localizedTitle(product, lang)` on `ProductDetailView.tsx`, accessible range sliders, `npm run i18n:check` passing at `count: 0` (`3,081` `en`/`ar` keys) |
+| Authenticated Wishlist Sync, Guest Merge, Isolation & GDPR (`0046_user_wishlist_items`) | **VERIFIED** | Migrated `upgrade -> downgrade -1 -> upgrade head` on `PostgreSQL 17.11`, Staging (`confit_fixverify`), and Production (`neondb`) with `confit_app_rw` DML grants verified |
+| Zero-Extra-Round-Trip Media Telemetry & Honest Brand/Admin Analytics + 5-Endpoint CSV Hardening | **VERIFIED** | Scalar subqueries folded into `BrandRepository.get_activity_snapshot()` (`test_brand_analytics_query_budget.py` `6/6` pass); removed synthetic return benchmarks in `BrandAnalyticsView.tsx`; fixed live `500` `NameError: timezone` in `admin_controller.py`; added UTF-8 BOM + `_csv_safe_cell` formula neutralization across all 5 CSV exports |
+| Full Repository Test Suites (`Frontend` + `Backend` + `PostgreSQL 17`) | **VERIFIED** | Frontend Vitest `155/155` files (`2,338/2,338` tests, `0` failures) + `tsc && vite build`; Backend `pytest` `4,537` passed (`0` failures) + `6/6` Postgres row-lock concurrency tests |
+| Live Production Media (`https://confit-a.vercel.app`) & Cloud Catalog Worker (`Modal`) | **VERIFIED** | Repaired 10 missing S3 renditions on Product `#18` and stale thumbnails on Products `#9` & `#18` -> **`120/120` renditions & `12/12` active thumbnails return `HTTP 200/206` (`0` broken)**; resynced Modal `confit-catalog-worker` secrets (including cold-start `JWT_REFRESH_SECRET` & `CATALOG_WORKER_ADMIN_TOKEN`), verified `/health` -> `200 healthy` (`storage_ready: true`), verified live negative control (`job_id=14` -> `failed`, `media: source_not_approved`) + live positive control (`job_id=15` -> `completed`, `media_rows_registered: 10`, `200 image/jpeg` via `confit-a.vercel.app`), and restored exact baseline counts (`12` products, `28` SKUs, `120` images) |
+

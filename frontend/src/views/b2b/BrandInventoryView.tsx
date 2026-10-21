@@ -133,9 +133,9 @@ export const BrandInventoryView: React.FC = () => {
 
       {/* Stores - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+        <h2 className="font-serif text-lg font-bold text-brand-charcoal">
           {fetchErrors.stores ? 'Store Locations (unknown — lookup failed)' : `Store Locations (${stores.length})`}
-        </h3>
+        </h2>
         {/* P1 consistency guard. The count and the per-SKU breakdown below are
             now served by the SAME tenant-scoped query on the backend
             (BrandRepository.get_brand_store_inventory_map), so "0 stores" can
@@ -180,7 +180,7 @@ export const BrandInventoryView: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
                   <div className="p-2.5 rounded-xl bg-brand-wash">
                     <span className="text-brand-muted text-[10px] block">{t("b2b.inv_bopis_title")}</span>
-                    <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-600' : 'text-brand-muted'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
+                    <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-700' : 'text-brand-muted'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-brand-wash">
                     <span className="text-brand-muted text-[10px] block">{t("b2b.inv_store_id")}</span>
@@ -202,7 +202,7 @@ export const BrandInventoryView: React.FC = () => {
       </div>
 
       <form onSubmit={saveStoreStock} aria-label={t('b2b.form_set_stock')} className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.form_set_stock_title')}</h3>
+        <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.form_set_stock_title')}</h2>
         <p className="text-xs text-brand-muted">{t("b2b.inv_on_hand_note")}</p>
         <div className="flex flex-wrap gap-3">
           <select aria-label={t('b2b.field_store')} required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="min-h-11 w-full min-w-0 sm:w-auto sm:max-w-xs rounded-xl border border-brand-field bg-white px-3 text-xs text-brand-charcoal">
@@ -221,7 +221,7 @@ export const BrandInventoryView: React.FC = () => {
 
       {/* Inventory - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.live_inventory_title')}</h3>
+        <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.live_inventory_title')}</h2>
         <p className="text-[11px] text-brand-muted">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced. Only stores belonging to your brand are shown.</p>
         {orphanStoreIds.length > 0 && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-300">
@@ -249,7 +249,7 @@ export const BrandInventoryView: React.FC = () => {
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-12 h-14 rounded bg-slate-100 overflow-hidden"><HonestProductImage src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                   <div>
-                    <h4 className="font-bold text-sm text-brand-charcoal">{item.title}</h4>
+                    <h3 className="font-bold text-sm text-brand-charcoal">{item.title}</h3>
                     <span className="text-xs text-brand-muted">{t("b2b.inv_total_stock_value", { stock: item.total_stock, skus: item.skus.length })}</span>
                   </div>
                 </div>
@@ -304,26 +304,26 @@ export const BrandInventoryView: React.FC = () => {
       {showStoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.modal_add_store')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.add_bopis_store')}</h3>
-            <p className="text-[11px] text-brand-muted">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
+            <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.add_bopis_store')}</h2>
+            <p className="text-[11px] text-brand-muted">{t('b2b.store_modal_subtitle')}</p>
             <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold block mb-1">Store Name *</label>
-                <input aria-label={t('b2b.field_store_name')} value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="The Dubai Mall - Fashion Avenue" />
+                <label className="font-bold block mb-1">{t('b2b.label_store_name')}</label>
+                <input aria-label={t('b2b.field_store_name')} value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_name')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold block mb-1">City *</label>
-                  <input aria-label={t('b2b.field_store_city')} value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Dubai" />
+                  <label className="font-bold block mb-1">{t('b2b.label_store_city')}</label>
+                  <input aria-label={t('b2b.field_store_city')} value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_city')} />
                 </div>
                 <div>
-                  <label className="font-bold block mb-1">Country *</label>
-                  <input aria-label={t('b2b.field_store_country')} value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="UAE" />
+                  <label className="font-bold block mb-1">{t('b2b.label_store_country')}</label>
+                  <input aria-label={t('b2b.field_store_country')} value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_country')} />
                 </div>
               </div>
               <div>
-                <label className="font-bold block mb-1">Address *</label>
-                <input aria-label={t('b2b.field_store_address')} value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Financial Center Road, Downtown Dubai" />
+                <label className="font-bold block mb-1">{t('b2b.label_store_address')}</label>
+                <input aria-label={t('b2b.field_store_address')} value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('b2b.placeholder_store_address')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

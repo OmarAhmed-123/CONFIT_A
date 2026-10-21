@@ -147,8 +147,22 @@ describe('Discover collection rail — real-data AccessibleCarousel integration'
     expect(
       // C02 upgrade: the detail entry is a REAL link now (new-tab/middle
       // -click capable), not a JS-only button — assert the href too.
-      within(region).getByRole('link', { name: /view .*rail product 1/i }),
+      // The card's image surface used to carry aria-label="View <title>". That
+      // label REPLACED the element's own content, so when the photograph is
+      // missing the placeholder's visible words ("Image unavailable") were
+      // absent from the name — a 2.5.3 failure measured on the deployed build,
+      // six nodes on one card. The label is gone: the name now derives from the
+      // image alt (or the placeholder's labelled fallback), which contains the
+      // visible text in every state and localises. The assertion keeps its real
+      // subject — that this control is a LINK to the product — and matches the
+      // name users and AT actually get.
+      // Both the image surface and the caption link to the same product and now
+      // carry the same name — the title. That is the real structure (one link to
+      // look at the photo, one to read the title), so assert both rather than
+      // pretending there is one.
+      within(region).getAllByRole('link', { name: /rail product 1/i })[0],
     ).toHaveAttribute('href', '/product/rail-product-1');
+    expect(within(region).getAllByRole('link', { name: /rail product 1/i }).length).toBeGreaterThan(0);
 
     // Position indicator text ("1 / 3") + prev/next controls ≥ labelled.
     expect(within(region).getByText(/1\s*\/\s*3/)).toBeInTheDocument();

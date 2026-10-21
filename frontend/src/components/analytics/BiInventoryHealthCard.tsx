@@ -14,9 +14,9 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
   return (
     <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
       <div className="border-b border-slate-100 pb-3">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+        <h2 className="font-serif text-lg font-bold text-brand-charcoal">
           {t('bi.inventory_health', 'Merchandise Inventory Health & Stock Pools')}
-        </h3>
+        </h2>
         <p className="text-[11px] text-slate-500">
           {t('bi.inventory_desc', 'Authoritative stock levels separated by central warehouse sellable units and branch boutique BOPIS pools')}
         </p>
@@ -31,7 +31,7 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
           <span className="font-mono text-xl font-bold text-brand-charcoal mt-1 block">
             {inventory.total_warehouse_units.toLocaleString()}
           </span>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">
+          <span className="text-[10px] text-brand-muted mt-0.5 block">
             {t('bi.warehouse_stock_desc', 'Central sellable units')}
           </span>
         </div>
@@ -43,7 +43,7 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
           <span className="font-mono text-xl font-bold text-brand-charcoal mt-1 block">
             {inventory.total_branch_bopis_units.toLocaleString()}
           </span>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">
+          <span className="text-[10px] text-brand-muted mt-0.5 block">
             {t('bi.bopis_stock_desc', 'In-store pickup pool')}
           </span>
         </div>
@@ -67,7 +67,7 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
           <span className="font-mono text-xl font-bold text-rose-700 mt-1 block">
             {inventory.out_of_stock_count}
           </span>
-          <span className="text-[10px] text-rose-600 mt-0.5 block">
+          <span className="text-[10px] text-rose-700 mt-0.5 block">
             {t('bi.out_of_stock_desc', 'Urgent reorder required')}
           </span>
         </div>
@@ -131,14 +131,14 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
                             the system had calculated a reorder point.
                           */}
                           <span
-                            className="block text-[9px] text-slate-400"
+                            className="block text-[9px] text-brand-muted"
                             title={t('bi.reorder_estimate_hint')}
                           >
                             {t('bi.reorder_estimate')}
                           </span>
                         </>
                       ) : (
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-brand-muted">
                           {t('bi.reorder_unavailable')}
                         </span>
                       )}

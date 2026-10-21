@@ -166,7 +166,7 @@ export const BrandBranchesView: React.FC = () => {
       {/* View Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-coral">
+          <span className="text-xs font-bold uppercase tracking-widest text-brand-charcoal">
             Omnichannel Boutique Network
           </span>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-brand-charcoal">
@@ -279,9 +279,9 @@ export const BrandBranchesView: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+          <h2 className="font-serif text-lg font-bold text-brand-charcoal">
             {t('brand_branches.no_branches_title')}
-          </h3>
+          </h2>
           <p className="text-xs text-neutral-500 max-w-sm mx-auto">
             {t('brand_branches.no_branches_desc')}
           </p>
@@ -306,9 +306,9 @@ export const BrandBranchesView: React.FC = () => {
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+                    <h2 className="font-serif text-lg font-bold text-brand-charcoal">
                       {b.name}
-                    </h3>
+                    </h2>
                     <p className="text-xs text-neutral-500 mt-0.5">
                       {b.address}, {b.city}, {b.country}
                     </p>
@@ -399,14 +399,15 @@ export const BrandBranchesView: React.FC = () => {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="branch-modal-title"
         >
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-neutral-200 space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="font-serif text-xl font-bold text-brand-charcoal">
+              <h2 id="branch-modal-title" className="font-serif text-xl font-bold text-brand-charcoal">
                 {editingBranch
                   ? t('brand_branches.modal_edit_title')
                   : t('brand_branches.modal_create_title')}
-              </h3>
+              </h2>
               <button data-motion="admin" data-motion-tone="icon"
                 type="button"
                 onClick={() => setIsModalOpen(false)}

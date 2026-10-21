@@ -573,6 +573,31 @@ async def upload_catalog_csv(
     }
 
 
+@router.get("/partner/catalog/export.csv")
+@router.get("/brand/catalog/export.csv")
+@limiter.limit("60/hour")
+def export_brand_catalog_csv(
+    request: Request,
+    user: User = Depends(brand_catalog),
+    db: Session = Depends(get_db),
+):
+    """Export the authenticated partner's own catalog and SKUs as a formula-safe UTF-8 CSV."""
+    from fastapi.responses import Response
+
+    brand_svc = BrandService(db)
+    bp = brand_svc.get_brand_profile_by_user(user)
+    csv_body = BrandCatalogService(db).export_catalog_csv(bp["id"])
+    slug = (bp.get("slug") or f"brand-{bp['id']}").replace('"', "")
+    return Response(
+        content=csv_body.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{slug}-catalog-export.csv"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 @router.patch("/partner/catalog/products/{product_id}")
 @router.patch("/brand/products/{product_id}")
 @limiter.limit("120/hour")

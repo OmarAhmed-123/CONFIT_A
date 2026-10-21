@@ -234,9 +234,9 @@ export const BrandsView: React.FC = () => {
       {/* Top Banner / Breadcrumb Bar */}
       <div className="border-b border-neutral-200 bg-neutral-50/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 min-w-0 text-neutral-500">
-            <Link to="/" className="hover:text-brand-charcoal transition-colors">
-              Home
+          <nav aria-label={t('brands.breadcrumb')} className="flex flex-wrap items-center gap-2 min-w-0 text-neutral-500">
+            <Link to="/" className="min-h-6 inline-flex items-center hover:text-brand-charcoal transition-colors">
+              {t('brands.breadcrumb_home')}
             </Link>
             <span aria-hidden="true">/</span>
             {slug && activeBrandDetail ? (
@@ -267,7 +267,8 @@ export const BrandsView: React.FC = () => {
             type="button"
             onClick={requestLocation}
             disabled={geoStatus === 'loading'}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 bg-white text-xs font-semibold text-brand-charcoal hover:bg-neutral-50 transition-colors shadow-2xs"
+            aria-label={t('brands.locate_nearest_aria')}
+            className="min-h-11 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-200 bg-white text-xs font-semibold text-brand-charcoal hover:bg-neutral-50 transition-colors shadow-2xs"
           >
             <svg
               className={`w-3.5 h-3.5 ${geoStatus === 'loading' ? 'motion-safe:animate-spin text-brand-coral' : 'text-emerald-600'}`}
@@ -308,12 +309,16 @@ export const BrandsView: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 {/* Search Bar */}
                 <div className="md:col-span-5 relative">
+                  <label htmlFor="brands-directory-search" className="sr-only">
+                    {t('brands.search_label')}
+                  </label>
                   <input
+                    id="brands-directory-search"
                     type="text"
                     placeholder={t('brands.search_placeholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-xl bg-white border border-neutral-200 py-2.5 pl-9 pr-3 text-xs font-medium text-brand-charcoal placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-charcoal"
+                    className="w-full min-h-11 rounded-xl bg-white border border-neutral-200 py-2.5 pl-9 pr-3 text-xs font-medium text-brand-charcoal placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-charcoal"
                     aria-label={t('brands.search_aria')}
                   />
                   <svg
@@ -622,7 +627,7 @@ export const BrandsView: React.FC = () => {
                       {t('brands.available_at', { name: activeBranch.name })}
                     </h3>
                     <p className="text-xs text-neutral-500 mt-0.5">
-                      {activeBranch.address}, {activeBranch.city} • Verified SKU inventory on hand
+                      {t('brands.verified_branch_inventory', { address: activeBranch.address, city: activeBranch.city })}
                     </p>
                   </div>
 

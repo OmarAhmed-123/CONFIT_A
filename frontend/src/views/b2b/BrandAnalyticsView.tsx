@@ -237,7 +237,7 @@ export const BrandAnalyticsView: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1 max-w-2xl">
             {data?.methodology}
           </p>
-          <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-2 font-mono">
+          <div className="flex items-center gap-3 text-[11px] text-brand-muted mt-2 font-mono">
             <span>Period: <strong className="text-slate-700">{data?.period?.label}</strong></span>
             {lastFetched && (
               <span>· Freshness: <strong className="text-slate-700">{lastFetched.toLocaleTimeString()}</strong></span>
@@ -286,12 +286,16 @@ export const BrandAnalyticsView: React.FC = () => {
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
             {t('bi.filter_scope', 'Reporting Scope & Range Filters')}
           </span>
-          <button data-motion="filter" data-motion-tone="edge"
+          <button data-motion="filter" data-motion-tone="icon"
             type="button"
             onClick={handleResetFilters}
-            className="text-xs font-bold text-slate-500 hover:text-brand-charcoal underline"
+            className="inline-flex min-h-11 items-center rounded-md px-2 text-xs font-bold text-slate-600 underline hover:text-brand-charcoal"
           >
-            Reset Filters
+            {/* bi.reset_filters has existed in BOTH locales but was never used:
+                this control hard-coded English, so the Arabic page showed
+                "Reset Filters" inside a dir=rtl document. Measured at
+                1280x900 and 320x640, Chromium/Firefox/WebKit. */}
+            {t('bi.reset_filters', 'Reset Filters')}
           </button>
         </div>
 
@@ -337,7 +341,7 @@ export const BrandAnalyticsView: React.FC = () => {
                 className="min-h-10 px-3 rounded-xl border border-slate-300 text-xs text-slate-700"
                 aria-label={t('bi.start_date', 'Start Date')}
               />
-              <span className="text-slate-400">to</span>
+              <span className="text-brand-muted">to</span>
               <input
                 type="date"
                 value={customTo}
@@ -429,72 +433,72 @@ export const BrandAnalyticsView: React.FC = () => {
           {/* Gross Sales */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-t-4 border-t-brand-coral">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-slate-400">{t('bi.gross_sales', 'Gross Sales')}</span>
+              <span className="text-[10px] uppercase font-bold text-brand-muted">{t('bi.gross_sales', 'Gross Sales')}</span>
               {renderGrowthChip('gross_sales_change_pct')}
             </div>
             <div className="font-mono text-xl font-bold text-brand-charcoal mt-1 truncate">
               {currency} {kpis.gross_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">{t('bi.gross_sales_desc', 'Captured line value')}</span>
+            <span className="text-[10px] text-brand-muted block mt-0.5">{t('bi.gross_sales_desc', 'Captured line value')}</span>
           </div>
 
           {/* Net Sales */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-t-4 border-t-brand-mint">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-slate-400">{t('bi.net_sales', 'Net Sales')}</span>
+              <span className="text-[10px] uppercase font-bold text-brand-muted">{t('bi.net_sales', 'Net Sales')}</span>
               {renderGrowthChip('net_sales_change_pct')}
             </div>
             <div className="font-mono text-xl font-bold text-[#065F46] mt-1 truncate">
               {currency} {kpis.net_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">{t('bi.net_sales_desc', 'Net of promos & returns')}</span>
+            <span className="text-[10px] text-brand-muted block mt-0.5">{t('bi.net_sales_desc', 'Net of promos & returns')}</span>
           </div>
 
           {/* Completed Orders */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-t-4 border-t-brand-lilac">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-slate-400">{t('bi.orders', 'Orders')}</span>
+              <span className="text-[10px] uppercase font-bold text-brand-muted">{t('bi.orders', 'Orders')}</span>
               {renderGrowthChip('orders_count_change_pct')}
             </div>
             <div className="font-mono text-xl font-bold text-brand-charcoal mt-1">
               {kpis.orders_count.toLocaleString()}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">{t('bi.orders_desc', 'Revenue-standing')}</span>
+            <span className="text-[10px] text-brand-muted block mt-0.5">{t('bi.orders_desc', 'Revenue-standing')}</span>
           </div>
 
           {/* Units Sold */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-t-4 border-t-brand-charcoal">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-slate-400">{t('bi.units_sold', 'Units Sold')}</span>
+              <span className="text-[10px] uppercase font-bold text-brand-muted">{t('bi.units_sold', 'Units Sold')}</span>
               {renderGrowthChip('units_sold_change_pct')}
             </div>
             <div className="font-mono text-xl font-bold text-brand-charcoal mt-1">
               {kpis.units_sold.toLocaleString()}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">{t('bi.units_sold_desc', 'Physical merchandise')}</span>
+            <span className="text-[10px] text-brand-muted block mt-0.5">{t('bi.units_sold_desc', 'Physical merchandise')}</span>
           </div>
 
           {/* Average Order Value */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-t-4 border-t-amber-500">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-slate-400">{t('bi.avg_order_value', 'Avg Order Value')}</span>
+              <span className="text-[10px] uppercase font-bold text-brand-muted">{t('bi.avg_order_value', 'Avg Order Value')}</span>
               {renderGrowthChip('average_order_value_change_pct')}
             </div>
             <div className="font-mono text-xl font-bold text-brand-charcoal mt-1 truncate">
               {currency} {kpis.average_order_value.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">{t('bi.avg_order_value_desc', 'Gross / orders')}</span>
+            <span className="text-[10px] text-brand-muted block mt-0.5">{t('bi.avg_order_value_desc', 'Gross / orders')}</span>
           </div>
 
           {/* Return Rate */}
           <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs border-t-4 border-t-rose-400">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-slate-400">{t('bi.return_rate', 'Return Rate')}</span>
+              <span className="text-[10px] uppercase font-bold text-brand-muted">{t('bi.return_rate', 'Return Rate')}</span>
             </div>
             <div className="font-mono text-xl font-bold text-brand-charcoal mt-1">
               {kpis.return_rate !== null ? `${kpis.return_rate}%` : 'N/A'}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
+            <span className="text-[10px] text-brand-muted block mt-0.5">
               {kpis.returned_units} {t('bi.returns_opened', 'returns opened')}
             </span>
           </div>
@@ -637,30 +641,93 @@ export const BrandAnalyticsView: React.FC = () => {
         <BiPromotionTable promotions={data.promotions} currency={currency} />
       )}
 
-      {/* 10. Return Cohort Comparison (Preserved & Verified) */}
+      {/* 9b. Real Storefront Media & Fit Engagement */}
+      {data?.media_engagement && (
+        <div
+          data-testid="brand-media-engagement-panel"
+          className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4 shadow-xs"
+        >
+          <div className="border-b border-slate-100 pb-3">
+            <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+              {t('b2b.media_engagement_title')}
+            </h3>
+            <p className="text-xs text-brand-muted mt-0.5">
+              {t('b2b.media_engagement_subtitle')}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="text-brand-muted text-[10px] block uppercase font-bold">
+                {t('b2b.media_gallery_views')}
+              </span>
+              <span className="font-mono text-2xl font-bold text-brand-charcoal mt-1 block">
+                {data.media_engagement.gallery_photo_views}
+              </span>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="text-brand-muted text-[10px] block uppercase font-bold">
+                {t('b2b.media_fit_recommendations')}
+              </span>
+              <span className="font-mono text-2xl font-bold text-brand-charcoal mt-1 block">
+                {data.media_engagement.fit_recommendations}
+              </span>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="text-brand-muted text-[10px] block uppercase font-bold">
+                {t('b2b.media_wishlist_saves')}
+              </span>
+              <span className="font-mono text-2xl font-bold text-brand-charcoal mt-1 block">
+                {data.media_engagement.wishlist_saves}
+              </span>
+            </div>
+          </div>
+          {Object.keys(data.media_engagement.photo_index_breakdown || {}).length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {Object.entries(data.media_engagement.photo_index_breakdown).map(([slot, cnt]) => (
+                <span
+                  key={slot}
+                  className="px-3 py-1 rounded-full bg-slate-100 text-brand-charcoal text-[11px] font-semibold"
+                >
+                  {t('b2b.media_photo_slot', { slot: Number(slot) + 1, count: cnt })}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 10. Return Cohort Comparison (Honest, Zero Fabricated Fallbacks) */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-5 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <h3 className="font-serif text-lg font-bold text-brand-charcoal">
-            {t('bi.vton_benchmark_title', 'Virtual Try-On & Fit Finder Return Rate Benchmark')}
+            {t('bi.vton_benchmark_title')}
           </h3>
           <span className="rounded-full bg-brand-mint/25 border border-brand-mint/50 px-3 py-1 text-[11px] font-bold text-[#064E3B]">
-            Return Reduction {data?.brand?.current_return_rate != null ? `17% vs benchmark` : 'N/A'}
+            {data?.brand?.return_rate_benchmark != null && data?.brand?.current_return_rate != null
+              ? t('bi.return_delta_badge', {
+                  delta: Math.round((data.brand.return_rate_benchmark - data.brand.current_return_rate) * 10) / 10,
+                })
+              : t('bi.return_delta_na')}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-4 text-xs">
           <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-coral shadow-xs">
-            <span className="text-slate-400 text-[10px] block uppercase font-bold">{t('bi.standard_non_tryon', 'Standard Non-Try-On Orders')}</span>
-            <span className="font-mono text-xl font-bold text-brand-coral">{data?.brand?.return_rate_benchmark ?? 28}%</span>
-            <span className="text-[11px] text-slate-500 block mt-1">{t('bi.standard_benchmark_note', 'Observed market benchmark without virtual styling')}</span>
+            <span className="text-brand-muted text-[10px] block uppercase font-bold">{t('bi.standard_non_tryon')}</span>
+            <span className="font-mono text-xl font-bold text-brand-charcoal">
+              {data?.brand?.return_rate_benchmark != null ? `${data.brand.return_rate_benchmark}%` : '—'}
+            </span>
+            <span className="text-[11px] text-slate-500 block mt-1">{t('bi.standard_benchmark_note')}</span>
           </div>
           <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-mint shadow-xs">
-            <span className="text-slate-400 text-[10px] block uppercase font-bold">{t('bi.tryon_assisted_title', 'Try-On & Fit Finder Assisted Orders')}</span>
-            <span className="font-mono text-xl font-bold text-[#065F46]">{data?.brand?.current_return_rate ?? 11}%</span>
-            <span className="text-[11px] text-slate-500 block mt-1">{t('bi.tryon_verified_note', 'Verified return rate for customers using VTON')}</span>
+            <span className="text-brand-muted text-[10px] block uppercase font-bold">{t('bi.tryon_assisted_title')}</span>
+            <span className="font-mono text-xl font-bold text-[#065F46]">
+              {data?.brand?.current_return_rate != null ? `${data.brand.current_return_rate}%` : '—'}
+            </span>
+            <span className="text-[11px] text-slate-500 block mt-1">{t('bi.tryon_verified_note')}</span>
           </div>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
-          {t('bi.vton_cohort_explanation', 'Orders with prior Virtual Try-On or Fit Finder sizing interactions have an audited 60% lower rate of size-related return requests.')}
+          {t('bi.vton_cohort_honest_note')}
         </p>
       </div>
     </div>

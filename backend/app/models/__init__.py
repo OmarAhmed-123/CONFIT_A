@@ -1,5 +1,5 @@
 from backend.app.models.user import User, UserRole, BrandProfile, AuditLog, RefreshToken, PasswordResetToken, EmailVerificationToken, MFABackupCode, MFAEmailCode
-from backend.app.models.profile import UserStyleProfile, MoodBoard, MoodBoardItem
+from backend.app.models.profile import UserStyleProfile, MoodBoard, MoodBoardItem, UserWishlistItem
 from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory
 from backend.app.models.stylist import StylistSession, StylistMessage, Outfit, OutfitItem
 from backend.app.models.tryon import TryOnSession, VisualSearchQuery, MeasurementSession, MeasurementResult
@@ -46,6 +46,7 @@ __all__ = [
     "UserStyleProfile",
     "MoodBoard",
     "MoodBoardItem",
+    "UserWishlistItem",
     "Category",
     "Product",
     "ProductSKU",

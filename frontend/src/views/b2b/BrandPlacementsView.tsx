@@ -131,11 +131,11 @@ export const BrandPlacementsView: React.FC = () => {
 
       {/* Placements List - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t("b2b.placements_active", { count: placements.length })} {t("b2b.placements_real_from_db")}</h3>
+        <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t("b2b.placements_active", { count: placements.length })} {t("b2b.placements_real_from_db")}</h2>
         {placements.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl">🎯</div>
-            <h3 className="font-bold text-slate-700">{t("brand_placements.no_placements")}</h3>
+            <h2 className="font-bold text-slate-700">{t("brand_placements.no_placements")}</h2>
             <p className="text-xs text-brand-muted">{t("b2b.placements_empty")}</p>
             <button data-motion="admin" onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-bold">{t("brand_placements.create_placement")}</button>
           </div>

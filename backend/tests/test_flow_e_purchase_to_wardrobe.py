@@ -676,7 +676,8 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # never "whose host is this". A brand now proves control of a hostname with a
     # DNS TXT claim, per-brand, and imports are authorized against that record at
     # validation, at commit and on every redirect hop. Additive table only.
-    assert expected_head_revision() == "0045_brand_verified_domains"
+    assert expected_head_revision() == "0046_user_wishlist_items"
+    assert chain["0046_user_wishlist_items"] == "0045_brand_verified_domains"
     assert chain["0045_brand_verified_domains"] == "0044_product_price_provenance"
     assert chain["0044_product_price_provenance"] == "0043_import_job_payload"
     assert chain["0043_import_job_payload"] == "0042_photo_unique_with_index"

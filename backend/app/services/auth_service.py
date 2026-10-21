@@ -1155,7 +1155,7 @@ class AuthService:
           the file can be verified after download.
         """
         from backend.app.models.commerce import Order, OrderItem
-        from backend.app.models.profile import MoodBoard, MoodBoardItem
+        from backend.app.models.profile import MoodBoard, MoodBoardItem, UserWishlistItem
         from backend.app.models.stylist import Outfit, StylistSession
         from backend.app.models.tryon import TryOnSession
         from backend.app.models.wardrobe import WardrobeItem
@@ -1224,6 +1224,14 @@ class AuthService:
                         .all()
                     ],
                 })
+
+        wishlist_product_ids = [
+            int(r[0])
+            for r in self.db.query(UserWishlistItem.product_id)
+            .filter(UserWishlistItem.user_id == user.id)
+            .order_by(UserWishlistItem.id)
+            .all()
+        ]
 
         wardrobe_items = [
             {
@@ -1408,6 +1416,7 @@ class AuthService:
         data = _json_normalize({
             "profile": usp_data,
             "mood_boards": mood_boards,
+            "wishlist_product_ids": wishlist_product_ids,
             "wardrobe_items": wardrobe_items,
             "saved_outfits": saved_outfits,
             "orders": orders,
@@ -1589,6 +1598,8 @@ class AuthService:
         )
         from backend.app.models.stylist import StylistSession
         from backend.app.models.catalog import RecentlyViewed
+        from backend.app.models.profile import UserWishlistItem
+        from backend.app.models.catalog_import import BrandAnalyticsEvent
 
         self.user_repo.log_audit("ACCOUNT_DELETED", "User", str(user.id), user_id=user.id)
 
@@ -1639,6 +1650,12 @@ class AuthService:
         # Behavioural trace with no business-retention justification: delete.
         self.db.query(RecentlyViewed).filter(RecentlyViewed.user_id == user.id).delete(
             synchronize_session=False
+        )
+        self.db.query(UserWishlistItem).filter(UserWishlistItem.user_id == user.id).delete(
+            synchronize_session=False
+        )
+        self.db.query(BrandAnalyticsEvent).filter(BrandAnalyticsEvent.user_id == user.id).update(
+            {"user_id": None}, synchronize_session=False
         )
 
         # Revoke refresh tokens (also cascade-deleted, but revoke first so

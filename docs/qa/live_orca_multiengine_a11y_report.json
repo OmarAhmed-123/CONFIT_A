@@ -1,0 +1,4273 @@
+{
+  "generated_at_utc": "2026-10-21T17:20:17.144767+00:00",
+  "environment": {
+    "orca_version": "Orca version 48.1, AT-SPI2 version: 2.56.2",
+    "speech_dispatcher_version": "speech-dispatcher 0.12.0",
+    "atspi_desktop_count": 1,
+    "orca_daemon_alive": true,
+    "display": ":99",
+    "audited_product_slug": "structured-wool-overcoat"
+  },
+  "orca_atspi_live_firefox": {
+    "firefox_version": "157.0",
+    "captured_atspi_bus_events_count": 52,
+    "captured_atspi_bus_events_sample": [
+      {
+        "type": "object:state-changed:focused",
+        "role": "panel",
+        "name": ""
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "combo box",
+        "name": "Search with Google or enter address"
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": "CONFIT — Where Style Meets Your Character"
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": "CONFIT — Where Style Meets Your Character"
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": "CONFIT — Where Style Meets Your Character"
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": "CONFIT — Where Style Meets Your Character"
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": "Structured Wool Overcoat · CONFIT"
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": "Structured Wool Overcoat · CONFIT"
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": "Fit Finder · CONFIT"
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": "Fit Finder · CONFIT"
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": "Virtual Try-On Studio · CONFIT"
+      },
+      {
+        "type": "document:load-complete",
+        "role": "document web",
+        "name": "Virtual Try-On Studio · CONFIT"
+      },
+      {
+        "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": "Checkout · CONFIT"
+      }
+    ],
+    "locales": {
+      "en": {
+        "routes": [
+          {
+            "route_id": "home",
+            "path": "/",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "CONFIT — Where Style Meets Your Character"
+            },
+            "atspi_tree": {
+              "visited_nodes": 422,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 39,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 53,
+                "separator": 3,
+                "panel": 14,
+                "combo box": 5,
+                "label": 5,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 135,
+                "status bar": 6,
+                "link": 25,
+                "landmark": 10,
+                "menu item": 13,
+                "image": 21,
+                "paragraph": 25,
+                "heading": 28,
+                "list": 4,
+                "list item": 13,
+                "static": 8,
+                "article": 2,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "CONFIT — Where Style Meets Your Character — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "CONFIT — Where Style Meets Your Character"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "CONFIT — Where Style Meets Your Character"
+                },
+                {
+                  "role": "link",
+                  "name": "Skip to main content"
+                },
+                {
+                  "role": "link",
+                  "name": "Partner Portal"
+                },
+                {
+                  "role": "panel",
+                  "name": "Change display language"
+                },
+                {
+                  "role": "button",
+                  "name": "English"
+                },
+                {
+                  "role": "button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "Change display currency"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Change display currency"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "catalog",
+            "path": "/catalog",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "CONFIT — Where Style Meets Your Character"
+            },
+            "atspi_tree": {
+              "visited_nodes": 81,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 35,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 14,
+                "separator": 3,
+                "panel": 2,
+                "combo box": 1,
+                "label": 1,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 2,
+                "status bar": 2,
+                "landmark": 1,
+                "image": 1,
+                "heading": 1,
+                "paragraph": 2,
+                "static": 1,
+                "link": 2,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "CONFIT — Where Style Meets Your Character — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "CONFIT — Where Style Meets Your Character"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "CONFIT — Where Style Meets Your Character"
+                },
+                {
+                  "role": "image",
+                  "name": "CONFIT"
+                },
+                {
+                  "role": "heading",
+                  "name": "This page does not exist"
+                },
+                {
+                  "role": "link",
+                  "name": "Go home"
+                },
+                {
+                  "role": "link",
+                  "name": "Browse Discover"
+                },
+                {
+                  "role": "button",
+                  "name": "Go back"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "Structured Wool Overcoat · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 223,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 28,
+                "separator": 3,
+                "panel": 7,
+                "combo box": 2,
+                "label": 2,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 64,
+                "status bar": 6,
+                "link": 15,
+                "landmark": 5,
+                "toggle button": 11,
+                "menu item": 1,
+                "image": 5,
+                "heading": 4,
+                "paragraph": 5,
+                "static": 3,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "Structured Wool Overcoat · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "Structured Wool Overcoat · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "Structured Wool Overcoat · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "Skip to main content"
+                },
+                {
+                  "role": "link",
+                  "name": "Partner Portal"
+                },
+                {
+                  "role": "panel",
+                  "name": "Change display language"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "Change display currency"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Change display currency"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "Fit Finder · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 217,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 39,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 24,
+                "separator": 3,
+                "panel": 6,
+                "combo box": 5,
+                "label": 9,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 49,
+                "status bar": 4,
+                "link": 13,
+                "landmark": 4,
+                "toggle button": 7,
+                "menu item": 11,
+                "image": 1,
+                "heading": 4,
+                "paragraph": 6,
+                "spin button": 5,
+                "static": 1,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "Fit Finder · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "Fit Finder · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "Fit Finder · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "Skip to main content"
+                },
+                {
+                  "role": "link",
+                  "name": "Partner Portal"
+                },
+                {
+                  "role": "panel",
+                  "name": "Change display language"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "Change display currency"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Change display currency"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "try_on",
+            "path": "/try-on",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "Virtual Try-On Studio · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 253,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 29,
+                "separator": 3,
+                "panel": 18,
+                "combo box": 2,
+                "label": 2,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 80,
+                "status bar": 5,
+                "link": 13,
+                "landmark": 5,
+                "toggle button": 2,
+                "menu item": 1,
+                "image": 7,
+                "heading": 9,
+                "paragraph": 9,
+                "caption": 6,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "Virtual Try-On Studio · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "Virtual Try-On Studio · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "Virtual Try-On Studio · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "Skip to main content"
+                },
+                {
+                  "role": "link",
+                  "name": "Partner Portal"
+                },
+                {
+                  "role": "panel",
+                  "name": "Change display language"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "Change display currency"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Change display currency"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "cart",
+            "path": "/cart",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "Checkout · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 164,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 22,
+                "separator": 3,
+                "panel": 5,
+                "combo box": 2,
+                "label": 2,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 35,
+                "status bar": 4,
+                "link": 13,
+                "landmark": 4,
+                "toggle button": 2,
+                "menu item": 1,
+                "image": 1,
+                "paragraph": 6,
+                "heading": 2,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "Checkout · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "Checkout · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "Checkout · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "Skip to main content"
+                },
+                {
+                  "role": "link",
+                  "name": "Partner Portal"
+                },
+                {
+                  "role": "panel",
+                  "name": "Change display language"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "Change display currency"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Change display currency"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "auth",
+            "path": "/auth",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "CONFIT — Where Style Meets Your Character"
+            },
+            "atspi_tree": {
+              "visited_nodes": 81,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 35,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 14,
+                "separator": 3,
+                "panel": 2,
+                "combo box": 1,
+                "label": 1,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 2,
+                "status bar": 2,
+                "landmark": 1,
+                "image": 1,
+                "heading": 1,
+                "paragraph": 2,
+                "static": 1,
+                "link": 2,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "CONFIT — Where Style Meets Your Character — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "CONFIT — Where Style Meets Your Character"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "CONFIT — Where Style Meets Your Character"
+                },
+                {
+                  "role": "image",
+                  "name": "CONFIT"
+                },
+                {
+                  "role": "heading",
+                  "name": "This page does not exist"
+                },
+                {
+                  "role": "link",
+                  "name": "Go home"
+                },
+                {
+                  "role": "link",
+                  "name": "Browse Discover"
+                },
+                {
+                  "role": "button",
+                  "name": "Go back"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "html": {
+              "lang": "en",
+              "dir": "ltr",
+              "title": "Brand Partner Portal · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 149,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 21,
+                "separator": 3,
+                "panel": 3,
+                "combo box": 2,
+                "label": 7,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 21,
+                "status bar": 3,
+                "landmark": 3,
+                "heading": 10,
+                "paragraph": 8,
+                "link": 2,
+                "entry": 5,
+                "menu item": 4,
+                "list": 1,
+                "list item": 4,
+                "caption": 1,
+                "block quote": 1,
+                "image": 1,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "Brand Partner Portal · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "Brand Partner Portal · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER afabc674-8cde-44c6-844a-c968594aa2b5"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "Brand Partner Portal · CONFIT"
+                },
+                {
+                  "role": "heading",
+                  "name": "Reduce fit uncertainty before shoppers reach checkout."
+                },
+                {
+                  "role": "link",
+                  "name": "REGISTER BRAND & ESTABLISH WORKSPACE →"
+                },
+                {
+                  "role": "button",
+                  "name": "REQUEST PARTNERSHIP"
+                },
+                {
+                  "role": "button",
+                  "name": "EXISTING PARTNER SIGN IN"
+                },
+                {
+                  "role": "landmark",
+                  "name": "Request a partner demo"
+                },
+                {
+                  "role": "heading",
+                  "name": "Request a partner demo"
+                },
+                {
+                  "role": "label",
+                  "name": "Company name"
+                }
+              ]
+            }
+          }
+        ],
+        "pdp_modal_focus_and_isolation": {
+          "found_trigger": true,
+          "trigger_text": "Find my size",
+          "while_open": {
+            "dialog_present": true,
+            "background_hidden_containers": 3,
+            "focus_inside_dialog": true
+          },
+          "after_escape": {
+            "dialog_closed": true,
+            "background_restored": true,
+            "active_tag": "BUTTON"
+          }
+        }
+      },
+      "ar": {
+        "routes": [
+          {
+            "route_id": "home",
+            "path": "/",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 421,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 39,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 45,
+                "separator": 3,
+                "panel": 14,
+                "combo box": 5,
+                "label": 5,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 134,
+                "status bar": 6,
+                "link": 25,
+                "landmark": 10,
+                "toggle button": 8,
+                "menu item": 13,
+                "image": 21,
+                "paragraph": 25,
+                "heading": 28,
+                "list": 4,
+                "list item": 13,
+                "static": 8,
+                "article": 2,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "تخطَّ إلى المحتوى الرئيسي"
+                },
+                {
+                  "role": "link",
+                  "name": "بوابة الشركاء"
+                },
+                {
+                  "role": "panel",
+                  "name": "تغيير لغة العرض"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "تغيير عملة العرض"
+                },
+                {
+                  "role": "combo box",
+                  "name": "تغيير عملة العرض"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "catalog",
+            "path": "/catalog",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 81,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 35,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 14,
+                "separator": 3,
+                "panel": 2,
+                "combo box": 1,
+                "label": 1,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 2,
+                "status bar": 2,
+                "landmark": 1,
+                "image": 1,
+                "heading": 1,
+                "paragraph": 2,
+                "static": 1,
+                "link": 2,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+                },
+                {
+                  "role": "image",
+                  "name": "CONFIT"
+                },
+                {
+                  "role": "heading",
+                  "name": "هذه الصفحة غير موجودة"
+                },
+                {
+                  "role": "link",
+                  "name": "الصفحة الرئيسية"
+                },
+                {
+                  "role": "link",
+                  "name": "تصفّح الاستكشاف"
+                },
+                {
+                  "role": "button",
+                  "name": "رجوع"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "معطف صوف مُهيكل فاخر · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 223,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 28,
+                "separator": 3,
+                "panel": 7,
+                "combo box": 2,
+                "label": 2,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 64,
+                "status bar": 6,
+                "link": 15,
+                "landmark": 5,
+                "toggle button": 11,
+                "menu item": 1,
+                "image": 5,
+                "heading": 4,
+                "paragraph": 5,
+                "static": 3,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "معطف صوف مُهيكل فاخر · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "معطف صوف مُهيكل فاخر · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "معطف صوف مُهيكل فاخر · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "تخطَّ إلى المحتوى الرئيسي"
+                },
+                {
+                  "role": "link",
+                  "name": "بوابة الشركاء"
+                },
+                {
+                  "role": "panel",
+                  "name": "تغيير لغة العرض"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "تغيير عملة العرض"
+                },
+                {
+                  "role": "combo box",
+                  "name": "تغيير عملة العرض"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "محدد المقاس · كونفت · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 217,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 39,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 24,
+                "separator": 3,
+                "panel": 6,
+                "combo box": 5,
+                "label": 9,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 49,
+                "status bar": 4,
+                "link": 13,
+                "landmark": 4,
+                "toggle button": 7,
+                "menu item": 11,
+                "image": 1,
+                "heading": 4,
+                "paragraph": 6,
+                "spin button": 5,
+                "static": 1,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "محدد المقاس · كونفت · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "محدد المقاس · كونفت · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "محدد المقاس · كونفت · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "تخطَّ إلى المحتوى الرئيسي"
+                },
+                {
+                  "role": "link",
+                  "name": "بوابة الشركاء"
+                },
+                {
+                  "role": "panel",
+                  "name": "تغيير لغة العرض"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "تغيير عملة العرض"
+                },
+                {
+                  "role": "combo box",
+                  "name": "تغيير عملة العرض"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "try_on",
+            "path": "/try-on",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "استوديو القياس الافتراضي · كونفت · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 253,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 29,
+                "separator": 3,
+                "panel": 18,
+                "combo box": 2,
+                "label": 2,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 80,
+                "status bar": 5,
+                "link": 13,
+                "landmark": 5,
+                "toggle button": 2,
+                "menu item": 1,
+                "image": 7,
+                "heading": 9,
+                "paragraph": 9,
+                "caption": 6,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "استوديو القياس الافتراضي · كونفت · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "استوديو القياس الافتراضي · كونفت · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "استوديو القياس الافتراضي · كونفت · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "تخطَّ إلى المحتوى الرئيسي"
+                },
+                {
+                  "role": "link",
+                  "name": "بوابة الشركاء"
+                },
+                {
+                  "role": "panel",
+                  "name": "تغيير لغة العرض"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "تغيير عملة العرض"
+                },
+                {
+                  "role": "combo box",
+                  "name": "تغيير عملة العرض"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "cart",
+            "path": "/cart",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "إتمام الطلب · كونفت · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 164,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 22,
+                "separator": 3,
+                "panel": 5,
+                "combo box": 2,
+                "label": 2,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 35,
+                "status bar": 4,
+                "link": 13,
+                "landmark": 4,
+                "toggle button": 2,
+                "menu item": 1,
+                "image": 1,
+                "paragraph": 6,
+                "heading": 2,
+                "list": 2,
+                "list item": 11,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "إتمام الطلب · كونفت · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "إتمام الطلب · كونفت · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "إتمام الطلب · كونفت · CONFIT"
+                },
+                {
+                  "role": "link",
+                  "name": "تخطَّ إلى المحتوى الرئيسي"
+                },
+                {
+                  "role": "link",
+                  "name": "بوابة الشركاء"
+                },
+                {
+                  "role": "panel",
+                  "name": "تغيير لغة العرض"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "English"
+                },
+                {
+                  "role": "toggle button",
+                  "name": "العربية"
+                },
+                {
+                  "role": "label",
+                  "name": "تغيير عملة العرض"
+                },
+                {
+                  "role": "combo box",
+                  "name": "تغيير عملة العرض"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "auth",
+            "path": "/auth",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 81,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 35,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 14,
+                "separator": 3,
+                "panel": 2,
+                "combo box": 1,
+                "label": 1,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 2,
+                "status bar": 2,
+                "landmark": 1,
+                "image": 1,
+                "heading": 1,
+                "paragraph": 2,
+                "static": 1,
+                "link": 2,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "كونفت — حيث تلتقي الأناقة بشخصيتك · CONFIT"
+                },
+                {
+                  "role": "image",
+                  "name": "CONFIT"
+                },
+                {
+                  "role": "heading",
+                  "name": "هذه الصفحة غير موجودة"
+                },
+                {
+                  "role": "link",
+                  "name": "الصفحة الرئيسية"
+                },
+                {
+                  "role": "link",
+                  "name": "تصفّح الاستكشاف"
+                },
+                {
+                  "role": "button",
+                  "name": "رجوع"
+                }
+              ]
+            }
+          },
+          {
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "html": {
+              "lang": "ar",
+              "dir": "rtl",
+              "title": "بوابة شركاء العلامات التجارية · كونفت · CONFIT"
+            },
+            "atspi_tree": {
+              "visited_nodes": 149,
+              "role_counts": {
+                "application": 1,
+                "frame": 1,
+                "menu": 36,
+                "tool bar": 4,
+                "menu bar": 1,
+                "page tab list": 1,
+                "page tab": 1,
+                "button": 21,
+                "separator": 3,
+                "panel": 3,
+                "combo box": 2,
+                "label": 7,
+                "scroll pane": 1,
+                "internal frame": 1,
+                "document web": 1,
+                "section": 21,
+                "status bar": 3,
+                "landmark": 3,
+                "heading": 10,
+                "paragraph": 8,
+                "link": 2,
+                "entry": 5,
+                "menu item": 4,
+                "list": 1,
+                "list item": 4,
+                "caption": 1,
+                "block quote": 1,
+                "image": 1,
+                "alert": 1
+              },
+              "named_node_samples": [
+                {
+                  "role": "application",
+                  "name": "Firefox"
+                },
+                {
+                  "role": "frame",
+                  "name": "بوابة شركاء العلامات التجارية · كونفت · CONFIT — Nightly"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Menu Bar"
+                },
+                {
+                  "role": "menu bar",
+                  "name": "Application"
+                },
+                {
+                  "role": "menu",
+                  "name": "File"
+                },
+                {
+                  "role": "menu",
+                  "name": "Edit"
+                },
+                {
+                  "role": "menu",
+                  "name": "View"
+                },
+                {
+                  "role": "menu",
+                  "name": "History"
+                },
+                {
+                  "role": "menu",
+                  "name": "Bookmarks"
+                },
+                {
+                  "role": "menu",
+                  "name": "Tools"
+                },
+                {
+                  "role": "menu",
+                  "name": "Help"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Browser tabs"
+                },
+                {
+                  "role": "page tab",
+                  "name": "بوابة شركاء العلامات التجارية · كونفت · CONFIT"
+                },
+                {
+                  "role": "button",
+                  "name": "Close tab"
+                },
+                {
+                  "role": "button",
+                  "name": "Open a new tab (Ctrl+T)"
+                },
+                {
+                  "role": "menu",
+                  "name": "New Tab"
+                },
+                {
+                  "role": "button",
+                  "name": "List all tabs"
+                },
+                {
+                  "role": "tool bar",
+                  "name": "Navigation"
+                },
+                {
+                  "role": "button",
+                  "name": "Sidebars"
+                },
+                {
+                  "role": "button",
+                  "name": "Back"
+                },
+                {
+                  "role": "menu",
+                  "name": "Back"
+                },
+                {
+                  "role": "button",
+                  "name": "Forward"
+                },
+                {
+                  "role": "menu",
+                  "name": "Forward"
+                },
+                {
+                  "role": "button",
+                  "name": "Reload"
+                },
+                {
+                  "role": "button",
+                  "name": "View site information"
+                },
+                {
+                  "role": "combo box",
+                  "name": "Search with Google or enter address"
+                },
+                {
+                  "role": "button",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "label",
+                  "name": "JUGGLER 1b661082-3b0b-4ea0-b9c0-59ce932ec1ef"
+                },
+                {
+                  "role": "button",
+                  "name": "Bookmark this page (Ctrl+D)"
+                },
+                {
+                  "role": "button",
+                  "name": "Account"
+                },
+                {
+                  "role": "button",
+                  "name": "Extensions"
+                },
+                {
+                  "role": "button",
+                  "name": "Nightly"
+                },
+                {
+                  "role": "document web",
+                  "name": "بوابة شركاء العلامات التجارية · كونفت · CONFIT"
+                },
+                {
+                  "role": "heading",
+                  "name": "قلّل من عدم اليقين في المقاس قبل وصول المتسوقين إلى الدفع."
+                },
+                {
+                  "role": "link",
+                  "name": "تسجيل العلامة وإنشاء مساحة العمل →"
+                },
+                {
+                  "role": "button",
+                  "name": "اطلب شراكة"
+                },
+                {
+                  "role": "button",
+                  "name": "تسجيل دخول شريك حالي"
+                },
+                {
+                  "role": "landmark",
+                  "name": "اطلب عرضاً تجريبياً للشراكة"
+                },
+                {
+                  "role": "heading",
+                  "name": "اطلب عرضاً تجريبياً للشراكة"
+                },
+                {
+                  "role": "label",
+                  "name": "اسم الشركة"
+                }
+              ]
+            }
+          }
+        ],
+        "pdp_modal_focus_and_isolation": {
+          "found_trigger": true,
+          "trigger_text": "اعرف مقاسي",
+          "while_open": {
+            "dialog_present": true,
+            "background_hidden_containers": 3,
+            "focus_inside_dialog": true
+          },
+          "after_escape": {
+            "dialog_closed": true,
+            "background_restored": true,
+            "active_tag": "BUTTON"
+          }
+        }
+      }
+    }
+  },
+  "multi_engine_matrix": {
+    "chromium": {
+      "version": "156.0.8078.4",
+      "locales": {
+        "en": [
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 31,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "home",
+            "path": "/",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "catalog",
+            "path": "/catalog",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "try_on",
+            "path": "/try-on",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 28,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "cart",
+            "path": "/cart",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "auth",
+            "path": "/auth",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "ar_english_aria_leaks": []
+          }
+        ],
+        "ar": [
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 31,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "home",
+            "path": "/",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "catalog",
+            "path": "/catalog",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "try_on",
+            "path": "/try-on",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 28,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "cart",
+            "path": "/cart",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "auth",
+            "path": "/auth",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "ar_english_aria_leaks": []
+          }
+        ]
+      },
+      "zoom_and_reflow": [
+        {
+          "lang": "en",
+          "route_id": "home",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "catalog",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "pdp",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "fit_finder",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "home",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "catalog",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "pdp",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "fit_finder",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        }
+      ]
+    },
+    "firefox": {
+      "version": "157.0",
+      "locales": {
+        "en": [
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 31,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "home",
+            "path": "/",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "catalog",
+            "path": "/catalog",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "try_on",
+            "path": "/try-on",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 28,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "cart",
+            "path": "/cart",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "auth",
+            "path": "/auth",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "ar_english_aria_leaks": []
+          }
+        ],
+        "ar": [
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 31,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "home",
+            "path": "/",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "catalog",
+            "path": "/catalog",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "try_on",
+            "path": "/try-on",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 28,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "cart",
+            "path": "/cart",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "auth",
+            "path": "/auth",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "ar_english_aria_leaks": []
+          }
+        ]
+      },
+      "zoom_and_reflow": [
+        {
+          "lang": "en",
+          "route_id": "home",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "catalog",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "pdp",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "fit_finder",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "home",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "catalog",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "pdp",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "fit_finder",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1280,
+            "overflowPx": 0
+          }
+        }
+      ]
+    },
+    "webkit": {
+      "version": "27.2",
+      "locales": {
+        "en": [
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "home",
+            "path": "/",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "catalog",
+            "path": "/catalog",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "try_on",
+            "path": "/try-on",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 28,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "cart",
+            "path": "/cart",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "auth",
+            "path": "/auth",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "ltr",
+            "lang": "en",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "ar_english_aria_leaks": []
+          }
+        ],
+        "ar": [
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "home",
+            "path": "/",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "catalog",
+            "path": "/catalog",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "pdp",
+            "path": "/product/structured-wool-overcoat",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "fit_finder",
+            "path": "/fit-finder",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 30,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "try_on",
+            "path": "/try-on",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 28,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "cart",
+            "path": "/cart",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 22,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "auth",
+            "path": "/auth",
+            "ar_english_aria_leaks": []
+          },
+          {
+            "dir": "rtl",
+            "lang": "ar",
+            "passes_count": 29,
+            "total_violations": 0,
+            "serious_or_critical": [],
+            "reduced_motion_matches": true,
+            "route_id": "partner_gateway",
+            "path": "/partner",
+            "ar_english_aria_leaks": []
+          }
+        ]
+      },
+      "zoom_and_reflow": [
+        {
+          "lang": "en",
+          "route_id": "home",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 314,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "catalog",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 314,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "pdp",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 314,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "en",
+          "route_id": "fit_finder",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 314,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "home",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 314,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "catalog",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 320,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "pdp",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 314,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        },
+        {
+          "lang": "ar",
+          "route_id": "fit_finder",
+          "reflow_320px": {
+            "innerWidth": 320,
+            "scrollWidth": 314,
+            "overflowPx": 0
+          },
+          "zoom_200pct": {
+            "innerWidth": 1280,
+            "scrollWidth": 1274,
+            "overflowPx": 0
+          }
+        }
+      ]
+    }
+  }
+}

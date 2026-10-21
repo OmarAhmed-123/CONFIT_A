@@ -4,6 +4,7 @@ import { ConsumerLayout } from '../layouts/ConsumerLayout';
 import { BrandLayout } from '../layouts/BrandLayout';
 import { RoleGuard, ProtectedRoute } from '../components/auth/RoleGuard';
 import { RoutePending } from '../components/navigation/RoutePending';
+import { RouteAnnouncer } from '../components/common/RouteAnnouncer';
 import { useAuthStore, isOnboardingDismissed } from '../stores/authStore';
 
 /**
@@ -137,6 +138,7 @@ export const AppRoutes: React.FC = () => {
   return (
     // Router context is provided by App (AUTH-02: root-mounted AuthModal needs navigate()).
     <>
+      <RouteAnnouncer />
       <Routes>
         {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
         <Route path="/looks/:token" element={<SharedLookView />} />

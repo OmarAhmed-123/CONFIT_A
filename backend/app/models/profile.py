@@ -103,3 +103,19 @@ class MoodBoardItem(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     board = relationship("MoodBoard", back_populates="items")
+
+
+class UserWishlistItem(Base):
+    """Server-persisted, strictly per-user Favorites / Wishlist item."""
+    __tablename__ = "user_wishlist_items"
+
+    from sqlalchemy import UniqueConstraint
+    __table_args__ = (
+        UniqueConstraint("user_id", "product_id", name="uq_user_wishlist_user_product"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+

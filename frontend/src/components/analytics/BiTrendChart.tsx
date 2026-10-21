@@ -90,11 +90,11 @@ export const BiTrendChart: React.FC<BiTrendChartProps> = ({
       {/* Header with Mode Toggle & Table view */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div>
-          <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+          <h2 className="font-serif text-lg font-bold text-brand-charcoal">
             {metric === 'revenue'
               ? t('bi.revenue_trend', 'Revenue & Sales Trend Over Time')
               : t('bi.volume_trend', 'Order & Unit Volume Over Time')}
-          </h3>
+          </h2>
           <p className="text-[11px] text-slate-500">
             {metric === 'revenue'
               ? t('bi.revenue_trend_desc', 'Daily captured gross line value vs net sales (after discounts and opened returns)')
@@ -361,7 +361,7 @@ export const BiTrendChart: React.FC<BiTrendChartProps> = ({
                       {currency} {data[hoveredIndex].net_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </span>
                   </div>
-                  <div className="flex justify-between gap-4 text-slate-400 text-[10px]">
+                  <div className="flex justify-between gap-4 text-brand-muted text-[10px]">
                     <span>{t('bi.orders', 'Orders')}:</span>
                     <span className="font-mono">{data[hoveredIndex].orders}</span>
                   </div>
@@ -376,7 +376,7 @@ export const BiTrendChart: React.FC<BiTrendChartProps> = ({
                     <span className="text-slate-300 font-medium">{t('bi.units', 'Units')}:</span>
                     <span className="font-mono font-bold">{data[hoveredIndex].units}</span>
                   </div>
-                  <div className="flex justify-between gap-4 text-slate-400 text-[10px]">
+                  <div className="flex justify-between gap-4 text-brand-muted text-[10px]">
                     <span>{t('bi.gross_sales', 'Gross')}:</span>
                     <span className="font-mono">
                       {currency} {data[hoveredIndex].gross_sales.toFixed(2)}

@@ -317,6 +317,53 @@ def patch_me_consents(
 
 
 # -----------------------------------------------------------------------------
+# Account Wishlist / Favorites — strictly per-user with device merge on login
+# -----------------------------------------------------------------------------
+class WishlistSyncRequest(BaseModel):
+    product_ids: list[int] = Field(default_factory=list, max_length=500)
+
+
+class WishlistResponse(BaseModel):
+    product_ids: list[int]
+
+
+@router.get("/profile/me/wishlist", response_model=WishlistResponse)
+@router.get("/me/wishlist", response_model=WishlistResponse)
+def get_me_wishlist(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"product_ids": ProfileService(db).get_wishlist(user.id)}
+
+
+@router.put("/profile/me/wishlist/{product_id}", response_model=WishlistResponse)
+@router.put("/me/wishlist/{product_id}", response_model=WishlistResponse)
+def put_me_wishlist_item(
+    product_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return {"product_ids": ProfileService(db).add_wishlist_item(user.id, product_id)}
+
+
+@router.delete("/profile/me/wishlist/{product_id}", response_model=WishlistResponse)
+@router.delete("/me/wishlist/{product_id}", response_model=WishlistResponse)
+def delete_me_wishlist_item(
+    product_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return {"product_ids": ProfileService(db).remove_wishlist_item(user.id, product_id)}
+
+
+@router.post("/profile/me/wishlist/sync", response_model=WishlistResponse)
+@router.post("/me/wishlist/sync", response_model=WishlistResponse)
+def sync_me_wishlist(
+    payload: WishlistSyncRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return {"product_ids": ProfileService(db).sync_wishlist(user.id, payload.product_ids)}
+
+
+# -----------------------------------------------------------------------------
 # GDPR export & account deletion
 # -----------------------------------------------------------------------------
 @router.post("/me/export")

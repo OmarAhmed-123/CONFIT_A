@@ -608,6 +608,9 @@ class BrandRepository:
             product_ids = [pid for (pid,) in self.db.query(Product.id)
                            .filter(Product.brand_id == brand_id).all()]
 
+        from backend.app.models.catalog_import import BrandAnalyticsEvent
+        from backend.app.models.profile import UserWishlistItem
+
         if product_ids:
             headline = self.db.execute(
                 select(
@@ -629,15 +632,38 @@ class BrandRepository:
                     .where(OrderItem.brand_id == brand_id,
                            revenue_eligible(Order.status))
                     .scalar_subquery().label("purchases"),
+
+                    select(func.count(BrandAnalyticsEvent.id))
+                    .where(BrandAnalyticsEvent.brand_id == brand_id,
+                           BrandAnalyticsEvent.event_type == "gallery_photo_view")
+                    .scalar_subquery().label("gallery_photo_views"),
+
+                    select(func.count(BrandAnalyticsEvent.id))
+                    .where(BrandAnalyticsEvent.brand_id == brand_id,
+                           BrandAnalyticsEvent.event_type == "fit_recommendation")
+                    .scalar_subquery().label("fit_recommendations"),
+
+                    select(func.count(BrandAnalyticsEvent.id))
+                    .where(BrandAnalyticsEvent.brand_id == brand_id,
+                           BrandAnalyticsEvent.event_type == "wishlist_save")
+                    .scalar_subquery().label("wishlist_events"),
+
+                    select(func.count(UserWishlistItem.id))
+                    .where(UserWishlistItem.product_id.in_(product_ids))
+                    .scalar_subquery().label("wishlist_items"),
                 )
             ).one()
             total_views = headline.views or 0
             total_tryons = headline.tryons or 0
             total_add_to_carts = headline.add_to_carts or 0
             total_purchases = headline.purchases or 0
+            gallery_views = int(headline.gallery_photo_views or 0)
+            fit_recs = int(headline.fit_recommendations or 0)
+            wishlist_saves = max(int(headline.wishlist_items or 0), int(headline.wishlist_events or 0))
         else:
             # No products: every count is definitionally zero. Skip the trip.
             total_views = total_tryons = total_add_to_carts = total_purchases = 0
+            gallery_views = fit_recs = wishlist_saves = 0
 
         # A zero denominator yields None ("not measurable"), never 0.0 and never
         # a substituted denominator of 1. Reporting 0% when there are no views
@@ -651,6 +677,9 @@ class BrandRepository:
             "total_add_to_carts": int(total_add_to_carts),
             "total_purchases": int(total_purchases),
             "funnel_conversion_rate": float(funnel_rate) if funnel_rate is not None else None,
+            "gallery_photo_views": gallery_views,
+            "fit_recommendations": fit_recs,
+            "wishlist_saves": wishlist_saves,
             "methodology": self.ACTIVITY_METHODOLOGY,
         }
 
@@ -782,6 +811,31 @@ class BrandRepository:
         ad_spend = quantize_money(to_decimal(ad_totals[0] or 0))
         ad_revenue = quantize_money(to_decimal(ad_totals[1] or 0))
 
+        # 9. Real media & fit engagement telemetry strictly scoped to brand_id.
+        # Headline counts already came back inside snapshot's single scalar-subquery
+        # round trip above (0 extra SQL statements unless gallery_photo_views > 0).
+        from backend.app.models.catalog_import import BrandAnalyticsEvent
+
+        gallery_photo_views = snapshot["gallery_photo_views"]
+        photo_index_breakdown: Dict[str, int] = {}
+        if gallery_photo_views > 0:
+            for (meta_raw,) in (
+                self.db.query(BrandAnalyticsEvent.event_metadata_json)
+                .filter(
+                    BrandAnalyticsEvent.brand_id == brand_id,
+                    BrandAnalyticsEvent.event_type == "gallery_photo_view",
+                )
+                .all()
+            ):
+                try:
+                    parsed_meta = json.loads(meta_raw or "{}")
+                    pidx = parsed_meta.get("photo_index")
+                    if isinstance(pidx, int) and not isinstance(pidx, bool) and pidx >= 0:
+                        k = str(pidx)
+                        photo_index_breakdown[k] = photo_index_breakdown.get(k, 0) + 1
+                except Exception:
+                    continue
+
         return {
             "brand_name": brand.brand_name,
             "total_products_count": len(products),
@@ -797,6 +851,12 @@ class BrandRepository:
             "outfit_appearance_rankings": outfit_rankings,
             "bopis_store_fulfillment_rate": bopis_rate,
             "return_cohorts": returns,
+            "media_engagement": {
+                "gallery_photo_views": gallery_photo_views,
+                "fit_recommendations": snapshot["fit_recommendations"],
+                "wishlist_saves": snapshot["wishlist_saves"],
+                "photo_index_breakdown": photo_index_breakdown,
+            },
             "data_source": "transactional_snapshot",
             "methodology": self.ACTIVITY_METHODOLOGY,
             "ad_spend_total": to_float(ad_spend),

@@ -142,11 +142,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             className={`block w-full text-left cursor-pointer ${
               isCompact ? "h-44" : "h-56"
             }`}
-            aria-label={t("a11y.view_product", { name: product.title })}
           >
             <HonestProductImage
               src={product.thumbnail_url}
               alt={localizedTitle(product, lang)}
+              unavailableLabel={t("a11y.image_unavailable")}
               loading={priority ? "eager" : "lazy"}
               decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-luxury"
@@ -158,11 +158,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             className={`block w-full text-left cursor-pointer ${
               isCompact ? "h-44" : "h-56"
             }`}
-            aria-label={t("a11y.view_product", { name: product.title })}
           >
             <HonestProductImage
               src={product.thumbnail_url}
               alt={localizedTitle(product, lang)}
+              unavailableLabel={t("a11y.image_unavailable")}
               loading={priority ? "eager" : "lazy"}
               decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-luxury"

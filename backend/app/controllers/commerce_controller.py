@@ -619,6 +619,65 @@ async def create_exchange(
     )
 
 
+@router.post("/commerce/orders/{order_number}/reconcile-payment", response_model=OrderOut)
+@router.post("/orders/{order_number}/reconcile-payment", response_model=OrderOut)
+@limiter.limit("20/minute")
+async def reconcile_order_payment(
+    request: Request,
+    order_number: str,
+    guest_email: Optional[str] = None,
+    x_session_token: Optional[str] = Header(None, alias="X-Session-Token"),
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """Server-to-server payment reconciliation after redirect return or client timeout."""
+    service = CommerceService(db)
+    try:
+        order = service.get_order(order_number)
+    except ResourceNotFoundError:
+        if user is None:
+            _public_order_not_found()
+        raise
+    try:
+        service.assert_order_access(order, user, session_token=x_session_token, guest_email=guest_email)
+    except (AuthenticationError, AuthorizationError):
+        if user is None:
+            _public_order_not_found()
+        raise
+    return await service.reconcile_order_payment(order_number)
+
+
+@router.post("/payments/webhooks/fawaterak/{event_kind}")
+@limiter.limit("120/minute")
+async def fawaterak_typed_webhook(
+    request: Request,
+    event_kind: str,
+    db: Session = Depends(get_db),
+    x_signature: Optional[str] = Header(None),
+):
+    """Fawaterak paid / failed / cancel / refund webhook intake (JSON or form-encoded)."""
+    from urllib.parse import parse_qsl
+
+    raw_body = await request.body()
+    ctype = (request.headers.get("content-type") or "").lower()
+    payload: Dict[str, Any] = {}
+    if "application/x-www-form-urlencoded" in ctype:
+        payload = dict(parse_qsl(raw_body.decode("utf-8", errors="replace")))
+        raw_for_hmac = json.dumps(payload).encode("utf-8")
+    else:
+        raw_for_hmac = raw_body
+        try:
+            parsed = json.loads(raw_body.decode("utf-8") or "{}")
+            if isinstance(parsed, dict):
+                payload = parsed
+        except (UnicodeDecodeError, ValueError):
+            payload = {}
+    service = CommerceService(db)
+    return await service.process_webhook(
+        "fawaterak", payload, raw_for_hmac, x_signature or "", event_kind=event_kind
+    )
+
+
 @router.post("/payments/webhooks/{provider}")
 async def payment_webhook(
     request: Request,

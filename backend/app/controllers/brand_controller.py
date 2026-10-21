@@ -531,10 +531,10 @@ async def upload_catalog_csv(
         send_notifications=send_notifications,
     )
 
-    from backend.app.workers.tasks import bulk_catalog_import_task
+    from backend.app.workers.tasks import dispatch_catalog_import_job
 
     try:
-        async_result = bulk_catalog_import_task.delay(job.id)
+        async_result = dispatch_catalog_import_job(job.id)
         job.celery_task_id = getattr(async_result, "id", None)
         db.commit()
     except Exception as exc:  # broker unreachable / task unroutable
@@ -1130,12 +1130,12 @@ def retry_catalog_import(
                     f"{job.attempts} times; upload a corrected file instead"),
         )
 
-    from backend.app.workers.tasks import bulk_catalog_import_task
+    from backend.app.workers.tasks import dispatch_catalog_import_job
 
     job.status = "queued"
     db.commit()
     try:
-        async_result = bulk_catalog_import_task.delay(job.id)
+        async_result = dispatch_catalog_import_job(job.id)
         job.celery_task_id = getattr(async_result, "id", None)
         db.commit()
     except Exception as exc:

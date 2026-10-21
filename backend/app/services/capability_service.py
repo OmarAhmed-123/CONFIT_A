@@ -296,6 +296,13 @@ def payment_method_is_live(method_id: str) -> bool:
     provider_key, adapter = PaymentOrchestrator.live_adapter_for(method)
     if adapter is None or not provider_key:
         return False
+    if provider_key == "fawaterak":
+        from backend.app.providers.payment.fawaterak import (
+            fawaterak_credentials_present,
+            fawaterak_portal_ready_from_cache,
+        )
+
+        return bool(fawaterak_credentials_present() and fawaterak_portal_ready_from_cache() is not False)
     credential = {
         "stripe": settings.STRIPE_SECRET_KEY,
         "tabby": settings.TABBY_API_KEY,

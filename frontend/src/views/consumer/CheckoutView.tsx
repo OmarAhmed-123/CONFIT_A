@@ -90,10 +90,20 @@ export const CheckoutView: React.FC = () => {
   const [promoInput, setPromoInput] = useState(cart?.promo_code || '');
   const [promoError, setPromoError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string>(() => newIdempotencyKey());
+  const hasLivePspMethod = paymentOptions.some((m) => Boolean(m.is_live) && m.id !== 'cod');
 
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
+
+  // Mint a fresh idempotency key ONLY when cart contents change — retries for
+  // the same cart after a network timeout reuse the identical key so the backend
+  // returns the existing order idempotently rather than charging twice.
+  const cartFingerprint = `${cart?.id ?? ''}:${cart?.items_count ?? 0}:${cart?.total ?? 0}:${cart?.promo_code ?? ''}`;
+  useEffect(() => {
+    setCheckoutIdempotencyKey(newIdempotencyKey());
+  }, [cartFingerprint]);
 
   useEffect(() => {
     if (user) {
@@ -198,11 +208,16 @@ export const CheckoutView: React.FC = () => {
         stylist_assisted: false,
         guest_email: isAuthenticated ? undefined : guestEmail.trim(),
         shipping_method: shippingMethod,
-        idempotency_key: newIdempotencyKey(),
+        idempotency_key: checkoutIdempotencyKey,
         expected_quote_total: cart?.total != null ? Number(cart.total) : undefined,
         expected_quote_currency: cart?.currency || undefined,
       });
+      if (order.payment_redirect_url && /^https?:\/\//i.test(order.payment_redirect_url)) {
+        window.location.assign(order.payment_redirect_url);
+        return;
+      }
       showToast(t('checkout.order_placed_confirmed'), 'success');
+      setCheckoutIdempotencyKey(newIdempotencyKey());
       await fetchCart();
       navigate(`/orders/${order.order_number}`);
     } catch (err: any) {
@@ -220,7 +235,8 @@ export const CheckoutView: React.FC = () => {
 
   return (
     <div className="space-y-8 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start pb-24 max-w-5xl mx-auto">
-      {/* C4 FIX: Payment Demo Safety - unmistakable banner when PAYMENTS_LIVE=false */}
+      {/* C4 FIX: Payment Demo Safety - unmistakable banner when no live PSP rail is active */}
+      {!hasLivePspMethod && (
       <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3 lg:col-span-7">
         <div aria-hidden="true" className="text-amber-600"><StatusIcon status="warning" size={22} className="text-amber-600" /></div>
         <div className="flex-1">
@@ -230,6 +246,7 @@ export const CheckoutView: React.FC = () => {
           </p>
         </div>
       </div>
+      )}
 
       <div className="border-b border-brand-hairline pb-4 lg:col-span-7">
         <h1 className="font-serif text-3xl font-bold text-brand-charcoal tracking-tight">

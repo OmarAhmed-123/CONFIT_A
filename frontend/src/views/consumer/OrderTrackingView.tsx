@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import { useTranslation } from 'react-i18next';
 import { commerceService } from '../../services/apiServices';
@@ -17,6 +17,7 @@ import type { Order as OrderSummary } from '../../models';
 
 export const OrderTrackingView: React.FC = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
+  const location = useLocation();
   const { t, i18n } = useTranslation();
   const { isAuthenticated } = useAuthStore();
 
@@ -44,10 +45,24 @@ export const OrderTrackingView: React.FC = () => {
     setLoadError(null);
     setNeedsSecondFactor(false);
     try {
-      const [orderRes, trackRes] = await Promise.all([
+      let [orderRes, trackRes] = await Promise.all([
         commerceService.getOrderDetail(orderNum, guestEmail),
         commerceService.getOrderTracking(orderNum, guestEmail),
       ]);
+      const params = new URLSearchParams(location.search);
+      const hasPaymentReturn = params.has('payment_result') || params.has('payment_return');
+      if (
+        hasPaymentReturn &&
+        orderRes.payment_status === 'pending' &&
+        typeof commerceService.reconcileOrderPayment === 'function'
+      ) {
+        try {
+          orderRes = await commerceService.reconcileOrderPayment(orderNum, guestEmail);
+          trackRes = await commerceService.getOrderTracking(orderNum, guestEmail);
+        } catch {
+          // Non-fatal: webhook or subsequent poll reconciles independently
+        }
+      }
       setOrder(orderRes);
       setTimeline(trackRes);
       setLoadError(null);
@@ -108,7 +123,7 @@ export const OrderTrackingView: React.FC = () => {
       setIsLoading(false);
       if (!isServerFault) setCanRetry(false);
     }
-  }, [isAuthenticated, t]);
+  }, [isAuthenticated, location.search, t]);
 
   useEffect(() => {
     if (orderNumber) {

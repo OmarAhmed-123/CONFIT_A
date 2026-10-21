@@ -259,6 +259,144 @@ def bulk_catalog_import_task(self, job_id: int):
         db.close()
 
 
+def execute_catalog_import_with_retries(
+    job_id: int,
+    *,
+    max_attempts: int = 3,
+    retry_sleep_fn=None,
+) -> dict:
+    """Execute one persisted catalog-import job with bounded retry & lease hygiene.
+
+    Used identically by both direct cloud worker execution (Modal `process_catalog_import_job`)
+    and recovery sweeps so retries, heartbeats, and terminal `failed` transitions behave
+    identically whether dispatched via Redis/Celery or authenticated Modal HTTPS trigger.
+    """
+    import time as _time
+    from backend.app.models.catalog_import import CatalogImportJob
+    from backend.app.services.brand_catalog_service import BrandCatalogService
+
+    sleeper = retry_sleep_fn if retry_sleep_fn is not None else _time.sleep
+
+    for attempt_index in range(max_attempts):
+        db = SessionLocal()
+        try:
+            service = BrandCatalogService(db)
+            result = service.execute_import_job(job_id)
+            logger.info(
+                "catalog_import_worker_completed",
+                job_id=job_id,
+                status=result.get("status"),
+                accepted=result.get("accepted_rows"),
+                rejected=result.get("rejected_rows"),
+            )
+            return result
+        except Exception as exc:
+            db.rollback()
+            err_msg = f"{type(exc).__name__}: {exc}"[:500]
+            logger.error(
+                "catalog_import_worker_error",
+                job_id=job_id,
+                attempt=attempt_index + 1,
+                error=err_msg[:300],
+            )
+            exhausted = False
+            recovery_db = SessionLocal()
+            try:
+                job_row = recovery_db.query(CatalogImportJob).filter(CatalogImportJob.id == job_id).first()
+                if job_row is not None and job_row.status not in ("completed", "partially_completed"):
+                    job_row.heartbeat_at = None
+                    job_row.last_error = err_msg
+                    exhausted = (job_row.attempts or 0) >= max_attempts or (attempt_index + 1) >= max_attempts
+                    if exhausted:
+                        job_row.status = "failed"
+                        job_row.completed_at = datetime.now(timezone.utc)
+                    else:
+                        job_row.status = "queued"
+                    recovery_db.commit()
+            except Exception as rec_exc:
+                recovery_db.rollback()
+                logger.warning("catalog_import_state_reset_failed", job_id=job_id, error=str(rec_exc)[:200])
+                exhausted = (attempt_index + 1) >= max_attempts
+            finally:
+                recovery_db.close()
+
+            if exhausted:
+                logger.error("catalog_import_retries_exhausted", job_id=job_id)
+                return {"job_id": job_id, "status": "failed", "retries_exhausted": True}
+            sleeper(min(2 * (2 ** attempt_index), 15))
+        finally:
+            db.close()
+
+    return {"job_id": job_id, "status": "failed", "retries_exhausted": True}
+
+
+def _dispatch_to_modal_worker(job_id: int) -> object:
+    """Trigger asynchronous cloud execution on Modal (`confit-catalog-worker`)."""
+    import httpx
+    from backend.app.core.config import settings
+
+    url = (getattr(settings, "CATALOG_WORKER_DISPATCH_URL", None) or "").strip()
+    token = (getattr(settings, "CATALOG_WORKER_ADMIN_TOKEN", None) or "").strip()
+    timeout = float(getattr(settings, "CATALOG_WORKER_TIMEOUT_SECONDS", 12.0) or 12.0)
+    if not url or not token:
+        raise ConnectionError("Cloud catalog worker dispatch URL/token not configured")
+    resp = httpx.post(
+        url,
+        json={"job_id": int(job_id)},
+        headers={
+            "X-Catalog-Worker-Token": token,
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        timeout=httpx.Timeout(timeout, connect=min(5.0, timeout)),
+        follow_redirects=False,
+    )
+    if resp.status_code not in (200, 202):
+        raise ConnectionError(f"Cloud catalog worker rejected dispatch with HTTP {resp.status_code}")
+    body = resp.json() if resp.content else {}
+    call_id = str(body.get("call_id") or body.get("task_id") or f"modal-{job_id}")
+    return type("ModalDispatchResult", (), {"id": call_id})()
+
+
+def _publish_via_celery(job_id: int) -> object:
+    return bulk_catalog_import_task.delay(job_id)
+
+
+def dispatch_catalog_import_job(job_id: int) -> object:
+    """Dispatch a durable Postgres catalog import job with zero serverless Redis SPOF:
+
+    1. When an external Redis broker is configured (`settings.has_external_redis`), publish via
+       Celery first and fail over to authenticated Modal HTTPS dispatch if configured.
+    2. On serverless hosts with no external Redis broker (e.g. Vercel global regions),
+       dispatch directly over authenticated HTTPS to Modal `confit-catalog-worker`.
+    3. Otherwise (local dev / eager test mode), publish via `_publish_via_celery(job_id)`.
+    """
+    from backend.app.core.config import settings
+
+    has_modal_dispatch = bool(
+        (getattr(settings, "CATALOG_WORKER_DISPATCH_URL", None) or "").strip()
+        and (getattr(settings, "CATALOG_WORKER_ADMIN_TOKEN", None) or "").strip()
+    )
+
+    if settings.has_external_redis:
+        try:
+            return _publish_via_celery(job_id)
+        except Exception as redis_exc:
+            if has_modal_dispatch:
+                logger.warning(
+                    "catalog_import_redis_failover_to_modal",
+                    job_id=job_id,
+                    error=str(redis_exc)[:200],
+                )
+                return _dispatch_to_modal_worker(job_id)
+            raise
+
+    if has_modal_dispatch:
+        return _dispatch_to_modal_worker(job_id)
+
+    return _publish_via_celery(job_id)
+
+
 @celery_app.task
 def recover_stalled_catalog_imports_task():
     """Hand abandoned imports back to the queue.
@@ -277,7 +415,7 @@ def recover_stalled_catalog_imports_task():
         dispatched = []
         for job_id in job_ids:
             try:
-                bulk_catalog_import_task.delay(job_id)
+                dispatch_catalog_import_job(job_id)
                 dispatched.append(job_id)
             except Exception as exc:  # broker still down: try again next sweep
                 logger.warning("catalog_import_requeue_failed", job_id=job_id,

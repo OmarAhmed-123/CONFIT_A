@@ -1875,12 +1875,14 @@
       "paid": "paid",
       "credit_due": "credit due",
       "delta_due": "difference due",
+      "refund_pending": "refund pending",
       "refunded": "refunded",
       "failed": "failed",
       "not_required": "not required"
     },
     "payment_method": {
       "card": "card",
+      "fawaterak": "Fawaterak payment",
       "bnpl_tabby": "Tabby instalments",
       "bnpl_tamara": "Tamara instalments",
       "apple_pay": "Apple Pay",

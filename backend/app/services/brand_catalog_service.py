@@ -1632,8 +1632,8 @@ class BrandCatalogService:
                 sa_or(
                     CatalogImportJob.status.in_(open_states),
                     sa_and(CatalogImportJob.status == 'processing',
-                           CatalogImportJob.heartbeat_at.isnot(None),
-                           CatalogImportJob.heartbeat_at < stale_before),
+                           sa_or(CatalogImportJob.heartbeat_at.is_(None),
+                                 CatalogImportJob.heartbeat_at < stale_before)),
                 )
             )
             .update(

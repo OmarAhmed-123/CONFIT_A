@@ -225,7 +225,7 @@ export const ProductDetailView: React.FC = () => {
   // and disagreed with the Discover grid. One shared device list now.
   const { toggleWishlist, isWishlisted: isInWishlist } = useDeviceWishlist();
   const [activeAccordion, setActiveAccordion] = useState<
-    "materials" | "bopis" | "delivery" | null
+    "materials" | "size_chart" | "bopis" | "delivery" | null
   >("materials");
   const [isLoading, setIsLoading] = useState(true);
   const [isSlowLoad, setIsSlowLoad] = useState(false);
@@ -1122,6 +1122,12 @@ export const ProductDetailView: React.FC = () => {
               }
             >
               <div className="text-brand-muted space-y-1.5 leading-relaxed">
+                {product.gender && (
+                  <div>
+                    <strong>{t('product.department_label')}</strong>{" "}
+                    {t(`discover.gender_${product.gender}`, { defaultValue: product.gender })}
+                  </div>
+                )}
                 <div>
                   <strong>{t('product.composition_label')}</strong>{" "}
                   {product.material || t('product.not_specified')}
@@ -1130,11 +1136,127 @@ export const ProductDetailView: React.FC = () => {
                   <strong>{t('product.care_label')}</strong>{" "}
                   {product.care_instructions || t('product.see_garment_label')}
                 </div>
+                {((product.style_tags && product.style_tags.length > 0) ||
+                  (product.occasion_tags && product.occasion_tags.length > 0)) && (
+                  <div className="flex flex-wrap gap-1.5 pt-1" data-testid="pdp-taxonomy-tags">
+                    {(product.style_tags || []).map((tag) => (
+                      <span
+                        key={`style-${tag}`}
+                        className="rounded-full border border-brand-hairline bg-brand-wash px-2.5 py-0.5 text-[11px] font-medium text-brand-charcoal"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {(product.occasion_tags || []).map((occ) => (
+                      <span
+                        key={`occ-${occ}`}
+                        className="rounded-full border border-brand-hairline bg-white px-2.5 py-0.5 text-[11px] font-medium text-brand-muted"
+                      >
+                        {occ}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {product.description && (
                   <p className="pt-1">{product.description}</p>
                 )}
               </div>
             </AccordionSection>
+
+            {product.size_chart &&
+              product.size_chart.sizes &&
+              typeof product.size_chart.sizes === "object" &&
+              Object.keys(product.size_chart.sizes).length > 0 && (() => {
+                const chart = product.size_chart!;
+                const sizeEntries = Object.entries(
+                  chart.sizes as Record<string, Record<string, [number, number] | number>>,
+                );
+                const dimensionKeys = Array.from(
+                  new Set(sizeEntries.flatMap(([, dims]) => Object.keys(dims || {}))),
+                );
+                const notesList = Array.isArray(chart.notes) ? chart.notes : [];
+                return (
+                  <AccordionSection
+                    title={t('product.size_guide_title')}
+                    open={activeAccordion === "size_chart"}
+                    onToggle={() =>
+                      setActiveAccordion(
+                        activeAccordion === "size_chart" ? null : "size_chart",
+                      )
+                    }
+                  >
+                    <div className="space-y-3 text-brand-muted" data-testid="pdp-size-chart-panel">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                        {chart.unit && (
+                          <span className="rounded-full bg-brand-wash px-2.5 py-0.5 font-semibold text-brand-charcoal">
+                            {t('product.size_unit_badge', { unit: chart.unit })}
+                          </span>
+                        )}
+                        {chart.type && (
+                          <span className="rounded-full bg-brand-wash px-2.5 py-0.5 font-semibold text-brand-charcoal">
+                            {t('product.size_basis_badge', { basis: chart.type })}
+                          </span>
+                        )}
+                        {chart.fit_type && (
+                          <span className="rounded-full bg-brand-wash px-2.5 py-0.5 font-semibold text-brand-charcoal">
+                            {t('product.size_fit_badge', { fit: chart.fit_type })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="overflow-x-auto rounded-xl border border-brand-hairline">
+                        <table className="w-full text-start text-[11px]">
+                          <caption className="sr-only">{t('product.size_guide_title')}</caption>
+                          <thead>
+                            <tr className="border-b border-brand-hairline bg-brand-wash text-brand-charcoal">
+                              <th scope="col" className="px-3 py-2 font-bold">{t('product.size_col_size')}</th>
+                              {dimensionKeys.map((dim) => (
+                                <th key={dim} scope="col" className="px-3 py-2 font-bold capitalize">
+                                  {dim.replace(/_/g, ' ')} {chart.unit ? `(${chart.unit})` : ''}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-brand-hairline bg-white">
+                            {sizeEntries.map(([sz, dims]) => (
+                              <tr key={sz}>
+                                <td className="px-3 py-2 font-bold text-brand-charcoal">{sz}</td>
+                                {dimensionKeys.map((dim) => {
+                                  const val = dims?.[dim];
+                                  const formatted = Array.isArray(val)
+                                    ? val[0] === val[1]
+                                      ? `${val[0]}`
+                                      : `${val[0]}–${val[1]}`
+                                    : val != null
+                                      ? String(val)
+                                      : '—';
+                                  return (
+                                    <td key={dim} className="px-3 py-2 text-brand-charcoal">
+                                      {formatted}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {chart.source && (
+                        <p className="text-[11px] text-brand-muted">
+                          <strong className="text-brand-charcoal">{t('product.size_source_label')}</strong>{' '}
+                          {chart.source}
+                        </p>
+                      )}
+                      {notesList.length > 0 && (
+                        <ul className="list-disc space-y-1 ps-4 text-[11px] text-brand-muted" data-testid="pdp-size-chart-notes">
+                          {notesList.map((note, nIdx) => (
+                            <li key={nIdx}>{note}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </AccordionSection>
+                );
+              })()}
 
             <AccordionSection
               title={t('product.bopis_title')}

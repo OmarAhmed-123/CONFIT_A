@@ -497,7 +497,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                   counter badge above has existed since the first cut, but the
                   API always returned `[]`, so this section was dead. */}
               {(previewData.warnings?.length ?? 0) > 0 && (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+                <div data-testid="csv-preview-warnings" className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
                   <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
                     <AlertTriangle size={14} className="shrink-0" />
                     {t('b2b.cat.warnings_title', { n: previewData.warnings?.length ?? 0 })}

@@ -334,6 +334,8 @@ export const catalogService = {
     category?: string;
     brand_id?: number;
     color?: string;
+    gender?: string;
+    style?: string;
     occasion?: string;
     min_price?: number;
     max_price?: number;
@@ -413,6 +415,9 @@ export const catalogService = {
     category?: string;
     brand_id?: number;
     color?: string;
+    gender?: string;
+    style?: string;
+    occasion?: string;
     min_price?: number;
     max_price?: number;
     sort_by?: string;
@@ -1278,6 +1283,8 @@ export const commerceService = {
     guest_email?: string;
     shipping_method?: string;
     idempotency_key?: string;
+    expected_quote_total?: number;
+    expected_quote_currency?: string;
   }) =>
     request<Order>("/commerce/checkout", {
       method: "POST",
@@ -1579,6 +1586,43 @@ export const brandService = {
       body: form,
     });
   },
+
+  listBrandDomains: () =>
+    request<{ domains: any[] }>('/partner/brand/domains'),
+
+  claimBrandDomain: (hostname: string) =>
+    request<any>('/partner/brand/domains', {
+      method: 'POST',
+      body: JSON.stringify({ hostname }),
+    }),
+
+  verifyBrandDomain: (hostname: string) =>
+    request<any>(`/partner/brand/domains/${encodeURIComponent(hostname)}/verify`, {
+      method: 'POST',
+    }),
+
+  revokeBrandDomain: (hostname: string, release: boolean = false) =>
+    request<any>(
+      `/partner/brand/domains/${encodeURIComponent(hostname)}${release ? '?release=true' : ''}`,
+      { method: 'DELETE' },
+    ),
+
+  updateProductDetails: (productId: number, payload: Record<string, any>) =>
+    request<{ product: any; warnings: any[]; updated_fields?: string[] }>(
+      `/partner/catalog/products/${productId}`,
+      { method: 'PATCH', body: JSON.stringify(payload) },
+    ),
+
+  getProductSizeChart: (productId: number) =>
+    request<{ product_id: number; size_chart: Record<string, any>; has_chart: boolean }>(
+      `/partner/catalog/products/${productId}/size-chart`,
+    ),
+
+  putProductSizeChart: (productId: number, sizeChart: Record<string, any>) =>
+    request<{ product_id: number; size_chart: Record<string, any>; has_chart: boolean }>(
+      `/partner/catalog/products/${productId}/size-chart`,
+      { method: 'PUT', body: JSON.stringify({ size_chart: sizeChart }) },
+    ),
 
   confirmCatalogImport: (file: File, targetStoreId?: number, sendNotifications: boolean = true) => {
     const form = new FormData();

@@ -199,11 +199,16 @@ export const CheckoutView: React.FC = () => {
         guest_email: isAuthenticated ? undefined : guestEmail.trim(),
         shipping_method: shippingMethod,
         idempotency_key: newIdempotencyKey(),
+        expected_quote_total: cart?.total != null ? Number(cart.total) : undefined,
+        expected_quote_currency: cart?.currency || undefined,
       });
       showToast(t('checkout.order_placed_confirmed'), 'success');
       await fetchCart();
       navigate(`/orders/${order.order_number}`);
     } catch (err: any) {
+      if (err?.status === 422 || /changed from/i.test(String(err?.message || ''))) {
+        await fetchCart().catch(() => {});
+      }
       // Localized by error CODE, so an Arabic shopper reads Arabic instead of a
       // raw English server diagnostic on the payment path. Unknown codes keep
       // the server's own wording rather than a vague generic sentence.

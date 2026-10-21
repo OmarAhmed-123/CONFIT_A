@@ -57,10 +57,230 @@ export const BrandCatalogView: React.FC = () => {
   const [tag, setTag] = useState<Record<number, TagPhase>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [domainsOpen, setDomainsOpen] = useState(false);
+  const [domains, setDomains] = useState<any[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domainInput, setDomainInput] = useState('');
+  const [domainBusy, setDomainBusy] = useState(false);
+  const [domainFeedback, setDomainFeedback] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [detailDraft, setDetailDraft] = useState<{
+    title: string;
+    description: string;
+    description_ar: string;
+    material: string;
+    care_instructions: string;
+    gender: string;
+    style_tags: string;
+    occasion_tags: string;
+    chart_unit: 'cm' | 'in';
+    chart_type: 'body' | 'garment';
+    chart_fit: 'slim' | 'regular' | 'relaxed' | 'oversized';
+    chart_source: string;
+    chart_notes: string;
+    chart_rows: string;
+  } | null>(null);
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [detailFeedback, setDetailFeedback] = useState<{ tone: 'ok' | 'warn' | 'err'; text: string } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
+
+  const loadDomains = useCallback(async () => {
+    setDomainsLoading(true);
+    try {
+      const res = await brandService.listBrandDomains();
+      setDomains(Array.isArray(res?.domains) ? res.domains : []);
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainsLoading(false);
+    }
+  }, [t]);
+
+  const handleToggleDomains = async () => {
+    const next = !domainsOpen;
+    setDomainsOpen(next);
+    if (next) {
+      await loadDomains();
+    }
+  };
+
+  const handleClaimDomain = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!domainInput.trim() || domainBusy) return;
+    setDomainBusy(true);
+    setDomainFeedback(null);
+    try {
+      const claimed = await brandService.claimBrandDomain(domainInput.trim());
+      setDomainInput('');
+      setDomainFeedback({
+        tone: 'ok',
+        text: t('b2b.cat.domain_claimed_msg', { host: claimed.hostname }),
+      });
+      await loadDomains();
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainBusy(false);
+    }
+  };
+
+  const handleVerifyDomain = async (hostname: string) => {
+    setDomainBusy(true);
+    setDomainFeedback(null);
+    try {
+      const res = await brandService.verifyBrandDomain(hostname);
+      setDomainFeedback({
+        tone: res.imports_allowed ? 'ok' : 'err',
+        text: res.imports_allowed
+          ? t('b2b.cat.domain_verified_msg', { host: res.hostname })
+          : res.last_error || t('b2b.cat.domain_pending_msg', { host: res.hostname }),
+      });
+      await loadDomains();
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainBusy(false);
+    }
+  };
+
+  const handleRevokeOrReleaseDomain = async (hostname: string, release: boolean) => {
+    setDomainBusy(true);
+    setDomainFeedback(null);
+    try {
+      await brandService.revokeBrandDomain(hostname, release);
+      setDomainFeedback({
+        tone: 'ok',
+        text: release
+          ? t('b2b.cat.domain_released_msg', { host: hostname })
+          : t('b2b.cat.domain_revoked_msg', { host: hostname }),
+      });
+      await loadDomains();
+    } catch (err: any) {
+      setDomainFeedback({ tone: 'err', text: err?.message || t('b2b.cat.domain_err_generic') });
+    } finally {
+      setDomainBusy(false);
+    }
+  };
+
+  const openProductEditor = (p: any) => {
+    if (editingProductId === p.id) {
+      setEditingProductId(null);
+      setDetailDraft(null);
+      setDetailFeedback(null);
+      return;
+    }
+    const sc = p.size_chart && typeof p.size_chart === 'object' ? p.size_chart : {};
+    const sizeLines = sc.sizes && typeof sc.sizes === 'object'
+      ? Object.entries(sc.sizes as Record<string, Record<string, any>>)
+          .map(([sz, dims]) => {
+            const pairs = Object.entries(dims || {}).map(([k, v]) =>
+              Array.isArray(v) ? `${k}:${v[0]}-${v[1]}` : `${k}:${v}`,
+            );
+            return `${sz} | ${pairs.join(', ')}`;
+          })
+          .join('\n')
+      : '';
+    setEditingProductId(p.id);
+    setDetailFeedback(null);
+    setDetailDraft({
+      title: p.title || '',
+      description: p.description || '',
+      description_ar: p.description_ar || '',
+      material: p.material || '',
+      care_instructions: p.care_instructions || '',
+      gender: p.gender || 'unisex',
+      style_tags: Array.isArray(p.style_tags) ? p.style_tags.join(', ') : '',
+      occasion_tags: Array.isArray(p.occasion_tags) ? p.occasion_tags.join(', ') : '',
+      chart_unit: sc.unit === 'in' ? 'in' : 'cm',
+      chart_type: sc.type === 'garment' ? 'garment' : 'body',
+      chart_fit: (['slim', 'regular', 'relaxed', 'oversized'].includes(sc.fit_type)
+        ? sc.fit_type
+        : 'regular') as any,
+      chart_source: sc.source || '',
+      chart_notes: Array.isArray(sc.notes) ? sc.notes.join('\n') : '',
+      chart_rows: sizeLines,
+    });
+  };
+
+  const handleSaveProductDetails = async (productId: number) => {
+    if (!detailDraft || detailSaving) return;
+    setDetailSaving(true);
+    setDetailFeedback(null);
+    try {
+      const styleList = detailDraft.style_tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const occList = detailDraft.occasion_tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const res = await brandService.updateProductDetails(productId, {
+        title: detailDraft.title.trim(),
+        description: detailDraft.description,
+        description_ar: detailDraft.description_ar,
+        material: detailDraft.material,
+        care_instructions: detailDraft.care_instructions,
+        gender: detailDraft.gender,
+        style_tags: styleList,
+        occasion_tags: occList,
+      });
+
+      if (detailDraft.chart_rows.trim()) {
+        const parsedSizes: Record<string, Record<string, [number, number] | number>> = {};
+        for (const rawLine of detailDraft.chart_rows.split('\n')) {
+          const line = rawLine.trim();
+          if (!line) continue;
+          const [szPart, dimsPart] = line.split('|');
+          const sz = (szPart || '').trim();
+          if (!sz || !dimsPart) continue;
+          parsedSizes[sz] = {};
+          for (const seg of dimsPart.split(',')) {
+            const [dimName, rangeStr] = seg.split(':').map((x) => x.trim());
+            if (!dimName || !rangeStr) continue;
+            if (rangeStr.includes('-')) {
+              const [lo, hi] = rangeStr.split('-').map((n) => Number(n.trim()));
+              parsedSizes[sz][dimName] = [lo, hi];
+            } else {
+              parsedSizes[sz][dimName] = Number(rangeStr);
+            }
+          }
+        }
+        const notesArr = detailDraft.chart_notes
+          .split('\n')
+          .map((n) => n.trim())
+          .filter(Boolean);
+        await brandService.putProductSizeChart(productId, {
+          schema_version: '1.0',
+          unit: detailDraft.chart_unit,
+          type: detailDraft.chart_type,
+          fit_type: detailDraft.chart_fit,
+          source: detailDraft.chart_source.trim() || 'Brand garment specification',
+          notes: notesArr,
+          sizes: parsedSizes,
+        });
+      }
+
+      const warnMessages = (res.warnings || []).map((w: any) => w.message).join(' ');
+      setDetailFeedback({
+        tone: warnMessages ? 'warn' : 'ok',
+        text: warnMessages || t('b2b.cat.details_saved_msg'),
+      });
+      refresh();
+    } catch (err: any) {
+      setDetailFeedback({
+        tone: 'err',
+        text: err?.message || t('b2b.cat.details_err_msg'),
+      });
+    } finally {
+      setDetailSaving(false);
+    }
+  };
 
 
   /**
@@ -226,6 +446,15 @@ export const BrandCatalogView: React.FC = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
+            data-motion="admin"
+            type="button"
+            onClick={handleToggleDomains}
+            data-testid="brand-domains-toggle"
+            className={btnGhost}
+          >
+            {t('b2b.cat.domains_cta')}
+          </button>
+          <button
             data-motion="upload"
             type="button"
             onClick={() => setImportModalOpen(true)}
@@ -243,6 +472,131 @@ export const BrandCatalogView: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* ------------------------------------------------------ verified image domains panel */}
+      {domainsOpen && (
+        <Surface variant="solid" as="section" className="space-y-4 rounded-2xl p-6" data-testid="brand-domains-panel">
+          <div className="border-b border-slate-200 pb-3">
+            <h2 className="font-serif text-lg font-bold text-brand-charcoal">
+              {t('b2b.cat.domains_title')}
+            </h2>
+            <p className="mt-1 text-xs text-slate-600">
+              {t('b2b.cat.domains_subtitle')}
+            </p>
+          </div>
+
+          <form onSubmit={handleClaimDomain} className="flex flex-col sm:flex-row gap-3">
+            <label htmlFor="brand-domain-claim-input" className="sr-only">
+              {t('b2b.cat.domain_input_label')}
+            </label>
+            <input
+              id="brand-domain-claim-input"
+              type="text"
+              value={domainInput}
+              onChange={(e) => setDomainInput(e.target.value)}
+              placeholder={t('b2b.cat.domain_placeholder')}
+              className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-brand-charcoal focus:border-brand-charcoal focus:outline-none focus:ring-1 focus:ring-brand-charcoal"
+            />
+            <button
+              data-motion="admin"
+              type="submit"
+              disabled={domainBusy || !domainInput.trim()}
+              className={btnPrimary}
+            >
+              {t('b2b.cat.domain_claim_btn')}
+            </button>
+          </form>
+
+          {domainFeedback && (
+            <div
+              role="status"
+              className={`rounded-xl border p-3 text-xs font-medium ${
+                domainFeedback.tone === 'ok'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-rose-200 bg-rose-50 text-rose-800'
+              }`}
+            >
+              {domainFeedback.text}
+            </div>
+          )}
+
+          {domainsLoading ? (
+            <p className="text-xs text-slate-600">{t('b2b.cat.loading')}</p>
+          ) : domains.length === 0 ? (
+            <p className="text-xs text-slate-600">{t('b2b.cat.domains_empty')}</p>
+          ) : (
+            <div className="space-y-3">
+              {domains.map((dom) => (
+                <div
+                  key={dom.hostname}
+                  className="rounded-xl border border-slate-200 bg-brand-wash p-4 space-y-2 text-xs"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-brand-charcoal">{dom.hostname}</span>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                          dom.imports_allowed
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : dom.is_expired
+                              ? 'bg-amber-100 text-amber-800'
+                              : dom.status === 'revoked'
+                                ? 'bg-rose-100 text-rose-800'
+                                : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {dom.is_expired ? t('b2b.cat.domain_status_expired') : dom.status}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        data-motion="admin"
+                        type="button"
+                        disabled={domainBusy}
+                        onClick={() => handleVerifyDomain(dom.hostname)}
+                        className={btnPrimary}
+                      >
+                        {t('b2b.cat.domain_verify_btn')}
+                      </button>
+                      {dom.status !== 'revoked' && (
+                        <button
+                          data-motion="neutral"
+                          type="button"
+                          disabled={domainBusy}
+                          onClick={() => handleRevokeOrReleaseDomain(dom.hostname, false)}
+                          className="min-h-12 rounded-xl border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700"
+                        >
+                          {t('b2b.cat.domain_revoke_btn')}
+                        </button>
+                      )}
+                      <button
+                        data-motion="neutral"
+                        type="button"
+                        disabled={domainBusy}
+                        onClick={() => handleRevokeOrReleaseDomain(dom.hostname, true)}
+                        className="min-h-12 rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700"
+                      >
+                        {t('b2b.cat.domain_release_btn')}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-2.5 font-mono text-[11px] text-brand-charcoal">
+                    TXT @ / {dom.hostname} → {dom.dns_record}
+                  </div>
+                  {dom.expires_at && (
+                    <p className="text-[11px] text-slate-600">
+                      {t('b2b.cat.domain_expires_label', { date: dom.expires_at.slice(0, 10) })}
+                    </p>
+                  )}
+                  {dom.last_error && (
+                    <p className="text-[11px] text-rose-700">{dom.last_error}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Surface>
+      )}
 
       {/* ------------------------------------------------------ import jobs ledger */}
       {fetchErrors.imports && (
@@ -394,16 +748,216 @@ export const BrandCatalogView: React.FC = () => {
                     <span className="ms-2 text-[11px] text-slate-500">ID: {p.id}</span>
                   </div>
                 </div>
-                <button data-motion="creative"
-                  type="button"
-                  disabled={tagState.phase === 'previewing' || tagState.phase === 'applying'}
-                  onClick={() => runTag(p.id, true)}
-                  className={btnGhost}
-                >
-                  <Tags size={14} aria-hidden="true" />
-                  {t('b2b.cat.tag_cta')}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-slate-200 bg-brand-wash px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                    {t('b2b.cat.curation_readonly')}
+                  </span>
+                  <button
+                    data-motion="admin"
+                    type="button"
+                    onClick={() => openProductEditor(p)}
+                    data-testid={`edit-product-${p.id}`}
+                    className={btnGhost}
+                  >
+                    {t('b2b.cat.edit_details_cta')}
+                  </button>
+                  <button data-motion="creative"
+                    type="button"
+                    disabled={tagState.phase === 'previewing' || tagState.phase === 'applying'}
+                    onClick={() => runTag(p.id, true)}
+                    className={btnGhost}
+                  >
+                    <Tags size={14} aria-hidden="true" />
+                    {t('b2b.cat.tag_cta')}
+                  </button>
+                </div>
               </div>
+
+              {editingProductId === p.id && detailDraft && (
+                <div className="space-y-4 rounded-xl border border-slate-200 bg-brand-wash p-4 text-xs" data-testid={`product-editor-${p.id}`}>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_title')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.title}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, title: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_gender')}</span>
+                      <select
+                        value={detailDraft.gender}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, gender: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      >
+                        <option value="womens">{t('discover.gender_womens')}</option>
+                        <option value="mens">{t('discover.gender_mens')}</option>
+                        <option value="unisex">{t('discover.gender_unisex')}</option>
+                      </select>
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_material')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.material}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, material: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_care')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.care_instructions}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, care_instructions: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_style_tags')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.style_tags}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, style_tags: e.target.value })}
+                        placeholder={t('b2b.cat.style_placeholder')}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_occasion_tags')}</span>
+                      <input
+                        type="text"
+                        value={detailDraft.occasion_tags}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, occasion_tags: e.target.value })}
+                        placeholder={t('b2b.cat.occasion_placeholder')}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                    <label className="space-y-1 sm:col-span-2">
+                      <span className="font-semibold text-brand-charcoal">{t('b2b.cat.field_description')}</span>
+                      <textarea
+                        rows={2}
+                        value={detailDraft.description}
+                        onChange={(e) => setDetailDraft({ ...detailDraft, description: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-3 space-y-3">
+                    <h3 className="font-bold text-brand-charcoal">{t('b2b.cat.chart_section_title')}</h3>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_unit')}</span>
+                        <select
+                          value={detailDraft.chart_unit}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_unit: e.target.value as 'cm' | 'in' })}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        >
+                          <option value="cm">cm</option>
+                          <option value="in">in</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_basis')}</span>
+                        <select
+                          value={detailDraft.chart_type}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_type: e.target.value as 'body' | 'garment' })}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        >
+                          <option value="body">body</option>
+                          <option value="garment">garment</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_fit')}</span>
+                        <select
+                          value={detailDraft.chart_fit}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_fit: e.target.value as any })}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        >
+                          <option value="slim">slim</option>
+                          <option value="regular">regular</option>
+                          <option value="relaxed">relaxed</option>
+                          <option value="oversized">oversized</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_source')}</span>
+                        <input
+                          type="text"
+                          value={detailDraft.chart_source}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_source: e.target.value })}
+                          placeholder={t('b2b.cat.chart_source_placeholder')}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        />
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_rows_label')}</span>
+                        <textarea
+                          rows={3}
+                          value={detailDraft.chart_rows}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_rows: e.target.value })}
+                          placeholder={t('b2b.cat.chart_rows_placeholder')}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs text-brand-charcoal"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="font-semibold text-brand-charcoal">{t('b2b.cat.chart_notes_label')}</span>
+                        <textarea
+                          rows={3}
+                          value={detailDraft.chart_notes}
+                          onChange={(e) => setDetailDraft({ ...detailDraft, chart_notes: e.target.value })}
+                          placeholder={t('b2b.cat.chart_notes_placeholder')}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-brand-charcoal"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {detailFeedback && (
+                    <div
+                      role="status"
+                      className={`rounded-lg border p-2.5 text-xs ${
+                        detailFeedback.tone === 'ok'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : detailFeedback.tone === 'warn'
+                            ? 'border-amber-200 bg-amber-50 text-amber-900'
+                            : 'border-rose-200 bg-rose-50 text-rose-800'
+                      }`}
+                    >
+                      {detailFeedback.text}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      data-motion="neutral"
+                      type="button"
+                      onClick={() => {
+                        setEditingProductId(null);
+                        setDetailDraft(null);
+                      }}
+                      className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700"
+                    >
+                      {t('b2b.cat.cancel')}
+                    </button>
+                    <button
+                      data-motion="admin"
+                      type="button"
+                      disabled={detailSaving}
+                      onClick={() => handleSaveProductDetails(p.id)}
+                      className={btnPrimary}
+                    >
+                      {t('b2b.cat.save')}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* ------------------------------------------ AI tag preview/apply */}
               {tagState.phase !== 'idle' && (

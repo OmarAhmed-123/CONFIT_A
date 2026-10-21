@@ -13,6 +13,8 @@ import { Product, Category } from '../models';
  */
 export function useCatalogViewModel() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedGender, setSelectedGender] = useState<string>('');
+  const [selectedStyle, setSelectedStyle] = useState<string>('');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -20,6 +22,8 @@ export function useCatalogViewModel() {
 
   const filters = {
     category: selectedCategory || undefined,
+    gender: selectedGender || undefined,
+    style: selectedStyle || undefined,
     occasion: selectedOccasion || undefined,
     color: selectedColor || undefined,
     search: searchQuery || undefined,
@@ -58,6 +62,10 @@ export function useCatalogViewModel() {
     occasions: occasionsQuery.data || [],
     selectedCategory,
     setSelectedCategory,
+    selectedGender,
+    setSelectedGender,
+    selectedStyle,
+    setSelectedStyle,
     selectedOccasion,
     setSelectedOccasion,
     selectedColor,

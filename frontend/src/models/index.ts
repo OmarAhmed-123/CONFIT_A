@@ -146,6 +146,31 @@ export interface BrandSummary {
   current_return_rate: number;
 }
 
+export interface SizeChartV1 {
+  schema_version?: '1.0' | string;
+  unit?: 'cm' | 'in' | string;
+  type?: 'body' | 'garment' | string;
+  fit_type?: 'slim' | 'regular' | 'relaxed' | 'oversized' | string;
+  source?: string;
+  notes?: string[];
+  sizes?: Record<string, Record<string, [number, number] | number>>;
+}
+
+export interface BrandVerifiedDomain {
+  id: number;
+  hostname: string;
+  status: 'pending' | 'verified' | 'revoked' | string;
+  token: string;
+  dns_record: string;
+  imports_allowed: boolean;
+  is_expired?: boolean;
+  expires_at?: string | null;
+  verified_at?: string | null;
+  last_checked_at?: string | null;
+  last_error?: string | null;
+  created_at?: string | null;
+}
+
 export interface Product {
   id: number;
   brand_id: number;
@@ -171,8 +196,16 @@ export interface Product {
   thumbnail_url: string;
   color_family: string;
   dominant_hex: string;
+  gender?: 'mens' | 'womens' | 'unisex' | string | null;
   style_tags: string[];
   occasion_tags: string[];
+  price_provenance?: {
+    source_currency?: string | null;
+    source_amount?: number | null;
+    fx_rate?: number | null;
+    fx_source?: string | null;
+    fx_as_of?: string | null;
+  } | null;
   rating: number;
   style_compatibility_score?: number | null;
   ai_fit_score?: number | null;

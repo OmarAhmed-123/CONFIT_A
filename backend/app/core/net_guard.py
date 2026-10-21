@@ -139,14 +139,31 @@ def assert_public_http_url(url: str) -> str:
     return url.strip()
 
 
-def safe_get(url: str, *, fetch=None, timeout: float = 30.0, max_redirects: int = MAX_REDIRECTS) -> bytes:
+def safe_get(url: str, *, fetch=None, timeout: float = 30.0,
+             max_redirects: int = MAX_REDIRECTS, allow_hop=None) -> bytes:
     """GET `url` with every hop validated. Returns the body bytes.
 
     `fetch` is the single-hop transport (``fetch(url) -> httpx.Response``-like
     object with ``status_code``, ``headers`` and ``content``); it is injectable
     so the redirect logic can be tested without a network. Without it, httpx is
     used with ``follow_redirects=False`` — the redirects are ours to check.
+
+    `allow_hop` is an optional second, INDEPENDENT gate applied to the first URL
+    and to every redirect destination: ``allow_hop(url) -> None`` raising to
+    refuse. It exists because network safety and brand ownership are different
+    questions, and a redirect is where an ownership check can be walked out of:
+
+        brand's verified CDN  --302-->  attacker's host
+
+    The first URL is authorized; the hop is not. Checking ownership only before
+    the fetch would authorize the redirect implicitly. Network safety alone does
+    not catch it either — the attacker's host is perfectly public. Both gates
+    therefore run on every hop, and neither replaces the other.
     """
+    if allow_hop is not None:
+        allow_hop(assert_public_http_url(url))
+    else:
+        assert_public_http_url(url)
     if fetch is None:
         import httpx
 
@@ -170,8 +187,11 @@ def safe_get(url: str, *, fetch=None, timeout: float = 30.0, max_redirects: int 
             if not location:
                 raise UnsafeURLError(f"redirect from {current} without a Location header")
             nxt = urljoin(current, location)
-            # Raises before the next request is made.
+            # Raises before the next request is made — network safety first.
             current = assert_public_http_url(nxt)
+            if allow_hop is not None:
+                # ...and then ownership, on the DESTINATION.
+                allow_hop(current)
             continue
         if status >= 400:
             raise UnsafeURLError(f"image source returned HTTP {status}")

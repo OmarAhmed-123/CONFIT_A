@@ -65,7 +65,10 @@ class BrandService:
         self._assert_brand_ownership(user, brand_id)
         products = self.brand_repo.get_brand_products(brand_id)
         results = []
+        from backend.app.services.size_chart_schema import validate as _validate_chart
         for p in products:
+            chart_res = _validate_chart(p.size_chart_json)
+            parsed_chart = json.loads(chart_res.normalised) if (chart_res.ok and chart_res.has_chart) else {}
             skus_out = [
                 {
                     "id": s.id,
@@ -89,17 +92,35 @@ class BrandService:
                 "title": p.title,
                 "title_ar": p.title_ar,
                 "slug": p.slug,
+                "description": p.description,
+                "description_ar": p.description_ar,
+                "material": p.material,
+                "care_instructions": p.care_instructions,
                 "base_price": p.base_price,
+                "compare_at_price": p.compare_at_price,
+                "gender": p.gender or "unisex",
                 "currency": p.currency,
                 "thumbnail_url": p.thumbnail_url,
                 "color_family": p.color_family,
                 "dominant_hex": p.dominant_hex,
+                "size_chart": parsed_chart,
                 "style_tags": json.loads(p.style_tags) if p.style_tags else [],
                 "occasion_tags": json.loads(p.occasion_tags) if p.occasion_tags else [],
                 "rating": p.rating,
                 "style_compatibility_score": None,
                 "ai_fit_score": None,
                 "is_featured": p.is_featured,
+                # How this price came to be, when it was converted on import
+                # (migration 0044). Null for a row the brand priced in the book
+                # currency. A merchandiser asking "why is this coat $31?" gets
+                # the arithmetic here instead of a support ticket.
+                "price_provenance": ({
+                    "source_currency": p.price_source_currency,
+                    "source_amount": str(p.price_source_amount) if p.price_source_amount is not None else None,
+                    "rate": str(p.price_fx_rate) if p.price_fx_rate is not None else None,
+                    "rate_source": p.price_fx_source,
+                    "as_of": p.price_fx_as_of,
+                } if p.price_source_currency else None),
                 "skus": skus_out
             })
         return results

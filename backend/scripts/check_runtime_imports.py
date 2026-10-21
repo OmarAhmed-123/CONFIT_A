@@ -52,6 +52,9 @@ IMPORT_TO_PACKAGE = {
     "sklearn": "scikit-learn",
     "slowapi": "slowapi",
     "pydantic_settings": "pydantic-settings",
+    # dnspython's import name is `dns`; brand-domain verification
+    # (services/image_ownership.py) needs it to read TXT records.
+    "dns": "dnspython",
     "email_validator": "email-validator",
     "dotenv": "python-dotenv",
     "multipart": "python-multipart",

@@ -326,8 +326,17 @@ def test_import_rejects_a_row_whose_image_cannot_resolve(seeded_product):
         # (`thumbnail_url`) instead of approving the row and failing it later.
         # Either wording proves the same property: the row was refused because
         # its image could not be resolved, and the reason names the cause.
-        assert "not an approved stock source" in messages or "no resolvable media" in messages, messages
-        assert "source_not_approved" in messages or "approved stock source" in messages, messages
+        # The decisive reason changed with migration 0045: this row is refused
+        # because the brand has not proven it owns example.com, before the stock
+        # allow-list is ever consulted. Either refusal proves the property under
+        # test — the row is rejected because of its image, not accepted blank —
+        # so the assertion accepts the ownership wording and the older wording.
+        assert (
+            "not a domain your brand has verified" in messages
+            or "not an approved stock source" in messages
+            or "no resolvable media" in messages
+        ), messages
+        assert "stock source" in messages or "approved stock source" in messages, messages
 
         # And nothing was created: a rejected row must leave no product behind,
         # not even a half-written one whose hero would 404.

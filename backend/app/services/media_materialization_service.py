@@ -81,6 +81,18 @@ _FORMAT_BY_EXT = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp", "
 CANONICAL_KEY_RE = re.compile(r"^products/\d{1,12}/[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
 
+def _per_photo_failures() -> tuple:
+    """Exceptions that drop ONE photograph instead of aborting the gallery.
+
+    A refused ownership check is a per-image verdict — the rest of the gallery
+    is still importable and must still be reported. Imported lazily because
+    `brand_catalog_service` imports this module.
+    """
+    from backend.app.services.brand_catalog_service import MediaOwnershipRefused
+
+    return (MediaMaterializationError, MediaSourceNotApproved, MediaOwnershipRefused)
+
+
 class MediaSourceNotApproved(ValueError):
     """The image host is not on the commercial-use allowlist."""
 
@@ -260,6 +272,13 @@ class MediaMaterializationService:
         from backend.app.services.storage_service import get_storage
         return get_storage()
 
+    #: Per-call ownership gate for the duration of one `materialize()`. Read by
+    #: the default transport so the check reaches EVERY redirect hop without
+    #: changing `_get_fetch`'s zero-argument shape — that shape is the seam the
+    #: test suite replaces with an offline double, and a double has no redirect
+    #: chain to authorize (it would also silently skip the gate).
+    _hop_gate = None
+
     def _get_fetch(self):
         if self._fetch is not None:
             return self._fetch
@@ -270,7 +289,12 @@ class MediaMaterializationService:
             # requested. Stock hosts were safe by construction; first-party
             # URLs typed into a CSV are not, and this is the one place in the
             # catalogue that turns such a string into a server-side request.
-            return safe_get(url, timeout=30)
+            #
+            # `allow_hop` adds the ownership check to the SAME hops, because a
+            # verified domain redirecting to an unowned host must not be
+            # followed: net_guard would see a perfectly public destination and
+            # allow it, and the brand would import someone else's image.
+            return safe_get(url, timeout=30, allow_hop=self._hop_gate)
 
         return fetch
 
@@ -289,6 +313,7 @@ class MediaMaterializationService:
         commit: bool = True,
         photo_index: int = 0,
         replace_existing: bool = True,
+        ownership_gate=None,
     ) -> List[ProductImage]:
         """Upload every rendition and register a row per (ratio, format).
 
@@ -317,6 +342,16 @@ class MediaMaterializationService:
             # licence to check.
             provider = provider or source_type
 
+        # Defence in depth on the SECOND question. `_validate_image_source`
+        # already refused unauthorized URLs during validation, but this method
+        # is also reachable from the dashboard and from any future caller — and
+        # a check that only runs in the importer is a check an importer-shaped
+        # bug can skip. `ownership_gate(url)` raises on an unauthorized hop.
+        if ownership_gate is not None:
+            ownership_gate(source_url)
+
+        previous_gate = self._hop_gate
+        self._hop_gate = ownership_gate
         try:
             source_bytes = self._get_fetch()(source_url)
         except MediaSourceNotApproved:
@@ -325,6 +360,10 @@ class MediaMaterializationService:
             raise MediaMaterializationError(
                 f"could not read source image for product {getattr(product, 'id', '?')}: {type(exc).__name__}: {exc}"
             ) from exc
+        finally:
+            # Never leak one import's authorization into the next photograph:
+            # a stale gate would authorize a URL for the wrong brand.
+            self._hop_gate = previous_gate
 
         rendered = render_renditions(source_bytes, ratios)
         storage = self._get_storage()
@@ -420,6 +459,7 @@ class MediaMaterializationService:
         photos: Sequence[dict],
         *,
         commit: bool = True,
+        ownership_gate=None,
     ) -> Tuple[List[ProductImage], List[dict]]:
         """Register EVERY supplied photograph, reporting the ones that failed.
 
@@ -462,9 +502,10 @@ class MediaMaterializationService:
                         commit=False,
                         photo_index=position,
                         replace_existing=False,
+                        ownership_gate=ownership_gate,
                     )
                 )
-            except (MediaMaterializationError, MediaSourceNotApproved) as exc:
+            except _per_photo_failures() as exc:
                 failures.append({"position": position, "url": url, "reason": str(exc)[:200]})
                 logger.warning(
                     "photo_materialization_failed",

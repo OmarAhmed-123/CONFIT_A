@@ -187,9 +187,17 @@ def test_preview_error_names_the_approved_hosts(env):
     svc, brand = env["svc"], env["brand"]
     preview = svc.preview_csv(_write_csv([_row(image_url=FOREIGN_IMAGE)]), brand.id)
     suggestion = " ".join(e.get("suggestion", "") for e in preview["errors"])
-    assert "images.pexels.com" in suggestion and "image_source=own" in suggestion, (
+    # Two actionable routes must be named: a licensed stock host, and claiming/
+    # verifying the brand's own domain. (0045 replaced "set image_source=own" as
+    # the remedy — the column is now only a hint, and the brand cannot authorize
+    # itself by writing a string into a CSV.)
+    assert "images.pexels.com" in suggestion, (
         "an error a brand owner cannot act on is a dead end; got "
         f"{suggestion!r}"
+    )
+    assert "verify your own domain" in suggestion, (
+        "a brand importing its own photography needs the ownership route named, "
+        f"not just the stock fallback; got {suggestion!r}"
     )
 
 
@@ -223,7 +231,35 @@ def test_own_photography_is_refused_until_the_deployment_opts_in(env, monkeypatc
         "the row must say so instead of being accepted or silently ignored"
     )
 
+    # The deployment flag is a SERVER-level switch, not an authorization. Turning
+    # it on used to be enough to import any host a brand named; that was the hole
+    # migration 0045 closes. With the flag on but no verified domain, the row is
+    # STILL refused — which is the stronger property.
     monkeypatch.setattr(settings, "CATALOG_IMPORT_ALLOW_OWN_IMAGES", True, raising=False)
+    preview = svc.preview_csv(
+        _write_csv([_row(image_url=FOREIGN_IMAGE, image_source="own")]), brand.id
+    )
+    assert preview["errors"], (
+        "operators switching the deployment flag on must not thereby authorize "
+        "every host a brand names; ownership is per-brand and must be proven"
+    )
+    assert any(
+        e["field"] == "thumbnail_url" and "domain" in e["message"].lower()
+        for e in preview["errors"]
+    ), preview["errors"]
+    assert preview["can_import"] is False
+
+    # ...and once THIS brand proves the domain, the same row is accepted. The
+    # test therefore proves the control is ownership, not the flag.
+    from backend.app.services.image_ownership import ImageOwnershipService
+
+    ownership = ImageOwnershipService(env["db"])
+    claim = ownership.request_domain(brand.id, "cdn.some-boutique.example.com")
+    ownership.verify_domain(
+        brand.id, "cdn.some-boutique.example.com",
+        resolver=lambda host, token: token == claim.token,
+    )
+
     preview = svc.preview_csv(
         _write_csv([_row(image_url=FOREIGN_IMAGE, image_source="own")]), brand.id
     )

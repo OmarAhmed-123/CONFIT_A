@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from backend.app.core.money import validate_money
 from backend.app.core.logging import logger
+from backend.app.services import catalog_field_contract as field_contract
 from backend.app.models.catalog import Product, ProductSKU, Category, StoreLocation, StoreInventory
 from backend.app.models.user import BrandProfile, AuditLog
 from backend.app.models.catalog_import import CatalogImportJob
@@ -43,6 +44,10 @@ class CatalogImportError:
         if self.suggestion:
             res["suggestion"] = self.suggestion
         return res
+
+
+class MediaOwnershipRefused(RuntimeError):
+    """The brand is not authorized to fetch this image host (or a hop of it)."""
 
 
 #: What each media verdict means for the person holding the CSV.
@@ -227,6 +232,16 @@ class BrandCatalogService:
         def error(field, message, suggestion=None):
             errors.append(CatalogImportError(row_num, field, message, row.get(field), suggestion))
 
+        # Platform decisions a brand may never write (is_featured, is_active,
+        # moderation, ratings). Checked FIRST and rejected, not stripped: a brand
+        # that asked for featured placement must be told it is a CONFIT decision,
+        # otherwise the request disappears and the column looks accepted.
+        errors.extend(
+            field_contract.forbidden_field_errors(
+                row.keys(), row_number=row_num, error_factory=CatalogImportError,
+            )
+        )
+
         for field in self.REQUIRED_FIELDS:
             if row.get(field) is None or str(row[field]).strip() == '':
                 error(field, f'Missing required field: {field}', f'Provide a valid value for {field}')
@@ -286,20 +301,31 @@ class BrandCatalogService:
         else:
             book = self._pricing_currency()
             if row['currency'] != book:
-                # MEASURED, not theoretical (scripts/tooling/verify_catalog_csv_import_e2e.py):
-                # a row priced in EGP was stored as 1450.00 with currency=EGP; the
-                # product page then rendered "1,450 EGP" because the payload
-                # declared EGP, while the cart converted the SAME number from the
-                # USD price book and rendered 78,166.03 EGP. One product, two
-                # prices, differing by the FX rate — and the shopper is charged
-                # the second one. The price book has exactly one denomination, so
-                # a row priced in another is refused rather than silently
-                # re-interpreted.
-                error('currency',
-                      f'Prices are stored in {book}, which is the price book denomination; '
-                      f'this row declares {row["currency"]}',
-                      f'Price the row in {book} (the storefront converts for display), or ask an '
-                      f'operator to configure market FX before importing other denominations')
+                # A row priced in another currency is CONVERTED ONCE, here, at a
+                # verified rate — or refused. It is never relabelled and never
+                # guessed at.
+                #
+                # The rate is resolved during VALIDATION so the preview shows the
+                # same verdict the import will act on: a brand must be able to
+                # see "1,614.79 EGP → 31.00 USD at 52.09" before committing a
+                # catalogue, not discover the conversion afterwards.
+                try:
+                    rate = self._catalog_rate(row['currency'])
+                except Exception as exc:  # RateUnavailable and anything louder
+                    reason = getattr(exc, 'reason', type(exc).__name__)
+                    error('currency',
+                          f'{row["currency"]} prices cannot be converted to {book} right now: {exc}',
+                          f'Publish the row in {book}, or ask an operator to make a '
+                          f'{row["currency"]} rate available ({reason})')
+                    rate = None
+                if rate is not None:
+                    # Attached to the row so `import_products` applies the SAME
+                    # rate the preview displayed. Re-resolving at write time
+                    # would let the two disagree if the provider refreshed in
+                    # between — and it is the write that becomes permanent.
+                    row['_fx_rate'] = rate
+                    self._validate_converted_prices(row, rate, error)
+
 
         raw_gender = row.get('gender')
         if raw_gender not in (None, ''):
@@ -322,7 +348,7 @@ class BrandCatalogService:
         # materialiser needs to refuse is therefore refused HERE, so the two
         # verdicts cannot diverge.
         if isinstance(url, str) and url:
-            self._validate_image_source(row, url, error)
+            self._validate_image_source(row, url, error, brand_id)
 
         # Branch store isolation check
         target_store = row.get('store_id') or row.get('branch_id')
@@ -340,17 +366,36 @@ class BrandCatalogService:
             if val in (None, ''):
                 row[field] = '[]'
                 continue
+            if field == 'images':
+                # Media URLs are data, not vocabulary: bounded and stored as given.
+                try:
+                    if isinstance(val, str):
+                        val = json.loads(val) if val.startswith('[') else val.split(',')
+                    if not isinstance(val, list) or len(val) > 100 or any(not isinstance(v, str) or len(v) > 1000 for v in val):
+                        raise ValueError()
+                    encoded = json.dumps(val, ensure_ascii=False)
+                    if len(encoded) > 5000:
+                        raise ValueError()
+                    row[field] = encoded
+                except (ValueError, TypeError):
+                    error(field, 'Must be a bounded array of strings or comma-separated text', 'Use comma-separated tags')
+                continue
+
+            # Style and occasion are MATCHED by other services: the catalogue
+            # search filters on occasion text and the styling engine scores
+            # occasion appropriateness. Storing a brand's free wording verbatim
+            # ("office") published a product that no "Work & Business" filter
+            # could ever return — imported, live, and unfindable. The importer
+            # therefore writes the canonical vocabulary.
+            kind = 'style' if field == 'style_tags' else 'occasion'
             try:
-                if isinstance(val, str):
-                    val = json.loads(val) if val.startswith('[') else val.split(',')
-                if not isinstance(val, list) or len(val) > 100 or any(not isinstance(v, str) or len(v) > 1000 for v in val):
-                    raise ValueError()
-                encoded = json.dumps(val, ensure_ascii=False)
-                if len(encoded) > 5000:
-                    raise ValueError()
-                row[field] = encoded
-            except (ValueError, TypeError):
-                error(field, 'Must be a bounded array of strings or comma-separated text', 'Use comma-separated tags')
+                raw_tags = field_contract.split_tag_cell(val)
+            except ValueError as exc:
+                error(field, f'Invalid tag list: {exc}', 'Use comma-separated tags')
+                continue
+            canonical, unrecognised = field_contract.canonical_tags(raw_tags, kind)
+            row[field] = json.dumps(canonical, ensure_ascii=False)
+            row[f'_{kind}_unrecognised'] = unrecognised
 
         for field in ('dominant_hex', 'color_hex'):
             if row.get(field) and (not isinstance(row[field], str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', row[field])):
@@ -362,6 +407,91 @@ class BrandCatalogService:
     #: filters on. Kept as a tuple here so a bad CSV value can be reported
     #: against the same list the stylist uses.
     VALID_GENDERS = ('mens', 'womens', 'unisex')
+
+    def _catalog_rate(self, source_currency: str):
+        """Resolve the verified SOURCE → price-book rate for this import.
+
+        Cached per service instance: one API request may validate a thousand
+        rows in the same currency, and re-asking the provider per row would
+        make the provider's TTL irrelevant while producing a file whose rows
+        could carry two different rates. One resolution, one rate, one
+        provenance record for the whole import.
+        """
+        book = self._pricing_currency()
+        cache = getattr(self, '_fx_cache', None)
+        if cache is None:
+            cache = {}
+            self._fx_cache = cache
+        key = ((source_currency or '').strip().upper(), book)
+        if key not in cache:
+            from backend.app.services.catalog_fx import resolve_rate
+            cache[key] = resolve_rate(key[0], book)  # raises RateUnavailable
+        return cache[key]
+
+    def _validate_converted_prices(self, row, rate, error) -> None:
+        """Refuse a conversion the price book cannot legally hold.
+
+        ``catalog_fx`` answers "what is this worth in USD"; this answers "is the
+        answer storable". A rate of 0.0001 on a 1,000,000 EGP row converts to a
+        number NUMERIC(12,2) cannot represent, and discovering that at INSERT
+        time would abort the row with a database error instead of a sentence the
+        brand can act on.
+        """
+        from decimal import Decimal, InvalidOperation
+        for field, amount_key in (('base_price', 'base_price'), ('compare_at_price', 'compare_at_price')):
+            raw = row.get(amount_key)
+            if raw in (None, ''):
+                continue
+            try:
+                amount = Decimal(str(raw).strip())
+            except (InvalidOperation, TypeError, ValueError):
+                error(field, f'"{raw}" is not a decimal amount', 'Use a plain number such as 1450.00')
+                continue
+            if not amount.is_finite() or amount <= 0:
+                # The base validator already refuses these; repeating the check
+                # here keeps the conversion honest even if that rule changes.
+                error(field, 'Price must be a positive number', 'Use a positive amount')
+                continue
+            try:
+                converted = rate.convert(amount, field)
+            except Exception as exc:  # RateUnavailable for an unusable amount
+                error(field, f'Could not convert {amount} {row.get("currency")}: {exc}',
+                      f'Check the price, or publish the row in {self._pricing_currency()}')
+                continue
+            if converted <= 0:
+                # A rounding-down to zero would publish a free product. That is
+                # a data problem, not a bargain.
+                error(field,
+                      f'{amount} {row.get("currency")} converts to {converted} '
+                      f'{self._pricing_currency()}, which is not a sellable price '
+                      f'at the current rate ({rate.describe()})',
+                      'Use a larger amount, or publish the row in '
+                      f'{self._pricing_currency()}')
+            row.setdefault('_fx_preview', {})[field] = str(converted)
+
+    def convert_row_prices(self, row) -> dict:
+        """Apply the row's resolved rate to its amounts. Returns provenance.
+
+        Used by ``import_products`` — i.e. only on the COMMIT path, never in
+        preview. Preview reads ``row['_fx_preview']``, which was computed from
+        the same ``CatalogRate`` object, so what the brand approved and what was
+        written cannot diverge.
+        """
+        rate = row.get('_fx_rate')
+        if rate is None:
+            return {}
+        for field in ('base_price', 'compare_at_price'):
+            raw = row.get(field)
+            if raw in (None, ''):
+                continue
+            from decimal import Decimal
+            converted = rate.convert(Decimal(str(raw).strip()), field)
+            row['_fx_original_' + field] = str(raw)
+            row[field] = str(converted)
+        provenance = rate.provenance()
+        # The amount the brand actually supplied, kept verbatim.
+        provenance['price_source_amount'] = row.get('_fx_original_base_price')
+        return provenance
 
     def _pricing_currency(self) -> str:
         """The ONE denomination `products.base_price` is allowed to be in.
@@ -386,7 +516,7 @@ class BrandCatalogService:
         except Exception:  # config must never make validation explode
             return False
 
-    def _validate_image_source(self, row, url, error) -> None:
+    def _validate_image_source(self, row, url, error, brand_id=None) -> None:
         """Refuse an image URL the media stage could not materialise.
 
         Two provenances exist and they are checked by different rules:
@@ -404,13 +534,51 @@ class BrandCatalogService:
         from backend.app.core.net_guard import UnsafeURLError, assert_public_http_url
 
         declared = row.get('image_source')
-        if declared == 'own':
-            if not self._own_images_allowed():
-                error('image_source',
-                      'First-party image imports are disabled on this deployment',
-                      'Upload product photography through the brand dashboard, or use a '
-                      'licensed stock URL from ' + ', '.join(APPROVED_SOURCE_HOSTS))
+
+        # OWNERSHIP IS CHECKED FOR EVERY SOURCE, INCLUDING `own`.
+        #
+        # The flag `CATALOG_IMPORT_ALLOW_OWN_IMAGES` only says "this deployment
+        # may fetch first-party URLs". It never said WHOSE URL, so with it on any
+        # brand could point an import at a competitor's CDN and the platform
+        # would copy that photography into its own catalogue under the wrong
+        # brand. Authorization is now per-brand and server-side: the host must be
+        # a claimed-and-verified domain of THIS brand (migration 0045).
+        #
+        # The declared `image_source` column is a hint, never an authorization:
+        # a client-supplied string cannot grant itself permission.
+        #
+        # ORDER OF CHECKS. The deployment flag is asked FIRST because it is a
+        # property of the SERVER, not of this URL: if first-party imports are
+        # switched off here, no URL can succeed and telling the brand to verify a
+        # domain would send them down a path that cannot work. Only then does
+        # per-brand ownership matter.
+        stock_sources = ', '.join(APPROVED_SOURCE_HOSTS)
+        if declared == 'own' and not self._own_images_allowed():
+            error('image_source',
+                  'First-party image imports are disabled on this deployment, so an '
+                  'image URL from your own domain cannot be imported yet',
+                  'Upload product photography through the brand dashboard, or use a '
+                  'licensed stock URL from ' + stock_sources)
+            return
+
+        if brand_id:
+            from backend.app.services.image_ownership import ImageOwnershipService
+            decision = ImageOwnershipService(self.db).authorize_url(brand_id, url)
+            if not decision.allowed:
+                # Both routes forward are named: use a licensed stock host, or
+                # verify the domain. An error with one option is a dead end for
+                # whichever brand the other option suited.
+                error('thumbnail_url',
+                      f'This image cannot be imported: {ImageOwnershipService.explain(decision)}',
+                      f'Use a licensed stock URL from {stock_sources}, or verify your own '
+                      f'domain in the brand settings (reason: {decision.reason})')
                 return
+            row['_image_ownership'] = decision.as_dict()
+            effective_source = decision.source_type
+        else:
+            effective_source = 'stock' if declared != 'own' else 'own'
+
+        if effective_source == 'own':
             try:
                 assert_public_http_url(url)
             except UnsafeURLError as exc:
@@ -423,8 +591,8 @@ class BrandCatalogService:
         except MediaSourceNotApproved:
             error('thumbnail_url',
                   'This image host is not an approved stock source',
-                  'Use images.unsplash.com or images.pexels.com, or set image_source=own '
-                  'to import your own photography (requires the deployment flag)')
+                  f'Use a licensed stock URL from {stock_sources}, or verify your own '
+                  f'domain in the brand settings and set image_source=own')
 
     def _row_warnings(self, row) -> List[Dict[str, Any]]:
         """Real warnings for one validated row — reported, never blocking.
@@ -463,6 +631,19 @@ class BrandCatalogService:
                  f'No gender given, so it is inferred from the title as '
                  f'"{row.get("gender") or "unisex"}" — add the gender column to control it')
 
+        # Tags that do not belong to CONFIT's controlled occasion vocabulary are
+        # stored (the brand's data is not deleted) but they will never match a
+        # catalogue filter or the stylist. Saying so in the preview is the only
+        # moment the brand can still fix it.
+        for kind, field in (('occasion', 'occasion_tags'), ('style', 'style_tags')):
+            unknown = row.get(f'_{kind}_unrecognised') or []
+            if unknown:
+                warn(field,
+                     'These tags are not in CONFIT\'s '
+                     f'{kind} vocabulary and will not match filters or the stylist: '
+                     + ', '.join(unknown[:8])
+                     + ('' if len(unknown) <= 8 else f' (+{len(unknown) - 8} more)'))
+
         return out
 
     def _unknown_column_warnings(self, fields: List[str]) -> List[Dict[str, Any]]:
@@ -484,6 +665,31 @@ class BrandCatalogService:
                 'message': (f'Column "{name}" is not part of the import contract and will be '
                             f'ignored. Recognised columns: '
                             + ', '.join(sorted(set(self.REQUIRED_FIELDS) | set(self.OPTIONAL_FIELDS)))),
+            })
+
+        # Two columns that resolve to the SAME field. The importer takes the first
+        # non-empty value, which means the price a brand sees in the preview can
+        # change if their next export orders the columns differently — a silent
+        # difference between two imports of "the same" file.
+        resolution = field_contract.resolve_headers(
+            fields,
+            aliases={**self.HEADER_ALIASES, **{f: f for f in self.REQUIRED_FIELDS + self.OPTIONAL_FIELDS}},
+            known=list(self.REQUIRED_FIELDS) + list(self.OPTIONAL_FIELDS),
+        )
+        for canonical, headers in resolution['collisions']:
+            out.append({
+                'row': 1,
+                'field': canonical,
+                'message': (f'Columns {", ".join(repr(h) for h in headers)} all mean '
+                            f'"{canonical}"; the first non-empty one is used. Keep only one '
+                            f'to make imports reproducible.'),
+            })
+        for name, field, reason in resolution['forbidden']:
+            out.append({
+                'row': 1,
+                'field': field,
+                'message': (f'Column "{name}" cannot be set by a brand import: {reason}. '
+                            f'It will be rejected, not applied.'),
             })
         return out
 
@@ -719,9 +925,27 @@ class BrandCatalogService:
                 "product_name": row.get('title'),
                 "sku": code,
                 "category": row.get('category_slug'),
-                "price": str(row.get('base_price')),
-                "original_price": str(row.get('compare_at_price')) if row.get('compare_at_price') else None,
-                "currency": row.get('currency') or self._pricing_currency(),
+                # `price` is what will be STORED. When the row was supplied in
+                # another currency it is already the converted amount in the
+                # price book denomination — a preview that showed the raw 1,614.79
+                # beside a product that will be sold at 31.00 would be the same
+                # two-prices-for-one-product defect this conversion exists to
+                # remove.
+                "price": (row.get('_fx_preview') or {}).get('base_price') or str(row.get('base_price')),
+                "original_price": (
+                    (row.get('_fx_preview') or {}).get('compare_at_price')
+                    or (str(row.get('compare_at_price')) if row.get('compare_at_price') else None)
+                ),
+                "currency": self._pricing_currency(),
+                # Provenance the brand can act on: the amounts as THEY supplied
+                # them and the rate that moved them, so a surprising converted
+                # price is explainable on the preview screen rather than after
+                # the catalogue is live.
+                "source_currency": row.get('currency') or self._pricing_currency(),
+                "source_price": str(row.get('base_price')),
+                "fx_rate": (str(row['_fx_rate'].provider_rate)
+                            if row.get('_fx_rate') is not None else None),
+                "fx_converted": bool(row.get('_fx_preview')),
                 "stock": row.get('stock_level'),
                 "size": row.get('size'),
                 "color": row.get('color'),
@@ -844,6 +1068,21 @@ class BrandCatalogService:
                     self.db.add(product)
                     is_brand_new = True
                 product.category_id = category.id
+                # CONVERT BEFORE WRITING, EXACTLY ONCE.
+                #
+                # `row['_fx_rate']` was resolved during validation and is the
+                # same object the preview displayed, so the amount the brand
+                # approved is the amount stored. After this call every price on
+                # the row is in the price book's denomination and `row['currency']`
+                # is replaced by it — one number, one label, no second reading.
+                #
+                # A row already priced in the book currency returns {} and is
+                # untouched: there is no path here that converts an amount that
+                # was never in another currency, which is what makes double
+                # conversion impossible rather than merely unlikely.
+                fx_provenance = self.convert_row_prices(row)
+                if fx_provenance:
+                    row['currency'] = self._pricing_currency()
                 product.base_price = validate_money(row['base_price'], 'base_price', allow_zero=False, required=True, exact_scale=True)
                 if 'compare_at_price' in row:
                     product.compare_at_price = (
@@ -861,6 +1100,15 @@ class BrandCatalogService:
                               'style_tags', 'occasion_tags', 'images'):
                     if row.get(field) not in (None, ''):
                         setattr(product, field, row[field])
+                if fx_provenance:
+                    # Written on the row that was converted. A re-import of the
+                    # same product at a different rate overwrites this — the
+                    # provenance belongs to the CURRENT price, not to the first
+                    # one — while `price_source_amount` keeps what the brand
+                    # supplied in the file that produced this price.
+                    for key, value in fx_provenance.items():
+                        if value is not None:
+                            setattr(product, key, value)
                 self.db.flush()
                 if not sku:
                     sku = ProductSKU(product_id=product.id, sku_code=code, brand_id=brand_id)
@@ -871,7 +1119,15 @@ class BrandCatalogService:
                 sku.is_in_stock = sku.stock_level > 0
                 sku.brand_id = brand_id
                 if row.get('price_override') not in (None, ''):
-                    sku.price_override = validate_money(row['price_override'], 'price_override', allow_zero=False, required=True, exact_scale=True)
+                    # A per-SKU override is an absolute price in the SAME
+                    # denomination as the row. Left unconverted it would be a
+                    # second, silently inconsistent price for the variant, so it
+                    # follows the row's rate too.
+                    override = row['price_override']
+                    if row.get('_fx_rate') is not None:
+                        from decimal import Decimal
+                        override = str(row['_fx_rate'].convert(Decimal(str(override).strip()), 'price_override'))
+                    sku.price_override = validate_money(override, 'price_override', allow_zero=False, required=True, exact_scale=True)
                 if row.get('color_hex'):
                     sku.color_hex = row['color_hex']
                 self.db.flush()
@@ -921,7 +1177,7 @@ class BrandCatalogService:
                 # means a registered row AND an object present in the store AND
                 # a key the media route will accept; a DB row alone is not
                 # evidence (all 54 legacy rows existed and all 54 404'd).
-                media = self._materialize_media(product, row)
+                media = self._materialize_media(product, row, brand_id=brand_id)
                 if not media.resolvable:
                     # The reason is translated into what the brand owner can DO.
                     # "(materialization_failed)" told them nothing about which of
@@ -1052,7 +1308,31 @@ class BrandCatalogService:
             })
         return photos
 
-    def _materialize_media(self, product, row):
+    def _ownership_gate(self, brand_id):
+        """A per-hop authorizer for the fetch, or None when there is no brand.
+
+        Returned as a closure so `safe_get` can apply it to the FIRST url and to
+        every redirect destination. A failure raises `MediaOwnershipRefused`,
+        which the caller records as a per-photograph reason rather than a
+        traceback.
+        """
+        if not brand_id:
+            return None
+
+        from backend.app.services.image_ownership import ImageOwnershipService
+
+        gate_service = ImageOwnershipService(self.db)
+
+        def allow(url: str) -> None:
+            decision = gate_service.authorize_url(brand_id, url)
+            if not decision.allowed:
+                raise MediaOwnershipRefused(
+                    f"{decision.reason}: {gate_service.explain(decision)}"
+                )
+
+        return allow
+
+    def _materialize_media(self, product, row, brand_id=None):
         """Register product_images for an imported product. Returns a verdict.
 
         Returns a `MediaResolvability` with ``resolvable=False`` — never raises —
@@ -1136,6 +1416,12 @@ class BrandCatalogService:
                 verdict = verify_resolvable(self.db, product.id, storage=storage)
                 if verdict.resolvable:
                     return verdict
+            # Re-checked at the point of use, not only at validation time: the
+            # two run in different transactions (validation on preview, this in
+            # the worker), and a domain revoked between them must stop the
+            # import. Time-of-check/time-of-use is a real gap when the check and
+            # the fetch are minutes apart.
+            ownership_gate = self._ownership_gate(brand_id)
             _, failures = service.materialize_photos(
                 product,
                 photos,
@@ -1144,6 +1430,7 @@ class BrandCatalogService:
                 # together — a committed-then-rejected row would be the worst
                 # of both worlds: reported as rejected, yet live in the catalog.
                 commit=False,
+                ownership_gate=ownership_gate,
             )
             if failures:
                 # A dropped photograph is recorded, never silently skipped: the

@@ -180,6 +180,8 @@ class CatalogRepository:
         brand_id: Optional[int] = None,
         color: Optional[str] = None,
         occasion: Optional[str] = None,
+        gender: Optional[str] = None,
+        style: Optional[str] = None,
         min_price: Optional[float] = None,
         max_price: Optional[float] = None,
         search_query: Optional[str] = None,
@@ -209,12 +211,34 @@ class CatalogRepository:
             query = query.filter(purchasable_criterion())
         if color:
             query = query.filter(Product.color_family.ilike(f"%{color}%"))
+        if gender:
+            from backend.app.services import catalog_field_contract as _fc
+            try:
+                canon_g, _ = _fc.normalize_gender(gender)
+            except ValueError:
+                return []
+            if not canon_g:
+                return []
+            query = query.filter(Product.gender == canon_g)
+        if style:
+            clean_style = style.strip()[:80].replace("%", "").replace("_", " ")
+            if clean_style:
+                query = query.filter(Product.style_tags.ilike(f"%{clean_style}%"))
         if occasion:
-            # ilike, not like: tags are stored lowercase ("work") while UI
-            # tokens historically arrived capitalized ("Work") — the
-            # case-sensitive LIKE silently returned an EMPTY catalogue for
-            # every occasion filter in production.
-            query = query.filter(Product.occasion_tags.ilike(f"%{occasion}%"))
+            # Canonicalise shopper alias when it maps to a known vocabulary label
+            # (e.g. "office" -> "Work & Business"), while still matching legacy lowercase rows.
+            from backend.app.services import catalog_field_contract as _fc
+            clean_occ = occasion.strip()[:80].replace("%", "")
+            canon_occ, _ = _fc.canonical_tags([clean_occ], kind="occasion")
+            if canon_occ and canon_occ[0].lower() != clean_occ.lower():
+                query = query.filter(
+                    or_(
+                        Product.occasion_tags.ilike(f"%{clean_occ}%"),
+                        Product.occasion_tags.ilike(f"%{canon_occ[0]}%"),
+                    )
+                )
+            elif clean_occ:
+                query = query.filter(Product.occasion_tags.ilike(f"%{clean_occ}%"))
         if min_price is not None:
             query = query.filter(Product.base_price >= min_price)
         if max_price is not None:

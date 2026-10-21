@@ -19,6 +19,8 @@ from backend.app.services.product_media_service import (
     photos_payload,
     primary_url,
 )
+from backend.app.services.size_chart_schema import validate as validate_size_chart
+from backend.app.core.logging import logger
 from backend.app.schemas.catalog import (
     CategoryOut,
     ProductSummaryOut,
@@ -109,6 +111,8 @@ def search_catalog(
     brand_id: Optional[int] = Query(None),
     color: Optional[str] = Query(None),
     occasion: Optional[str] = Query(None),
+    gender: Optional[str] = Query(None),
+    style: Optional[str] = Query(None),
     min_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     max_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     sort_by: str = Query("relevance", description="'relevance', 'price_asc', 'price_desc', 'rating', 'newest'"),
@@ -124,6 +128,8 @@ def search_catalog(
         brand_id=brand_id,
         color=color,
         occasion=occasion,
+        gender=gender,
+        style=style,
         min_price=fx.to_pricing(min_price),
         max_price=fx.to_pricing(max_price),
         page=page,
@@ -160,6 +166,8 @@ def list_products(
     brand_id: Optional[int] = Query(None),
     color: Optional[str] = Query(None),
     occasion: Optional[str] = Query(None),
+    gender: Optional[str] = Query(None),
+    style: Optional[str] = Query(None),
     min_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     max_price: Optional[float] = Query(None, ge=0, allow_inf_nan=False),
     search: Optional[str] = Query(None),
@@ -190,6 +198,8 @@ def list_products(
         brand_id=brand_id,
         color=_clean(color),
         occasion=_clean(occasion),
+        gender=_clean(gender),
+        style=_clean(style),
         # Filters arrive in the DISPLAYED currency, so they are converted
         # back to the price book before they touch SQL (see
         # PresentationCurrency.to_pricing).
@@ -272,12 +282,22 @@ def get_product_detail(
         "current_return_rate": p.brand.current_return_rate
     }
 
-    try:
-        size_chart = json.loads(p.size_chart_json) if p.size_chart_json else {}
-        if not isinstance(size_chart, dict):
-            size_chart = {}
-    except (TypeError, ValueError):
+    # The chart is served through the same contract it is written through. A
+    # malformed stored chart is reported rather than silently presented as "no
+    # chart": the two mean different things to a shopper (no guidance published
+    # vs. guidance that failed to load), and the old bare try/except made them
+    # indistinguishable to the client as well as to the log.
+    chart_result = validate_size_chart(p.size_chart_json)
+    if chart_result.ok and chart_result.has_chart:
+        size_chart = json.loads(chart_result.normalised)
+    else:
         size_chart = {}
+        if not chart_result.ok:
+            logger.warning(
+                "size_chart_invalid",
+                product_id=p.id,
+                errors=[e.as_dict() for e in chart_result.errors[:3]],
+            )
 
     bnpl = context.get("bnpl") or {}
     installment = bnpl.get("installment_amount") if bnpl.get("eligible") else None
@@ -342,6 +362,7 @@ def get_product_detail(
         media=media_out,
         photos=photos_out,
         size_chart=size_chart,
+        size_chart_error=chart_result.as_dict()["errors"] if not chart_result.ok else [],
         skus=skus_out,
         bnpl_monthly_installment=installment,
         bnpl=bnpl,

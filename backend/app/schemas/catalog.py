@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class OccasionTagOut(BaseModel):
@@ -197,6 +197,10 @@ class ProductDetailOut(ProductSummaryOut):
     #: media predates the gallery contract; the UI then falls back to ``images``.
     photos: List[ProductPhotoOut] = []
     size_chart: Dict[str, Any]
+    #: Why the stored chart could not be served, when it could not. Empty for
+    #: both "a valid chart" and "no chart published" — those are the same to a
+    #: client; a MALFORMED chart is the state worth surfacing.
+    size_chart_error: List[Dict[str, str]] = Field(default_factory=list)
     skus: List[ProductSKUOut]
     bnpl_monthly_installment: Optional[float] = None
     bnpl: Optional[Dict[str, Any]] = None

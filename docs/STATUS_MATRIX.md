@@ -275,3 +275,113 @@ the computed tree, not `aria-label || textContent` (the card image link's name
 comes from its `img alt`); and the wishlist is device-local by design, so
 asserting 401 on a wishlist endpoint tested an endpoint the product
 deliberately does not have.
+
+## 10. Phase 4 — accessibility, performance, E2E and release readiness (2026-10-21)
+
+**Tested candidate:** `ce74577` + the fix below, on `work/production-hardening`.
+**Environment:** local build served from `127.0.0.1:43124` (gzip) with `/api`
+proxied to a local API on the **verify database** (`confit_fixverify`, revision
+`0045_brand_verified_domains`). Performance numbers are **laboratory** numbers
+from this host; they are not field data and not production latency.
+
+### 10.1 Performance baseline
+
+The repository has **no performance tooling at all** — no Lighthouse config, no
+`web-vitals` dependency, no budgets, no perf job in CI. There is therefore no
+existing threshold to pass or fail; the numbers below are a baseline, and any
+target would be a *proposal*, not a requirement.
+
+Lab baseline (Chromium 156, 412×915, cold cache, n=3, gzip, median):
+
+| Route | Condition | FCP | LCP | CLS | JS transfer | Long tasks / blocking |
+|---|---|---|---|---|---|---|
+| `/` | unthrottled | 536 ms | 1,096 ms | **0.759** | 469 kB | 1 / 3 ms |
+| `/` | Fast-3G + 4×CPU | 3,280 ms | 3,892 ms | **0.8984** | 469 kB | 8 / 351 ms |
+| `/discover` | unthrottled | 576 ms | 668 ms | 0.0097 | 469 kB | 0 / 0 ms |
+| `/discover` | Fast-3G + 4×CPU | 3,284 ms | 4,520 ms | 0.0092 | 469 kB | 7 / 282 ms |
+| `/product/silk-slip-column-maxi-dress` | unthrottled | 476 ms | 2,200 ms | 0.0118 | 469 kB | 0 / 0 ms |
+| `/product/silk-slip-column-maxi-dress` | Fast-3G + 4×CPU | 3,136 ms | 5,188 ms | 0.0116 | 469 kB | 0 / 0 ms |
+
+Bundle: **1,833 kB raw JS (479 kB gzip)**, of which `index-*.js` is 1,428 kB raw
+(367 kB gzip), `vendor-react` 174 kB (59 kB gzip), `vendor-ui` 142 kB (46 kB
+gzip). CSS 135 kB raw.
+
+**BUG-VERIFIED — CLS 0.759 on `/` is a real defect, not a harness artefact.**
+Cross-checked with Google's `web-vitals` attribution build (0.8088 at t=1557.6 ms)
+and isolated by ablation: aborting only `/api/v1/catalog/capabilities` drops CLS
+to **0.0147** (−98%). The announcement bar renders only after that response
+arrives (~1.5 s locally), inserting a 46 px block into the flow above the hero;
+margin collapsing then moves the 10,456 px content container by a further −24 px.
+Production publishes a threshold too (13,622.21 EGP) and that endpoint answers in
+~1.2 s there, so the same gate exists in production. **Not fixed:** every
+available remedy is a product decision — reserve the bar's height (shows an empty
+strip while loading and collapses when a deployment has no policy), overlay it
+(detaches it from the layout), or make the threshold available before first
+paint. Recorded for owner decision rather than changed unilaterally.
+
+### 10.2 Backend baseline (§9)
+
+390 read-only requests against the local API (seeded verify DB, remote Neon, no
+chargeable operation):
+
+| Endpoint | c | n | p50 | p95 | p99 | rps | errors |
+|---|---|---|---|---|---|---|---|
+| `/health` | 1 | 25 | 606 ms | 612 ms | 5,241 ms | 1.18 | 0 |
+| `/catalog/products?limit=20` | 1 | 25 | 761 ms | 903 ms | 904 ms | 1.25 | 0 |
+| `/catalog/products/…` | 1 | 25 | 910 ms | 954 ms | 1,029 ms | 1.09 | 0 |
+| `/catalog/brands` | 1 | 25 | 2,256 ms | 2,384 ms | 2,434 ms | 0.44 | 0 |
+| `/catalog/categories` | 1 | 25 | 456 ms | 467 ms | 477 ms | 2.19 | 0 |
+| `/health` | 8 | 40 | 608 ms | 8,219 ms | 11,040 ms | 3.12 | 0 |
+| mixed, 6 endpoints | 8 | 40 each | — | — | — | 5.39 aggregate | 0 |
+
+DB: 1.19 transactions per request, 133 tuples returned per request. Error and
+timeout rate **0** across all 390 requests; no invalid payloads.
+
+**Caveat that governs the whole table:** the database is Neon, reached from this
+sandbox over the public internet, and `pool_pre_ping` is enabled for a
+long-running server, so *every* request pays extra round trips. `/health` at
+606 ms is the round-trip cost, not server compute. These numbers describe this
+host and rank endpoints against each other; they do not describe production
+latency. `/catalog/brands` is the one clear outlier (p50 2.3 s, ~3.7× the next
+slowest) and is worth profiling on its own.
+
+### 10.3 Browser journeys (scenarios 5, 6, 7, 10)
+
+| Scenario | State | Evidence |
+|---|---|---|
+| 5 Fit Finder — rejects implausible measurements, never guesses | **VERIFIED** — height 999 → "Must be 100–250 cm" + "Fix the highlighted measurement fields first", no size shown | `a11y/p4.journeys.json` E2E-5a |
+| 5 Fit Finder — real recommendation | **VERIFIED** — the engine returned an honest **refusal** (not a size) for the seeded product, with the refusal footer and a live region | E2E-5b |
+| 5 Visual search — real UI flow | **VERIFIED** — card → modal → photo-consent ("I agree — process this photo") → matches, with the banner "Vision analysis is unavailable right now — showing catalog matches without image detection" | `a11y/p4.scen5-6.json` |
+| 6 Media upload — success path | **BLOCKED** — `photo_upload_available: false` locally; in production it is `true` with `storage_mode: s3`, so a real upload would write to the project bucket and run a paid vision model | `a11y/p4.scen5-6.json` |
+| 6 Media upload — endpoint capability agreement | **BUG-VERIFIED** — `POST /wardrobe/upload` returned **201 created** while `/catalog/capabilities` reported `photo_upload_available: false` and `storage_mode: local`. The flag is advisory; the endpoint does not enforce it, so a deployment that advertises no durable storage still accepts writes it cannot keep. | `a11y/p4.scen5-6.json` |
+| 7 Analytics — no prior baseline | **VERIFIED** — 5 `growth-basis-*` chips reading "No prior-period baseline" on the seeded brand | E2E-7a |
+| 7 Analytics — genuine empty tenant | **VERIFIED** — Arket (0 products, 0 orders) shows `empty-catalogue` "No products in your catalogue yet" and 3 chips reading "No activity in either period"; `return_rate` is `null`, not `0` | E2E-7b |
+| 7 Analytics — real zero vs null | **VERIFIED** — same tenant reports `discount_total: 0.0` and `returned_units: 0` as zeros while `return_rate` is `null`; the UI does not collapse the two | `p4.journeys.json`, `p4.scen5-6.json` |
+| 10 Failure + recovery | **VERIFIED** — 3 `/catalog/products` requests aborted at the transport layer → "The catalog couldn't be loaded" + Retry; after unblocking, Retry loaded 54 product links and the error cleared | E2E-10 |
+
+Scenarios 1–4, 8 and 9 remain as closed in Phase 3 (`a11y/p3.journeys.json`,
+13/13) plus pytest coverage; they were not re-run.
+
+**Defect found and fixed — `imageUpload.ts` rejected every small image.**
+The retry loop guarding `compressImageToDataUrl` is `while (dim >= MIN_DIM)` with
+`MIN_DIM = 256`, so for any image whose longest edge is under 256 px the body
+never executed once and the function fell through to
+`errors.image_compression_failed` — telling the user an 8,277-byte PNG "could not
+be compressed small enough to upload safely". Found by driving visual search in a
+browser; the client-side guard, not the network, was failing. Fixed by letting the
+first pass always run (`|| passes === 0`), which leaves every image ≥ 256 px
+byte-for-byte identical in behaviour and still fails honestly if a small image
+cannot fit. Regression test added; it fails on the previous revision at
+`imageUpload.ts:188` and passes after. `npm run verify` **EXIT 0**, 154 files,
+**2,282 tests**.
+
+### 10.4 Still unverified
+
+| Item | State |
+|---|---|
+| NVDA / JAWS / VoiceOver (macOS + iOS) / TalkBack / Orca | **BLOCKED** — unchanged from Phase 3: no display server, no AT-SPI, no dbus, no Orca, no Windows/macOS/iOS host |
+| Real iOS / Android hardware | **BLOCKED** — no devices, no device farm |
+| Forced colours on real Windows High Contrast | **NOT TESTED** — emulation only |
+| INP / real-user field data | **NOT TESTED** — requires production RUM, which does not exist |
+| Media-upload success path | **BLOCKED** — see 10.3 |
+| CLS fix on `/` | **NOT FIXED** — defect documented, remedy requires a product decision |

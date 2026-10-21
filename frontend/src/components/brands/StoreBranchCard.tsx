@@ -41,9 +41,9 @@ export const StoreBranchCard: React.FC<StoreBranchCardProps> = ({
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className="font-serif text-base font-bold tracking-tight">
+            <h3 className="font-serif text-base font-bold tracking-tight">
               {branch.name}
-            </h4>
+            </h3>
             {branch.distance_km !== null && branch.distance_km !== undefined && (
               <span
                 className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${

@@ -234,7 +234,7 @@ export const BrandsView: React.FC = () => {
       {/* Top Banner / Breadcrumb Bar */}
       <div className="border-b border-neutral-200 bg-neutral-50/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-neutral-500">
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 min-w-0 text-neutral-500">
             <Link to="/" className="hover:text-brand-charcoal transition-colors">
               Home
             </Link>
@@ -245,7 +245,7 @@ export const BrandsView: React.FC = () => {
                   {t('brands.title')}
                 </Link>
                 <span aria-hidden="true">/</span>
-                <span className="font-semibold text-brand-charcoal">
+                <span className="font-semibold text-brand-charcoal break-words min-w-0">
                   {activeBrandDetail.brand_name}
                 </span>
                 {activeBranch && (

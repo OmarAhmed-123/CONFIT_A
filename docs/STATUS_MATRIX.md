@@ -605,15 +605,33 @@ recorded here as an open observation rather than claimed clean, and it stays wel
 
 | Item | State |
 |---|---|
-| Orca / AT-SPI2 / Xvfb / Firefox AT harness (`scripts/qa/…`) | **BLOCKED** — `Xvfb`, `orca`, `espeak-ng`, `firefox`, `python-gi`, `psql`, `redis-server` are all absent here. The committed report is from `1cee410` on another machine and is **not** presented as a Phase-6 result. |
-| NVDA / JAWS / VoiceOver (macOS + iOS) / TalkBack | **BLOCKED** — no such hosts or devices |
-| Production smoke tests, worker/import verification | **BLOCKED** — production API is down (12.3) |
-| Neon-backed local E2E (verify DB) | **BLOCKED** — same quota fault; local UI checks ran on SQLite instead, which is a substitute, not production |
+| Orca / AT-SPI2 / Xvfb / Firefox AT harness (`scripts/qa/run_live_orca_multiengine_a11y_audit.py`) | **VERIFIED (2026-10-22 re-run on integrated `work/production-hardening`)** — Provisioned `Xvfb`, `Orca 48.1`, `AT-SPI2 2.56.2`, `Speech Dispatcher 0.12.0`, `eSpeak NG 1.52.0`, `PyGObject`, `PostgreSQL 17.11`, `Redis 7`, and Playwright (`Chromium 156.0.8078.4`, `Firefox 157.0`, `WebKit 27.2`). Executed live against integrated branch (`DEF-28..DEF-31` included): `126 / 126` 3-engine `axe-core` audits (`0` critical/serious/moderate/minor violations), `103` live `AT-SPI2` bus events, `16 / 16` real TTS audio/IPA checks (`8 EN` + `8 AR`), `14 / 14` real E2E journeys `PASS`, `0` Arabic English ARIA leaks, `0px` overflow at `320px` and `200%` zoom, and `5 / 5` authz/tenant isolation checks `PASS` (`docs/qa/live_orca_multiengine_a11y_report.json`). |
+| NVDA / JAWS / VoiceOver (macOS + iOS) / TalkBack | **NOT TESTED** — Linux container environment has no physical Windows, macOS, iOS, or Android devices; multi-engine Linux checks are never substituted for native proprietary OS screen readers |
+| Production smoke tests, live DB migration `0046`, live CSV worker/import E2E | **BLOCKED** — Production Neon project `ep-frosty-term-b2ivqwuz` refuses all SQL connections with `SQLSTATE 53000` (`Your account or project has exceeded the quota. Upgrade your plan to increase limits.`); owner selected `keep_as_is_no_go` (leave Neon plan untouched, do not bypass `check_release_schema_parity.py`) |
+| Standalone Cloudflare R2 / S3 storage & Modal worker health probes | **VERIFIED (2026-10-22)** — Direct `probe_storage(force=True)` against `confit-a-media` passed (`ok: true`, write/read/delete verified in `1,557.4 ms`); Modal `wardrobe-worker` `/health` returned `HTTP 200` (`ready: true`); Modal `catalog-worker` (`omarsafealden--confit-catalog-worker-http.us-east.modal.run/health`) answered `HTTP 401` (`env_present=True`, proving warm control plane + token guard active) |
 
-### 12.6 Release decision
+### 12.6 Addendum — 2026-10-22 Pre-Integration Defect Remediation & Full Local Quality Gate (`DEF-28` – `DEF-31`)
 
-**NO-GO for production release.** The code is integrated and green on every runnable gate; the
-release cannot be evidenced because the production database is refusing all connections for a
-billing/quota reason outside this repository. Merging while the required gate fails closed
-would be a bypass, and deploying into a database that cannot boot would make recovery harder,
-not easier.
+Four additional defects found during pre-integration audit of `08b281b..51dbf011` were fixed at root cause on `work/production-hardening` without weakening any security, financial, or release gate:
+
+1. **`DEF-28` (`P1`, `backend/app/services/capability_service.py`, `backend/tests/test_health_db_unreachable.py`):** Guarded `build_capabilities_dict(..., database_ok=False)` so `click_and_collect` never issues an unguarded `SELECT COUNT(*) FROM stores` when `GET /api/v1/health` has already determined PostgreSQL is unreachable (`status: "unhealthy"`, `database: "unreachable"` returned as structured `HTTP 200` instead of unhandled `HTTP 500`, while `check_release_schema_parity.py` continues to exit `2`). Locked down by `3` regression tests preserving prior `app.dependency_overrides[get_db]`.
+2. **`DEF-29` (`P1`, `frontend/src/components/common/SplashScreen.tsx`, `frontend/src/components/common/__tests__/splashScreen.a11y.test.tsx`):** Dismissed fixed `z-50` splash overlay immediately on keyboard `Tab` / `Escape` or `document` `focusin` (`WCAG 2.2 AA SC 2.4.11 Focus Not Obscured`) and added `motion-reduce:transition-none`, verified across `3` unit tests + live `Chromium`, `Firefox`, and `WebKit` (`splash_count_after_tab == 0`).
+3. **`DEF-30` (`P2`, `frontend/src/components/home/AnnouncementBar.tsx`, `AnnouncementSlot.tsx`, `__tests__/announcementSlot.reservation.test.tsx`):** Released reserved `46px` mobile / `40px` desktop slot (`data-reserved="false"`) immediately upon announcement dismissal while holding initial CLS to `0.00568` (`< 0.1`) on `412×915`.
+4. **`DEF-31` (`P1`, `.github/workflows/release-gate.yml`):** Expanded `pull_request.types` to `[opened, synchronize, reopened, edited]` so the required `release gate (production schema parity)` check re-evaluates cleanly when PR metadata is refreshed after operational recovery without requiring an empty commit.
+
+Separate measured suite counts on integrated `work/production-hardening` (`2026-10-22`, never summed across unrelated runners):
+- Frontend i18n parity (`npm run i18n:check`): `exit 0` (`2,326` active / `3,102` defined keys, `0` untranslated).
+- Frontend TypeScript (`npx tsc --noEmit`): `exit 0`.
+- Frontend Vitest (`npx vitest run --maxWorkers=2`): `exit 0` (`157 / 157` files, `2,360 / 2,360` tests passed).
+- Frontend production build (`npm run build`): `exit 0` (`2,178` modules).
+- Stylist drawer browser gate (`bash scripts/stylist_browser_gate.sh`): `exit 0` (`PASS`).
+- Backend full pytest (`PYTHONPATH=. .venv/bin/python -m pytest backend/tests -q --tb=short`): `exit 0` (`4,551 passed, 24 skipped, 0 failed`).
+- PostgreSQL 17.11 gates: `check_migration_chain_postgres.py` (`exit 0`, `0001..0046`, `62` tables), schema drift (`45 passed`), audit HMAC/provenance (`42 passed`), brand portal locking/memberships (`40 passed`), MFA concurrency (`3 passed`).
+- Live Redis 7 + async worker / cloud dispatch / S3 / Fawaterak suite: `exit 0` (`58 passed`).
+- Production parity (`import api.index` + manifest/parity tests): `exit 0` (`56 passed`).
+- Backend security & financial mutation gate (`run_mutation_gates.py`): `exit 0` (`42 / 42` mutations killed, `0` survived).
+- Security & dependency audits: `npm audit --omit=dev --audit-level=high` (`0` vulns), `pip-audit -r backend/requirements.txt` (`0` vulns), `gitleaks detect --source . --verbose` (`0` leaks).
+
+### 12.7 Release decision
+
+**NO-GO for production release.** All repository code, migrations (`0001..0046_user_wishlist_items`), security/financial invariants, multi-engine WCAG 2.2 AA gates, and live Linux `Orca 48.1` + `AT-SPI2` checks are verified green on `work/production-hardening`, and `PR #372` remains safely open and unmerged (`main` branch protection strictly respected — never bypassed) until Neon project `ep-frosty-term-b2ivqwuz` quota (`SQLSTATE 53000`) is restored and live production E2E verification can complete.

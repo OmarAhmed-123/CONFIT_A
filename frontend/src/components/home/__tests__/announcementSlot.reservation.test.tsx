@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 /**
@@ -149,5 +149,15 @@ describe('AnnouncementSlot — layout reservation (CLS)', () => {
     state.capabilities = { ...SAMPLE };
     render(<AnnouncementSlot />);
     expect(window.localStorage.getItem('confit.announcement.policy.v1')).toBe('present');
+  });
+
+  it('releases both the bar and the 46px reserved slot immediately when the shopper clicks dismiss', () => {
+    state.capabilities = { ...SAMPLE };
+    render(<AnnouncementSlot />);
+    expect(slot()).toHaveAttribute('data-reserved', 'true');
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.queryByTestId('announcement-bar')).not.toBeInTheDocument();
+    expect(slot()).toHaveAttribute('data-reserved', 'false');
+    expect(slot().style.minHeight).toBe('');
   });
 });

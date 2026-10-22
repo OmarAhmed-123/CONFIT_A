@@ -766,18 +766,39 @@ def capability_probes(
 
     out.append(_email_delivery_capability())
 
-    store_count = db.query(StoreLocation).count()
-    out.append(
-        Capability(
-            name="click_and_collect",
-            state=STATE_READY if store_count > 0 else STATE_BLOCKED,
-            criticality=CRITICALITY_SUPPORTING,
-            detail=(
-                f"{store_count} store location(s) in the catalogue"
-                if store_count
-                else "no store locations exist, so BOPIS cannot be offered"
-            ),
+    if database_ok:
+        try:
+            store_count = db.query(StoreLocation).count()
+            out.append(
+                Capability(
+                    name="click_and_collect",
+                    state=STATE_READY if store_count > 0 else STATE_BLOCKED,
+                    criticality=CRITICALITY_SUPPORTING,
+                    detail=(
+                        f"{store_count} store location(s) in the catalogue"
+                        if store_count
+                        else "no store locations exist, so BOPIS cannot be offered"
+                    ),
+                )
+            )
+        except Exception as exc:
+            logger.warning("click_and_collect_probe_failed", error=str(exc))
+            out.append(
+                Capability(
+                    name="click_and_collect",
+                    state=STATE_BLOCKED,
+                    criticality=CRITICALITY_SUPPORTING,
+                    detail="cannot inspect store locations while database query fails",
+                )
+            )
+    else:
+        out.append(
+            Capability(
+                name="click_and_collect",
+                state=STATE_BLOCKED,
+                criticality=CRITICALITY_SUPPORTING,
+                detail="cannot inspect store locations while database is unreachable",
+            )
         )
-    )
 
     return out

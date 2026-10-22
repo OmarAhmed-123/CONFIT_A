@@ -88,7 +88,8 @@ export const AnnouncementSlotView: React.FC<{
   showBar: boolean;
   threshold?: number | null;
   currency?: string | null;
-}> = ({ reserved, showBar, threshold, currency }) => (
+  onDismiss?: () => void;
+}> = ({ reserved, showBar, threshold, currency, onDismiss }) => (
   <div
     data-testid="announcement-slot"
     data-reserved={reserved ? "true" : "false"}
@@ -96,7 +97,13 @@ export const AnnouncementSlotView: React.FC<{
     // bar, never be clipped. The reserve only guarantees the floor.
     style={reserved ? { minHeight: RESERVED_HEIGHT_PX } : undefined}
   >
-    {showBar ? <AnnouncementBar threshold={threshold} currency={currency} /> : null}
+    {showBar ? (
+      <AnnouncementBar
+        threshold={threshold}
+        currency={currency}
+        onDismiss={onDismiss}
+      />
+    ) : null}
   </div>
 );
 
@@ -154,6 +161,12 @@ export const AnnouncementSlot: React.FC = () => {
   const reserved = showBar || (!dismissed && hintAtMount !== "none");
 
   return (
-    <AnnouncementSlotView reserved={reserved} showBar={showBar} threshold={threshold} currency={currency} />
+    <AnnouncementSlotView
+      reserved={reserved}
+      showBar={showBar}
+      threshold={threshold}
+      currency={currency}
+      onDismiss={() => setDismissed(true)}
+    />
   );
 };

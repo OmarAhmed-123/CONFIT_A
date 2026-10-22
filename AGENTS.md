@@ -74,10 +74,13 @@ Tracking section (an unjustified violation is a `NO-GO`).
   success criteria linked to forensic finding IDs. No vague tasks.
 - **Three distinct states.** *Planning* ≠ *implementation* ≠ *verified completion*. Never
   collapse them. Report status with the constitution's strict vocabulary.
-- **Migrations are PROPOSED, not authored.** No Alembic migration file exists for the
-  planned workstreams yet; repo head is `0034`. Workstream **011** is the single numbering
-  authority. The true production head is **UNVERIFIED pending an authorized read-only
-  check** (gate `G-MIG-1`). Do not create or run migrations during planning.
+- **Migrations exist and are numbered.** The tree carries a linear Alembic chain
+  `0001 … 0046_user_wishlist_items` (46 revisions); treat `0046` as the repo head
+  (this file previously said `0034`, which is stale). Workstream **011** remains the
+  single numbering authority. The PRODUCTION database head is still **UNVERIFIED**
+  pending an authorized read-only check (gate `G-MIG-1`); as of 2026-10-22 production
+  is unreachable (Neon over quota), so that check cannot run yet. Do not create or run
+  migrations against production without authorization.
 - **No production mutations during planning** — no migrations, seeds, emails, orders,
   payments, paid AI jobs, or deploys. No PR is merged without explicit authorization and
   passing safeguards (branch protection, required reviews, required CI).

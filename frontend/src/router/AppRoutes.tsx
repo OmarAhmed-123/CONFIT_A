@@ -4,6 +4,7 @@ import { ConsumerLayout } from '../layouts/ConsumerLayout';
 import { BrandLayout } from '../layouts/BrandLayout';
 import { RoleGuard, ProtectedRoute } from '../components/auth/RoleGuard';
 import { RoutePending } from '../components/navigation/RoutePending';
+import { RouteAnnouncer } from '../components/common/RouteAnnouncer';
 import { useAuthStore, isOnboardingDismissed } from '../stores/authStore';
 
 /**
@@ -112,7 +113,7 @@ export const PartnerPortalBoundary: React.FC<{ children: React.ReactNode }> = ({
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   if (hasAttemptedBootstrap && isAuthenticated && isAdmin) {
-    const normalized = location.pathname.replace(/^\/(partner|b2b)(?=\/|$)/, '');
+    const normalized = location.pathname.replace(/^\/(partner|b2b|brand-dashboard)(?=\/|$)/, '');
     const destination = normalized === '/analytics' || normalized === '/admin-platform'
       ? '/admin/analytics'
       : normalized === '/catalog'
@@ -132,11 +133,19 @@ export const PartnerPortalBoundary: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+function BrandDashboardAlias() {
+  const location = useLocation();
+  const sub = location.pathname.replace(/^\/brand-dashboard\/?/, '');
+  const target = sub ? `/partner/${sub}${location.search}` : `/partner${location.search}`;
+  return <Navigate to={target} replace />;
+}
+
 export const AppRoutes: React.FC = () => {
 
   return (
     // Router context is provided by App (AUTH-02: root-mounted AuthModal needs navigate()).
     <>
+      <RouteAnnouncer />
       <Routes>
         {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
         <Route path="/looks/:token" element={<SharedLookView />} />
@@ -154,6 +163,9 @@ export const AppRoutes: React.FC = () => {
         <Route path="/b2b/team/accept" element={<BrandTeamAcceptView />} />
         <Route path="/partner/team/accept" element={<BrandTeamAcceptView />} />
         <Route path="/verify-email" element={<VerifyEmailView />} />
+        <Route path="/auth" element={<Navigate to="/?auth=signin" replace />} />
+        <Route path="/login" element={<Navigate to="/?auth=signin" replace />} />
+        <Route path="/register" element={<Navigate to="/?auth=signup" replace />} />
 
         {/* 0b. LEGAL-01: real legal pages — public, not gated behind /profile.
             The audit found Privacy/Terms/GDPR links landing on the
@@ -176,7 +188,10 @@ export const AppRoutes: React.FC = () => {
         <Route path="/" element={<OnboardingGate><ConsumerLayout /></OnboardingGate>}>
           <Route index element={<HomeView />} />
           <Route path="discover" element={<DiscoverView />} />
+          <Route path="catalog" element={<DiscoverView />} />
           <Route path="products" element={<DiscoverView />} />
+          <Route path="wishlist" element={<DiscoverView />} />
+          <Route path="favorites" element={<DiscoverView />} />
           <Route path="brands" element={<BrandsView />} />
           <Route path="brands/:slug" element={<BrandsView />} />
           <Route path="stores" element={<BrandsView />} />
@@ -299,6 +314,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />
           <Route path="placements" element={<BrandPlacementsView />} />
         </Route>
+
+        <Route path="/brand-dashboard/*" element={<BrandDashboardAlias />} />
 
         {/* 4. Platform Admin Governance Routes (Protected by ADMIN_ROLES) */}
         <Route

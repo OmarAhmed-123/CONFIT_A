@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { catalogService } from "../../services/apiServices";
 import { Product, StoreInventoryLocation } from "../../models";
 import { useUIStore } from "../../stores/uiStore";
@@ -270,6 +270,9 @@ export const ProductDetailView: React.FC = () => {
   const { addItem } = useCartStore();
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
+  const [searchParams] = useSearchParams();
+  const requestedFitSize = searchParams.get("size")?.trim() || null;
+  const [fitSizeAppliedStatus, setFitSizeAppliedStatus] = useState<"applied" | "oos" | null>(null);
   // Honest try-on gating: the label and the destination below are derived from
   // the live engine verdict, so a shopper is never sent into a render that
   // cannot happen (2026-09-22). `openRuler` is the working no-photo path.
@@ -311,11 +314,36 @@ export const ProductDetailView: React.FC = () => {
       .getProductDetail(slug)
       .then((data) => {
         setProduct(data);
+        const targetNorm = requestedFitSize?.toUpperCase() || null;
+        const matchedRequestedInStock = targetNorm
+          ? data.skus?.find(
+              (s) =>
+                s.size.trim().toUpperCase() === targetNorm &&
+                s.is_in_stock !== false &&
+                (s.stock_level ?? 0) > 0,
+            )
+          : undefined;
         const firstInStock =
           data.skus?.find((s) => s.is_in_stock) || data.skus?.[0];
-        if (firstInStock) {
-          setSelectedSkuId(firstInStock.id);
-          fetchBopisStores(firstInStock.id);
+
+        if (targetNorm) {
+          if (matchedRequestedInStock) {
+            setSelectedSkuId(matchedRequestedInStock.id);
+            fetchBopisStores(matchedRequestedInStock.id);
+            setFitSizeAppliedStatus("applied");
+          } else {
+            if (firstInStock) {
+              setSelectedSkuId(firstInStock.id);
+              fetchBopisStores(firstInStock.id);
+            }
+            setFitSizeAppliedStatus("oos");
+          }
+        } else {
+          setFitSizeAppliedStatus(null);
+          if (firstInStock) {
+            setSelectedSkuId(firstInStock.id);
+            fetchBopisStores(firstInStock.id);
+          }
         }
         setIsLoading(false);
       })
@@ -340,6 +368,18 @@ export const ProductDetailView: React.FC = () => {
     if (!selectedSkuId) return;
     fetchBopisStores(selectedSkuId);
   }, [selectedSkuId]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    void catalogService.recordEngagementEvent({
+      event_id: `pdp-photo:${product.id}:${activeImageIndex}`,
+      product_id: product.id,
+      sku_id: selectedSkuId ?? undefined,
+      event_type: "gallery_photo_view",
+      attribution_source: "pdp_gallery",
+      photo_index: activeImageIndex,
+    });
+  }, [product?.id, activeImageIndex]);
 
   // Pass 4 — the tab tells the truth. /product/:slug matched the static
   // discover route meta, so every product tab read "Style & Discover":
@@ -366,7 +406,7 @@ export const ProductDetailView: React.FC = () => {
     el.text = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Product",
-      name: product.title,
+      name: localizedTitle(product, lang),
       image:
         (product.photos ?? []).length > 0
           ? (product.photos ?? []).map((p) => p.url)
@@ -582,7 +622,7 @@ export const ProductDetailView: React.FC = () => {
         </Link>
         <span>/</span>
         <span className="font-semibold text-brand-charcoal truncate max-w-xs">
-          {product.title}
+          {localizedTitle(product, lang)}
         </span>
       </nav>
 
@@ -633,7 +673,7 @@ export const ProductDetailView: React.FC = () => {
                     unavailableLabel={t('common.image_unavailable')}
               key={activeImageIndex}
               src={images[activeImageIndex] || product.thumbnail_url}
-              alt={product.title}
+              alt={localizedTitle(product, lang)}
               loading="eager"
               decoding="async"
               {...({ fetchpriority: "high" } as unknown as React.ImgHTMLAttributes<HTMLImageElement>)}
@@ -791,7 +831,7 @@ export const ProductDetailView: React.FC = () => {
                   <HonestProductImage
                     unavailableLabel={t('common.image_unavailable')}
                     src={img}
-                    alt={t('a11y.product_image_alt', { name: product.title, index: idx + 1 })}
+                    alt={t('a11y.product_image_alt', { name: localizedTitle(product, lang), index: idx + 1 })}
                     loading="lazy"
                     className="w-full h-full object-cover"
                   />
@@ -910,6 +950,23 @@ export const ProductDetailView: React.FC = () => {
                 <span>{t('product.find_my_size')}</span>
               </button>
             </div>
+
+            {requestedFitSize && fitSizeAppliedStatus && (
+              <p
+                role="status"
+                aria-live="polite"
+                data-testid="fit-finder-applied-banner"
+                className={`text-xs font-medium rounded-xl p-2.5 border ${
+                  fitSizeAppliedStatus === "applied"
+                    ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                    : "bg-amber-50 text-amber-900 border-amber-200"
+                }`}
+              >
+                {fitSizeAppliedStatus === "applied"
+                  ? t("fit_finder.applied_size_banner", { size: requestedFitSize })
+                  : t("fit_finder.applied_size_oos_banner", { size: requestedFitSize })}
+              </p>
+            )}
 
             {/* Card-clarity pass: body copy inside cards drops font-light
                 (300-weight at 12px renders thin and faint — the exact
@@ -1532,7 +1589,7 @@ export const ProductDetailView: React.FC = () => {
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-bold text-brand-charcoal truncate">
-                {product.title}
+                {localizedTitle(product, lang)}
               </div>
               <div className="text-sm font-serif font-black text-brand-charcoal">
                 {skuPriceLabel}

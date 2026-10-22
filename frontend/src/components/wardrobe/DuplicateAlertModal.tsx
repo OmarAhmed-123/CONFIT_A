@@ -1,28 +1,42 @@
 import React from 'react';
 import { useCartStore } from '../../stores/cartStore';
-import { DuplicateAlertIcon, SparkleIcon, WardrobeIcon } from '../icons/ConfitIcons';
-import { Link } from 'react-router-dom';
+import { DuplicateAlertIcon, WardrobeIcon } from '../icons/ConfitIcons';
 import { HonestProductImage } from '../common/HonestProductImage';
 import { useTranslation } from 'react-i18next';
+import { useModalFocus } from '../../hooks/useModalFocus';
 
 export const DuplicateAlertModal: React.FC = () => {
   const { t } = useTranslation();
   const { pendingDuplicateAlert, confirmAddDuplicate, dismissDuplicate } = useCartStore();
+  const isOpen = Boolean(pendingDuplicateAlert);
+  const modalRef = useModalFocus<HTMLDivElement>(dismissDuplicate, isOpen);
 
   if (!pendingDuplicateAlert) return null;
 
   const owned = pendingDuplicateAlert.owned_item;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) dismissDuplicate();
+      }}
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="duplicate-alert-title"
+        tabIndex={-1}
+        className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden outline-none"
+      >
         {/* Header with Gold Alert Motif */}
         <div className="p-5 bg-brand-wash border-b border-brand-hairline flex items-start gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-white border border-brand-hairline flex items-center justify-center text-brand-charcoal shadow-xs shrink-0">
             <DuplicateAlertIcon size={24} color="#242526" />
           </div>
           <div>
-            <h3 className="font-serif text-base font-bold text-brand-charcoal">
+            <h3 id="duplicate-alert-title" className="font-serif text-base font-bold text-brand-charcoal">
               {t("wardrobe.dup_alert_title")}
             </h3>
             <p className="text-xs text-slate-600 mt-0.5">
@@ -35,13 +49,13 @@ export const DuplicateAlertModal: React.FC = () => {
         <div className="p-6 space-y-4">
           <div className="bg-brand-wash border border-slate-200 rounded-2xl p-3.5 flex items-center gap-3.5">
             <div className="w-18 h-22 rounded-xl overflow-hidden bg-slate-200 shrink-0">
-              <HonestProductImage src={owned.image_url} alt={owned.title} className="w-full h-full object-cover" />
+              <HonestProductImage src={owned.image_url} alt={owned.title || t("wardrobe.dup_already_in_closet")} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                 {t("wardrobe.dup_already_in_closet")}
               </span>
-              <h4 className="text-sm font-bold text-brand-charcoal truncate">{owned.title}</h4>
+              <h4 className="text-sm font-bold text-brand-charcoal truncate">{owned.title || t("wardrobe.dup_already_in_closet")}</h4>
               <p className="text-xs text-slate-500">{owned.color_name} · {owned.category}</p>
               <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-600">
                 <span>{t("wardrobe.dup_worn_times", { count: owned.wear_count || 0 })}</span>

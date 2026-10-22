@@ -829,7 +829,7 @@ describe("ProductDetailView — C03 contract", () => {
     await act(async () => {
       await i18n.changeLanguage("ar");
     });
-    fireEvent.error(screen.getByRole("img", { name: "Midnight Wool Blazer" }));
+    fireEvent.error(screen.getByRole("img", { name: "بليزر صوف كحلي" }));
     expect(await screen.findByText("الصورة غير متاحة")).toBeInTheDocument();
     expect(screen.queryByText("Image unavailable")).toBeNull();
   });

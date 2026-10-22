@@ -113,6 +113,21 @@ FULFILLMENT_STATES: Set[str] = {
     "picked_up",
 }
 
+# Explicit payment state machine (single source of truth alongside ORDER_TRANSITIONS).
+# Forward-only semantics protect settled payments against out-of-order failure callbacks,
+# cancelled-order races, and duplicate refunds.
+PAYMENT_TRANSITIONS: Dict[str, Set[str]] = {
+    "pending": {"pending", "authorized", "paid", "failed", "cancelled"},
+    "pending_delivery": {"pending_delivery", "paid", "cancelled"},
+    "authorized": {"authorized", "paid", "failed", "cancelled"},
+    "paid": {"paid", "refund_pending", "partially_refunded", "refunded"},
+    "refund_pending": {"refund_pending", "partially_refunded", "refunded", "paid"},
+    "partially_refunded": {"partially_refunded", "refund_pending", "refunded"},
+    "failed": {"failed", "pending"},
+    "cancelled": {"cancelled"},
+    "refunded": {"refunded"},
+}
+
 
 class CommerceService:
     def __init__(self, db: Session):
@@ -558,17 +573,35 @@ class CommerceService:
                 order_number=order.order_number, error=str(_e)[:200],
             )
 
+        from backend.app.providers.payment.fawaterak import to_minor_units
+
         pay_result = await self.payments.initiate_payment(
             method_id=payment_method,
-            amount_minor=int((quantize_money(total) * Decimal("100")).to_integral_value(rounding=ROUND_HALF_UP)),
+            amount_minor=to_minor_units(quantize_money(total), currency),
             currency_code=currency,
-            customer_email=guest_email or "",
+            customer_email=identity_email or guest_email or "",
             order_number=order.order_number,
             country_code=country,
+            customer_phone=checkout_data.get("phone"),
+            metadata={
+                "recipient_name": checkout_data.get("recipient_name"),
+                "phone": checkout_data.get("phone"),
+                "address": checkout_data.get("address_line") or checkout_data.get("city") or country,
+                "lang": checkout_data.get("locale") if checkout_data.get("locale") in ("en", "ar") else "en",
+                "cart_items": [
+                    {
+                        "name": _p["product_title"],
+                        "price": float(quantize_money(to_decimal(_p["unit_price"]))),
+                        "quantity": int(_p["quantity"]),
+                    }
+                    for _p in order_items_payload
+                ],
+            },
         )
         tx_status = pay_result.get("status") or "pending"
+        redirect_url = pay_result.get("redirect_url")
         mapped_payment_status = self._map_provider_status(tx_status, payment_method)
-        self.commerce_repo.create_payment_transaction(
+        created_tx = self.commerce_repo.create_payment_transaction(
             order_id=order.id,
             provider=str(pay_result.get("provider") or payment_method),
             method=payment_method,
@@ -604,8 +637,9 @@ class CommerceService:
                 logger.warn("commerce_notification_failed", order_number=order.order_number)
             # PAY-01: COD is payable at handover — its fulfilment flow starts
             # now and the cash settles exactly at picked_up/delivered (the
-            # _transition gate enforces that settlement). Other pending-payment
-            # methods wait in payment_pending and cannot be fulfilled.
+            # _transition gate enforces that settlement). Hosted PSP checkouts in
+            # `pending` wait in `payment_pending` and CANNOT be fulfilled until
+            # server-verified settlement arrives.
             if mapped_payment_status == "pending" and payment_method != "cod":
                 next_status = "payment_pending"
             else:
@@ -633,12 +667,17 @@ class CommerceService:
         )
 
         # --- FLOW E: G5 completed purchase -> G4 wardrobe --------------------
-        # Deliberately LAST: the order, its payment transaction and its
-        # inventory reservations are already committed, so nothing the wardrobe
-        # does can roll back, delay or falsify a completed purchase.
-        self._sync_wardrobe_from_order(order)
+        # Hosted redirect payments still awaiting capture (`payment_pending`) do
+        # NOT add unpurchased items to the customer's wardrobe prematurely;
+        # FLOW E runs on verified settlement instead.
+        if order.status != "payment_pending":
+            self._sync_wardrobe_from_order(order)
 
-        return self.get_order(order.order_number)
+        out = self.get_order(order.order_number)
+        if redirect_url:
+            out["payment_redirect_url"] = str(redirect_url)
+        out["payment_provider_reference"] = created_tx.provider_tx_id
+        return out
 
     # ------------------------------------------- FLOW E: purchase -> wardrobe
     def _sync_wardrobe_from_order(self, order: Order) -> Dict[str, Any]:
@@ -1257,53 +1296,426 @@ class CommerceService:
             "created_at": req.created_at,
         }
 
-    async def process_webhook(self, provider: str, payload: Dict[str, Any], raw_body: bytes, signature: str) -> Dict[str, Any]:
+    def _latest_payment_tx(self, order_id: int) -> Optional[PaymentTransaction]:
+        return (
+            self.db.query(PaymentTransaction)
+            .filter(PaymentTransaction.order_id == order_id)
+            .order_by(PaymentTransaction.created_at.desc(), PaymentTransaction.id.desc())
+            .first()
+        )
+
+    def _can_transition_payment(self, current_status: str, target_status: str) -> bool:
+        allowed = PAYMENT_TRANSITIONS.get((current_status or "pending").strip().lower(), set())
+        return target_status in allowed
+
+    def _verify_settled_amount_and_currency(
+        self,
+        order: Order,
+        tx: Optional[PaymentTransaction],
+        settled_amount: Any,
+        settled_currency: Optional[str],
+        source_label: str,
+    ) -> None:
+        """Enforce server-side minor-unit amount & currency equality before capture."""
+        from backend.app.providers.payment.fawaterak import to_minor_units
+
+        expected_ccy = (order.currency or "USD").strip().upper()
+        expected_minor = to_minor_units(to_decimal(order.total_amount), expected_ccy)
+
+        if settled_currency is not None:
+            actual_ccy = str(settled_currency).strip().upper()
+            if actual_ccy and actual_ccy != expected_ccy:
+                if tx is not None and self._can_transition_payment(tx.status, "failed"):
+                    tx.status = "failed"
+                if order.payment_status in ("pending", "authorized"):
+                    order.payment_status = "failed"
+                    self._release_inventory_for_order(order)
+                    if order.status in ("placed", "payment_pending", "processing"):
+                        self._transition(order, "failed")
+                self.commerce_repo.add_order_event(
+                    order.id,
+                    "payment_currency_mismatch",
+                    "Payment currency mismatch blocked",
+                    f"{source_label}: expected {expected_ccy}, got {actual_ccy}.",
+                )
+                self.db.commit()
+                raise ValidationDomainError(
+                    f"Payment currency mismatch for order {order.order_number}: "
+                    f"expected {expected_ccy}, received {actual_ccy}."
+                )
+
+        if settled_amount is not None:
+            actual_minor = to_minor_units(to_decimal(settled_amount, "settled_amount"), expected_ccy)
+            if actual_minor != expected_minor:
+                if tx is not None and self._can_transition_payment(tx.status, "failed"):
+                    tx.status = "failed"
+                if order.payment_status in ("pending", "authorized"):
+                    order.payment_status = "failed"
+                    self._release_inventory_for_order(order)
+                    if order.status in ("placed", "payment_pending", "processing"):
+                        self._transition(order, "failed")
+                self.commerce_repo.add_order_event(
+                    order.id,
+                    "payment_amount_mismatch",
+                    "Payment amount mismatch blocked",
+                    f"{source_label}: expected {expected_minor} minor {expected_ccy}, got {actual_minor}.",
+                )
+                self.db.commit()
+                raise ValidationDomainError(
+                    f"Payment amount mismatch for order {order.order_number}: "
+                    f"expected {order.total_amount} {expected_ccy}, received {settled_amount}."
+                )
+
+    def _extract_webhook_metadata(
+        self, provider: str, payload: Dict[str, Any], event_kind: Optional[str] = None
+    ) -> Tuple[str, Optional[str], str, Optional[Any], Optional[str], Optional[str]]:
+        """Normalize generic PSP & Fawaterak v3/v2 webhook fields into a single tuple:
+        `(event_id, order_number, normalized_event, settled_amount, settled_currency, provider_ref)`
+        """
+        prov = (provider or "").strip().lower()
+        embedded: Dict[str, Any] = {}
+        raw_pl = payload.get("pay_load") if "pay_load" in payload else payload.get("payload")
+        if isinstance(raw_pl, str) and raw_pl.strip():
+            try:
+                parsed = json.loads(raw_pl)
+                if isinstance(parsed, dict):
+                    embedded = parsed
+            except ValueError:
+                embedded = {}
+        elif isinstance(raw_pl, dict):
+            embedded = raw_pl
+
+        order_number = (
+            payload.get("order_number")
+            or (payload.get("data") or {}).get("order_number")
+            or embedded.get("order_number")
+            or embedded.get("order_id")
+        )
+        if order_number is not None:
+            order_number = str(order_number).strip() or None
+
+        provider_ref: Optional[str] = None
+        if payload.get("transaction_key"):
+            provider_ref = f"tr:{payload['transaction_key']}"
+        elif payload.get("transactionKey"):
+            provider_ref = f"tr:{payload['transactionKey']}"
+        elif payload.get("invoice_id") and payload.get("invoice_key"):
+            provider_ref = f"inv:{payload['invoice_id']}:{payload['invoice_key']}"
+        elif payload.get("invoice_id"):
+            provider_ref = f"inv:{payload['invoice_id']}"
+
+        raw_type = str(
+            payload.get("event")
+            or payload.get("type")
+            or event_kind
+            or payload.get("status")
+            or payload.get("invoice_status")
+            or ""
+        ).strip().lower()
+
+        if prov == "fawaterak":
+            status_val = str(payload.get("status") or payload.get("invoice_status") or "").strip().lower()
+            kind_clean = (event_kind or "").strip().lower()
+            if kind_clean.startswith("refund") or ("approvedAt" in payload and "transactionId" in payload):
+                norm_event = "refund.succeeded"
+            elif kind_clean.startswith("cancel") or status_val in ("expired", "cancelled", "canceled"):
+                norm_event = "payment.cancelled"
+            elif kind_clean.startswith("fail") or "errorMessage" in payload or status_val in ("failed", "declined"):
+                norm_event = "payment.failed"
+            elif status_val == "paid":
+                norm_event = "payment.captured"
+            elif status_val == "pending":
+                norm_event = "payment.pending"
+            else:
+                norm_event = raw_type
+        else:
+            norm_event = raw_type
+
+        event_id = str(
+            payload.get("id")
+            or payload.get("event_id")
+            or payload.get("eventId")
+            or ""
+        ).strip()
+        if not event_id and prov == "fawaterak":
+            ident = (
+                payload.get("transaction_id")
+                or payload.get("transactionId")
+                or payload.get("invoice_id")
+                or payload.get("referenceId")
+                or payload.get("transaction_key")
+            )
+            if ident is not None and norm_event:
+                event_id = f"fwk:{norm_event}:{ident}:{payload.get('amount') or payload.get('paidAmount') or ''}"
+
+        data_obj = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        settled_amount = (
+            payload.get("paidAmount")
+            if payload.get("paidAmount") is not None
+            else payload.get("amount")
+            if payload.get("amount") is not None
+            else data_obj.get("amount")
+        )
+        settled_ccy = (
+            payload.get("paidCurrency")
+            or payload.get("currency")
+            or data_obj.get("currency")
+        )
+        return event_id, order_number, norm_event, settled_amount, settled_ccy, provider_ref
+
+    async def process_webhook(
+        self,
+        provider: str,
+        payload: Dict[str, Any],
+        raw_body: bytes,
+        signature: str,
+        event_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
         if not self.payments.verify_webhook(provider, raw_body, signature or ""):
             from fastapi import HTTPException
 
             raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
-        event_id = str(payload.get("id") or payload.get("event_id") or payload.get("eventId") or "")
+        (
+            event_id,
+            order_number,
+            event_type,
+            settled_amount,
+            settled_ccy,
+            provider_ref,
+        ) = self._extract_webhook_metadata(provider, payload, event_kind=event_kind)
         if not event_id:
             raise ValidationDomainError("Webhook payload is missing an event id.")
         existing = self.commerce_repo.get_webhook_event(provider, event_id)
         if existing:
             return {"status": "duplicate", "provider": provider, "event_id": event_id}
 
-        order_number = payload.get("order_number") or (payload.get("data") or {}).get("order_number")
-        event_type = payload.get("event") or payload.get("type") or ""
-        self.commerce_repo.record_webhook_event(provider, event_id, order_number)
-
+        order: Optional[Order] = None
         if order_number:
             order = self.commerce_repo.get_order_by_number(order_number)
-            if order:
-                if event_type in ("payment.captured", "charge.succeeded", "payment_intent.succeeded"):
-                    order.payment_status = "paid"
-                    if order.status in ("placed", "payment_pending"):
-                        self._transition(order, "processing")
+        if order is None and provider_ref:
+            matched_tx = (
+                self.db.query(PaymentTransaction)
+                .filter(PaymentTransaction.provider_tx_id == provider_ref)
+                .first()
+            )
+            if matched_tx:
+                order = self.commerce_repo.get_order_by_id(matched_tx.order_id)
+                order_number = order.order_number if order else order_number
+
+        tx = self._latest_payment_tx(order.id) if order else None
+        prov_low = (provider or "").strip().lower()
+        if order:
+            # Fawaterak's webhook HMAC signs identity fields, not amounts.
+            # Re-read authoritative settlement state BEFORE recording dedup key so
+            # transient gateway lookup outages can be retried cleanly by the PSP.
+            from backend.app.providers.payment.fawaterak import (
+                FawaterakAdapter,
+                FawaterakGatewayError,
+                fawaterak_credentials_present,
+            )
+
+            lookup_ref = provider_ref or (tx.provider_tx_id if tx else None)
+            if (
+                prov_low == "fawaterak"
+                and event_type == "payment.captured"
+                and lookup_ref
+                and fawaterak_credentials_present()
+                and bool(settings.PAYMENTS_LIVE)
+            ):
+                fwk: FawaterakAdapter = self.payments.LIVE_PSP_ADAPTERS["fawaterak"]
+                try:
+                    remote = await fwk.get_transaction_status(lookup_ref)
+                except FawaterakGatewayError as exc:
+                    self.db.rollback()
+                    raise PaymentFailedError("fawaterak", f"Callback verification lookup failed: {exc.reason}")
+                if remote.get("status") != "paid":
                     self.commerce_repo.add_order_event(
-                        order.id, "paid", "Payment captured", "Provider confirmed capture."
+                        order.id,
+                        "webhook_unconfirmed_by_provider",
+                        "Payment callback unconfirmed by provider API",
+                        f"Provider status lookup returned {remote.get('status')!r}; order remains unpaid.",
                     )
-                elif event_type in ("payment.failed", "charge.failed"):
-                    order.payment_status = "failed"
-                    self._release_inventory_for_order(order)
-                    self._transition(order, "failed")
-                    # FLOW E rollback: the goods were never acquired, so the
-                    # synchronised wardrobe pieces go too (lineage-scoped;
-                    # uploaded items are untouched).
-                    self._revoke_wardrobe_for_order(order)
-                elif event_type in ("refund.succeeded", "charge.refunded"):
+                    self.db.commit()
+                    return {
+                        "status": "ignored_unconfirmed",
+                        "provider": provider,
+                        "verified": True,
+                        "event": event_type,
+                    }
+                settled_amount = remote.get("amount")
+                settled_ccy = remote.get("currency")
+
+        try:
+            self.commerce_repo.record_webhook_event(provider, event_id, order_number)
+        except IntegrityError:
+            self.db.rollback()
+            return {"status": "duplicate", "provider": provider, "event_id": event_id}
+
+        if order:
+
+            if event_type in ("payment.captured", "charge.succeeded", "payment_intent.succeeded"):
+                self._verify_settled_amount_and_currency(
+                    order, tx, settled_amount, settled_ccy, source_label=f"webhook:{provider}"
+                )
+                # Cancellation race guard: never ship an order the customer/ops already cancelled!
+                if order.status == "cancelled":
+                    if tx is not None:
+                        tx.status = "refund_pending"
+                    order.payment_status = "refund_pending"
+                    self.commerce_repo.add_order_event(
+                        order.id,
+                        "paid_after_cancellation",
+                        "Payment captured after order cancellation — refund queued",
+                        "Order was already cancelled when settlement arrived; fulfilment remains blocked.",
+                    )
+                    self.db.commit()
+                    return {
+                        "status": "flagged_for_refund",
+                        "provider": provider,
+                        "verified": True,
+                        "event": event_type,
+                    }
+                if not self._can_transition_payment(order.payment_status, "paid"):
+                    self.db.commit()
+                    return {
+                        "status": "ignored_out_of_order",
+                        "provider": provider,
+                        "verified": True,
+                        "event": event_type,
+                    }
+                was_pending = order.status == "payment_pending"
+                order.payment_status = "paid"
+                if tx is not None:
+                    tx.status = "paid"
+                if order.status in ("placed", "payment_pending"):
+                    self._transition(order, "processing")
+                self.commerce_repo.add_order_event(
+                    order.id, "paid", "Payment captured", "Provider confirmed capture."
+                )
+                self.db.commit()
+                if was_pending:
+                    self._sync_wardrobe_from_order(order)
+            elif event_type in ("payment.failed", "charge.failed", "payment.cancelled"):
+                target_pay = "cancelled" if event_type == "payment.cancelled" else "failed"
+                if not self._can_transition_payment(order.payment_status, target_pay):
+                    # Out-of-order failure after capture/refund: NEVER undo settled order!
+                    self.commerce_repo.add_order_event(
+                        order.id,
+                        "webhook_out_of_order_ignored",
+                        "Ignored late failure callback on settled order",
+                        f"Ignored {event_type} because payment_status is already {order.payment_status}.",
+                    )
+                    self.db.commit()
+                    return {
+                        "status": "ignored_out_of_order",
+                        "provider": provider,
+                        "verified": True,
+                        "event": event_type,
+                    }
+                order.payment_status = target_pay
+                if tx is not None:
+                    tx.status = target_pay
+                self._release_inventory_for_order(order)
+                target_order_state = "cancelled" if event_type == "payment.cancelled" else "failed"
+                if order.status in ORDER_TRANSITIONS and target_order_state in ORDER_TRANSITIONS[order.status]:
+                    self._transition(order, target_order_state)
+                self.db.commit()
+                self._revoke_wardrobe_for_order(order)
+            elif event_type in ("refund.succeeded", "charge.refunded"):
+                if self._can_transition_payment(order.payment_status, "refunded"):
                     order.payment_status = "refunded"
-                    self._transition(order, "refunded")
+                    if tx is not None:
+                        tx.status = "refunded"
+                        if settled_amount is not None:
+                            tx.refunded_amount = validate_money(
+                                to_decimal(settled_amount), "refunded_amount", allow_zero=True
+                            )
+                    if order.status in ORDER_TRANSITIONS and "refunded" in ORDER_TRANSITIONS[order.status]:
+                        self._transition(order, "refunded")
+                self.db.commit()
+            else:
                 self.db.commit()
 
         logger.info("webhook_processed", provider=provider, event_id=event_id, webhook_event=event_type)
         return {"status": "received", "provider": provider, "verified": True, "event": event_type}
 
+    async def reconcile_order_payment(self, order_number: str) -> Dict[str, Any]:
+        """Server-to-server payment reconciliation for timeout / delayed webhook / client return.
+
+        Queries the configured PSP directly, verifies settled amount & currency in
+        minor units, and advances or fails the order idempotently.
+        """
+        order = self.commerce_repo.get_order_by_number(order_number)
+        if not order:
+            raise ResourceNotFoundError("Order", order_number)
+        if order.payment_status in ("paid", "refunded"):
+            return self.get_order(order.order_number)
+
+        tx = self._latest_payment_tx(order.id)
+        if not tx:
+            return self.get_order(order.order_number)
+
+        prov = (tx.provider or "").strip().lower()
+        if prov == "fawaterak":
+            from backend.app.providers.payment.fawaterak import FawaterakAdapter, FawaterakGatewayError
+
+            fwk: FawaterakAdapter = self.payments.LIVE_PSP_ADAPTERS["fawaterak"]
+            try:
+                remote = await fwk.get_transaction_status(tx.provider_tx_id)
+            except FawaterakGatewayError as exc:
+                raise PaymentFailedError("fawaterak", f"Provider reconciliation failed: {exc.reason}")
+            r_status = remote.get("status")
+            if r_status == "paid":
+                self._verify_settled_amount_and_currency(
+                    order,
+                    tx,
+                    remote.get("amount"),
+                    remote.get("currency"),
+                    source_label="reconcile:fawaterak",
+                )
+                if order.status == "cancelled":
+                    tx.status = "refund_pending"
+                    order.payment_status = "refund_pending"
+                    self.commerce_repo.add_order_event(
+                        order.id,
+                        "paid_after_cancellation",
+                        "Payment reconciled after cancellation — refund queued",
+                        "Order was already cancelled before payment settled; fulfilment stays blocked.",
+                    )
+                    self.db.commit()
+                    return self.get_order(order.order_number)
+                was_pending = order.status == "payment_pending"
+                order.payment_status = "paid"
+                tx.status = "paid"
+                if order.status in ("placed", "payment_pending"):
+                    self._transition(order, "processing")
+                self.commerce_repo.add_order_event(
+                    order.id,
+                    "paid",
+                    "Payment verified via provider reconciliation",
+                    f"Verified {order.total_amount} {order.currency} directly against Fawaterak.",
+                )
+                self.db.commit()
+                if was_pending:
+                    self._sync_wardrobe_from_order(order)
+            elif r_status in ("failed", "cancelled") and self._can_transition_payment(order.payment_status, r_status):
+                order.payment_status = r_status
+                tx.status = r_status
+                self._release_inventory_for_order(order)
+                if order.status in ORDER_TRANSITIONS and r_status in ORDER_TRANSITIONS[order.status]:
+                    self._transition(order, r_status)
+                self.db.commit()
+
+        return self.get_order(order.order_number)
+
     async def refund_return(self, return_id: int) -> Dict[str, Any]:
         req = self.commerce_repo.get_return_by_id(return_id)
         if not req:
             raise ResourceNotFoundError("ReturnRequest", return_id)
+        # Idempotency guard: never refund an already-refunded ReturnRequest twice.
+        if req.status == "refunded":
+            return self._format_return(req)
         order = req.order
         tx = (
             self.db.query(PaymentTransaction)
@@ -1313,6 +1725,14 @@ class CommerceService:
         )
         if not tx:
             raise ValidationDomainError("No payment transaction exists to refund.")
+        current_refunded = to_decimal(tx.refunded_amount)
+        refund_req = to_decimal(req.refund_amount)
+        total_dec = to_decimal(order.total_amount)
+        tolerance = Decimal("0.01")
+        if money_add(current_refunded, refund_req) > money_add(total_dec, tolerance):
+            raise ValidationDomainError(
+                f"Refund of {refund_req} exceeds remaining refundable balance on order {order.order_number}."
+            )
         result = await self.payments.refund(
             provider_tx_id=tx.provider_tx_id,
             amount=req.refund_amount,
@@ -1322,16 +1742,11 @@ class CommerceService:
         if result.get("status") not in ("refunded", "refund_pending"):
             raise PaymentFailedError(tx.provider, "refund was not confirmed")
         # Precise Decimal handling for refunds
-        current_refunded = to_decimal(tx.refunded_amount)
-        refund_req = to_decimal(req.refund_amount)
         tx.refunded_amount = money_add(current_refunded, refund_req)
         tx.status = result["status"]
         req.status = "refunded" if result["status"] == "refunded" else "approved"
         if result["status"] == "refunded":
-            total_dec = to_decimal(order.total_amount)
             refunded_dec = to_decimal(tx.refunded_amount)
-            # Allow 0.01 tolerance for rounding, but use Decimal
-            tolerance = Decimal("0.01")
             order.payment_status = "refunded" if refunded_dec >= (total_dec - tolerance) else order.payment_status
             self._transition(order, "refunded" if refunded_dec >= (total_dec - tolerance) else "partially_returned")
         self.db.commit()

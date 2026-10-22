@@ -125,12 +125,13 @@ export const TryOnFitView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. Virtual Try-On — routes to the working capability when the GPU
             cannot render, instead of selecting a tab that will fail. */}
-        <div
+        <button data-motion="creative"
+          type="button"
           onClick={() =>
             setActiveTab(tryOnKind === "render" ? "vton" : "ruler")
           }
           aria-disabled={tryOnKind === "blocked"}
-          className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+          className={`min-h-11 p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between text-start ${
             activeTab === "vton"
               ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
@@ -157,17 +158,18 @@ export const TryOnFitView: React.FC = () => {
             {tryOnKind === "render"
               ? t("tryon.cta_try_on")
               : t("tryon.cta_fit_check")}{" "}
-            →
+            <span aria-hidden="true">→</span>
           </span>
-        </div>
+        </button>
 
         {/* 2. Live Body Scan */}
-        <div
+        <button data-motion="upload"
+          type="button"
           onClick={() => {
             setActiveTab("scan");
             setIsCameraScanOpen(true);
           }}
-          className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+          className={`min-h-11 p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between text-start ${
             activeTab === "scan"
               ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
@@ -181,19 +183,19 @@ export const TryOnFitView: React.FC = () => {
               {t('tryon.scan_feature_title')}
             </h3>
             <p className="text-xs text-brand-muted font-light">
-              Browser camera or manual measurements for a self-reported size
-              profile; raw video is not uploaded by this flow.
+              {t('tryon.scan_feature_desc')}
             </p>
           </div>
           <span className="mt-4 block text-xs font-bold text-brand-charcoal">
             {t('tryon.scan_feature_cta')} <span aria-hidden="true">→</span>
           </span>
-        </div>
+        </button>
 
         {/* 3. No-Photo Fit Finder — navigates to the dedicated /fit engine */}
-        <div
+        <button data-motion="filter"
+          type="button"
           onClick={() => navigate("/fit")}
-          className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+          className={`min-h-11 p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between text-start ${
             activeTab === "ruler"
               ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
@@ -207,22 +209,22 @@ export const TryOnFitView: React.FC = () => {
               {t("nav.no_photo_fit")}
             </h3>
             <p className="text-xs text-brand-muted font-light">
-              Zero-photo measurement calculator using the backend fit contract
-              where product data supports it.
+              {t('tryon.ruler_feature_desc')}
             </p>
           </div>
           <span className="text-xs font-bold text-slate-800 mt-4 block">
-            Open Fit Finder →
+            {t('tryon.ruler_feature_cta')} <span aria-hidden="true">→</span>
           </span>
-        </div>
+        </button>
 
         {/* 4. Visual Search */}
-        <div
+        <button data-motion="upload"
+          type="button"
           onClick={() => {
             setActiveTab("visual");
             openVisualSearch();
           }}
-          className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+          className={`min-h-11 p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between text-start ${
             activeTab === "visual"
               ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
@@ -236,13 +238,13 @@ export const TryOnFitView: React.FC = () => {
               {t("nav.visual_search")}
             </h3>
             <p className="text-xs text-brand-muted font-light">
-              Upload a moodboard image to search matching real catalog pieces.
+              {t('tryon.visual_feature_desc')}
             </p>
           </div>
           <span className="text-xs font-bold text-brand-charcoal mt-4 block">
-            Match Outfit →
+            {t('tryon.visual_feature_cta')} <span aria-hidden="true">→</span>
           </span>
-        </div>
+        </button>
       </div>
 
       {/* Selectable Garments for Try-On */}

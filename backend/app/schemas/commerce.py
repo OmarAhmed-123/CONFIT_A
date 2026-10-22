@@ -214,6 +214,8 @@ class OrderOut(BaseModel):
     guest_email: Optional[str] = None
     promo_code: Optional[str] = None
     payment_mode: Optional[str] = None
+    payment_redirect_url: Optional[str] = None
+    payment_provider_reference: Optional[str] = None
     shipping_method: Optional[str] = None
     fulfillment_groups: List[Dict[str, Any]] = []
     outfit_groups: List[Dict[str, Any]] = []

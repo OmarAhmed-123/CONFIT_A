@@ -62,7 +62,23 @@ async def test_demo_mode_is_explicitly_labelled(monkeypatch):
     assert result["status"] == "authorized"
 
 
-def test_no_live_adapter_is_silently_registered():
+def test_only_reviewed_live_psp_adapters_are_registered():
     """Registering a live adapter is a deliberate, reviewed change: it must come
     with provider-sandbox verification, not appear as a side effect."""
-    assert PaymentOrchestrator.LIVE_PSP_ADAPTERS == {}
+    assert set(PaymentOrchestrator.LIVE_PSP_ADAPTERS.keys()) == {"fawaterak"}
+
+
+@pytest.mark.asyncio
+async def test_live_payment_without_any_credentials_fails_closed(monkeypatch):
+    monkeypatch.setattr(settings, "PAYMENTS_LIVE", True)
+    monkeypatch.setattr(settings, "STRIPE_SECRET_KEY", None)
+    monkeypatch.setattr(settings, "FAWATERAK_CLIENT_ID", None)
+    monkeypatch.setattr(settings, "FAWATERAK_CLIENT_SECRET", None)
+    monkeypatch.setattr(settings, "FAWATERAK_VENDOR_API_KEY", None)
+    result = await PaymentOrchestrator().initiate_payment(
+        method_id="card", amount_minor=12345, currency_code="EGP",
+        customer_email="x@example.com", order_number="CONF-TEST", country_code="EG",
+    )
+    assert result["status"] == "failed"
+    assert result["reason"] == "live_credentials_missing"
+    assert result["mode"] == "live"

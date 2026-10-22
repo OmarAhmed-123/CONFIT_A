@@ -821,6 +821,8 @@ export interface Order {
   guest_email?: string | null;
   promo_code?: string | null;
   payment_mode?: string | null;
+  payment_redirect_url?: string | null;
+  payment_provider_reference?: string | null;
   shipping_method?: string | null;
   fulfillment_groups?: Array<Record<string, unknown>>;
   outfit_groups?: Array<Record<string, unknown>>;
@@ -1740,6 +1742,12 @@ export interface BiDashboardResponse {
   branches: BiBranchItem[];
   inventory: BiInventoryHealth;
   promotions: BiPromotionItem[];
+  media_engagement?: {
+    gallery_photo_views: number;
+    fit_recommendations: number;
+    wishlist_saves: number;
+    photo_index_breakdown: Record<string, number>;
+  };
   insights: BiInsightItem[];
   methodology: string;
 }

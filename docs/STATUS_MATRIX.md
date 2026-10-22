@@ -276,6 +276,25 @@ comes from its `img alt`); and the wishlist is device-local by design, so
 asserting 401 on a wishlist endpoint tested an endpoint the product
 deliberately does not have.
 
+---
+
+## Phase 4 — Real-World Assistive Technology, End-to-End Journey Closure & Live Production Hardening (2026-10-21)
+
+**Branch:** `feat/realworld-a11y-e2e-hardening` (clean merge of `origin/main` `66bb87f` + PR `#372` `origin/work/production-hardening` `ce74577`).  
+**Executable harness & artifacts:** `scripts/qa/run_live_orca_multiengine_a11y_audit.py` · `docs/qa/live_orca_multiengine_a11y_report.json` · `docs/ACCESSIBILITY_AND_REAL_WORLD_QA_PROTOCOL.md` · `backend/tests/test_realworld_journeys_and_tenant_matrix.py` · `frontend/src/a11y/__tests__/realworld-journeys-a11y-rtl.test.tsx`.
+
+| Area | State | Measured Evidence |
+|---|---|---|
+| Linux Desktop Screen Reader (`Orca 48.1` + `AT-SPI2 2.56.2` + `speech-dispatcher` + `espeak-ng`) on Headed `Firefox 157.0` (`Xvfb :99`) | **VERIFIED** | `docs/qa/live_orca_multiengine_a11y_report.json`: `52` live AT-SPI2 bus events captured over `org.a11y.Bus` / `org.a11y.atspi.Registry`; accessible trees verified across `8` routes in `en` (`dir="ltr"`) & `ar` (`dir="rtl"`) |
+| Native Windows (`NVDA`/`JAWS`), macOS/iOS (`VoiceOver`), Android (`TalkBack`) hardware | **MANUAL PROTOCOL READY** | Physical OS hardware required for non-Linux screen readers; full 7-step bilingual sign-off runbook published in `docs/ACCESSIBILITY_AND_REAL_WORLD_QA_PROTOCOL.md` |
+| Multi-Engine WCAG 2.2 AA & Arabic `aria-label` Parity (`Chromium 156.0.8078.4`, `Firefox 157.0`, `WebKit 27.2`) | **VERIFIED** | `48` route-engine-locale scans: `0` critical/serious violations, `0` English `aria-label` leaks in `ar` (fixed `11` carousel leaks in `HomeView.tsx` + site-wide `ConfitIcons.tsx` default `aria-hidden="true"`), `0px` overflow at `320×640` & `200%` text zoom |
+| Modal Focus Trap, Ancestor-Safe `aria-hidden` Isolation & Focus Restoration (`useModalFocus.ts`) | **VERIFIED** | Verified live on PDP -> `NoPhotoFitModal` in `EN` (`"Find my size"`) & `AR` (`"اعرف مقاسي"`): `3` background containers marked `aria-hidden="true"` while preserving live regions; `Escape` closes dialog, restores background, and returns focus to triggering `<BUTTON>` |
+| Fit Finder -> PDP -> Cart Journey & `EN`/`AR` Parity | **VERIFIED** | `resolveRecommendedInStockSku()`, `?size=<recommended_size>` query handoff, `localizedTitle(product, lang)` on `ProductDetailView.tsx`, accessible range sliders, `npm run i18n:check` passing at `count: 0` (`3,081` `en`/`ar` keys) |
+| Authenticated Wishlist Sync, Guest Merge, Isolation & GDPR (`0046_user_wishlist_items`) | **VERIFIED** | Migrated `upgrade -> downgrade -1 -> upgrade head` on `PostgreSQL 17.11`, Staging (`confit_fixverify`), and Production (`neondb`) with `confit_app_rw` DML grants verified |
+| Zero-Extra-Round-Trip Media Telemetry & Honest Brand/Admin Analytics + 5-Endpoint CSV Hardening | **VERIFIED** | Scalar subqueries folded into `BrandRepository.get_activity_snapshot()` (`test_brand_analytics_query_budget.py` `6/6` pass); removed synthetic return benchmarks in `BrandAnalyticsView.tsx`; fixed live `500` `NameError: timezone` in `admin_controller.py`; added UTF-8 BOM + `_csv_safe_cell` formula neutralization across all 5 CSV exports |
+| Full Repository Test Suites (`Frontend` + `Backend` + `PostgreSQL 17`) | **VERIFIED** | Frontend Vitest `155/155` files (`2,338/2,338` tests, `0` failures) + `tsc && vite build`; Backend `pytest` `4,537` passed (`0` failures) + `6/6` Postgres row-lock concurrency tests |
+| Live Production Media (`https://confit-a.vercel.app`) & Cloud Catalog Worker (`Modal`) | **VERIFIED** | Repaired 10 missing S3 renditions on Product `#18` and stale thumbnails on Products `#9` & `#18` -> **`120/120` renditions & `12/12` active thumbnails return `HTTP 200/206` (`0` broken)**; resynced Modal `confit-catalog-worker` secrets (including cold-start `JWT_REFRESH_SECRET` & `CATALOG_WORKER_ADMIN_TOKEN`), verified `/health` -> `200 healthy` (`storage_ready: true`), verified live negative control (`job_id=14` -> `failed`, `media: source_not_approved`) + live positive control (`job_id=15` -> `completed`, `media_rows_registered: 10`, `200 image/jpeg` via `confit-a.vercel.app`), and restored exact baseline counts (`12` products, `28` SKUs, `120` images) |
+
 ## 10. Phase 4 — accessibility, performance, E2E and release readiness (2026-10-21)
 
 **Tested candidate:** `ce74577` + the fix below, on `work/production-hardening`.

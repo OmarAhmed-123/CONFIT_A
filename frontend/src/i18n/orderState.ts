@@ -54,6 +54,7 @@ export const PAYMENT_STATUS_KEYS: Record<string, string> = {
   paid: 'order.payment_status.paid',
   credit_due: 'order.payment_status.credit_due',
   delta_due: 'order.payment_status.delta_due',
+  refund_pending: 'order.payment_status.refund_pending',
   refunded: 'order.payment_status.refunded',
   failed: 'order.payment_status.failed',
   not_required: 'order.payment_status.not_required',
@@ -62,6 +63,7 @@ export const PAYMENT_STATUS_KEYS: Record<string, string> = {
 /** Method ids from `PAYMENT_CATALOG` plus the paymob aliases the splitter accepts. */
 export const PAYMENT_METHOD_KEYS: Record<string, string> = {
   card: 'order.payment_method.card',
+  fawaterak: 'order.payment_method.fawaterak',
   bnpl_tabby: 'order.payment_method.bnpl_tabby',
   bnpl_tamara: 'order.payment_method.bnpl_tamara',
   apple_pay: 'order.payment_method.apple_pay',

@@ -42,94 +42,56 @@ import type { Product } from "../../models";
 import { Reveal, RevealGroup } from "../../components/common/Reveal";
 import { LaunchButton } from "../../components/common/LaunchButton";
 
-const editorialGalleryData: GalleryItem[] = [
-  {
-    common: "Tailored power suit",
-    binomial: "Executive wool tailoring",
-    photo: {
-      url: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=900&auto=format&fit=crop&q=80",
-      text: "person wearing a tailored suit in an editorial setting",
-      pos: "50% 35%",
-      by: "Unsplash",
-    },
-  },
-  {
-    common: "Champagne evening gown",
-    binomial: "Occasion-ready silk styling",
-    photo: {
-      url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&auto=format&fit=crop&q=80",
-      text: "champagne evening dress on a model",
-      pos: "50% 30%",
-      by: "Tamara Bellis",
-    },
-  },
-  {
-    common: "Minimal capsule layers",
-    binomial: "Modern essentials wardrobe",
-    photo: {
-      url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=900&auto=format&fit=crop&q=80",
-      text: "minimal wardrobe layers on a model",
-      pos: "50% 40%",
-      by: "Hunters Race",
-    },
-  },
-  {
-    common: "Streetwear utility edit",
-    binomial: "Casual smart outfit formula",
-    photo: {
-      url: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&auto=format&fit=crop&q=80",
-      text: "fashion model wearing casual streetwear",
-      pos: "50% 28%",
-      by: "Apostolos Vamvouras",
-    },
-  },
-  {
-    common: "Runway black statement",
-    binomial: "Premium monochrome look",
-    photo: {
-      url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&auto=format&fit=crop&q=80",
-      text: "woman in black fashion outfit posing outdoors",
-      pos: "50% 20%",
-      by: "Laura Chouette",
-    },
-  },
-  {
-    common: "Soft neutral tailoring",
-    binomial: "Quiet luxury daywear",
-    photo: {
-      url: "https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=900&auto=format&fit=crop&q=80",
-      text: "neutral fashion outfit in soft daylight",
-      pos: "50% 35%",
-      by: "Brooke Cagle",
-    },
-  },
-  {
-    common: "Weekend denim uniform",
-    binomial: "Wardrobe foundation look",
-    photo: {
-      url: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&auto=format&fit=crop&q=80",
-      text: "fashion portrait with denim styling",
-      pos: "50% 30%",
-      by: "Tamara Bellis",
-    },
-  },
-  {
-    common: "Resort linen palette",
-    binomial: "Warm-weather capsule styling",
-    photo: {
-      url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80",
-      text: "editorial model in resort-inspired fashion",
-      pos: "50% 30%",
-      by: "Clem Onojeghuo",
-    },
-  },
-];
-
 export const HomeView: React.FC = () => {
   const { t, i18n } = useTranslation();
   // The active UI language drives number/currency formatting; the guide
   // option values sent to the stylist stay English tokens.
   const lang = i18n.resolvedLanguage ?? "en";
+  const editorialGalleryData: GalleryItem[] = React.useMemo(
+    () => [
+      {
+        common: t("home.gallery_suit_title"),
+        binomial: t("home.gallery_suit_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_suit_alt"), pos: "50% 35%", by: "Unsplash" },
+      },
+      {
+        common: t("home.gallery_gown_title"),
+        binomial: t("home.gallery_gown_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_gown_alt"), pos: "50% 30%", by: "Tamara Bellis" },
+      },
+      {
+        common: t("home.gallery_capsule_title"),
+        binomial: t("home.gallery_capsule_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_capsule_alt"), pos: "50% 40%", by: "Hunters Race" },
+      },
+      {
+        common: t("home.gallery_streetwear_title"),
+        binomial: t("home.gallery_streetwear_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_streetwear_alt"), pos: "50% 28%", by: "Apostolos Vamvouras" },
+      },
+      {
+        common: t("home.gallery_monochrome_title"),
+        binomial: t("home.gallery_monochrome_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_monochrome_alt"), pos: "50% 20%", by: "Laura Chouette" },
+      },
+      {
+        common: t("home.gallery_neutral_title"),
+        binomial: t("home.gallery_neutral_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_neutral_alt"), pos: "50% 35%", by: "Brooke Cagle" },
+      },
+      {
+        common: t("home.gallery_denim_title"),
+        binomial: t("home.gallery_denim_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_denim_alt"), pos: "50% 30%", by: "Tamara Bellis" },
+      },
+      {
+        common: t("home.gallery_linen_title"),
+        binomial: t("home.gallery_linen_subtitle"),
+        photo: { url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80", text: t("home.gallery_linen_alt"), pos: "50% 30%", by: "Clem Onojeghuo" },
+      },
+    ],
+    [t],
+  );
   const navigate = useNavigate();
   const { openStylist, showToast } =
     useUIStore();
@@ -340,8 +302,11 @@ export const HomeView: React.FC = () => {
         {/* CLS: the bar is data-gated, so it used to appear ~1.3s after first
             paint and shove the hero down (measured 0.8088 on this page).
             AnnouncementSlot reserves the measured 46px from the first frame and
-            releases it when there is no policy to show; see the component for
-            the before/after numbers and the two rejected alternatives. */}
+            never gives the space back inside a session — releasing it moved an
+            already-painted hero and measured 0.8145, worse than the defect. A
+            deployment with no policy simply reserves nothing from the second
+            visit on. See the component for the numbers and both rejected
+            alternatives. */}
         <AnnouncementSlot />
       </div>
 
@@ -598,6 +563,14 @@ export const HomeView: React.FC = () => {
         <div className="relative h-[520px] overflow-hidden sm:h-[620px]">
           <CircularGallery
             items={editorialGalleryData}
+            ariaLabel={t("home.lookbook_title")}
+            labels={{
+              previous: t("home.gallery_previous"),
+              next: t("home.gallery_next"),
+              position: (current, total) =>
+                t("home.gallery_position", { current: current, total: total }),
+              credit: (name) => t("home.gallery_credit", { name: name }),
+            }}
             radius={
               typeof window !== "undefined" && window.innerWidth < 768
                 ? 360

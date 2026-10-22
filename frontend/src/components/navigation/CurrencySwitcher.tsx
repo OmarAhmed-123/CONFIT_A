@@ -120,7 +120,7 @@ export const CurrencySwitcher: React.FC<{ className?: string }> = ({ className =
           is still a real price, but the shopper is entitled to know it is not a
           current market rate — silence here would be a quiet overstatement. */}
       {active && active.converted && active.rate_source !== 'live' ? (
-        <p className="mt-1 text-[10px] text-slate-500">
+        <p className="mt-1 text-[10px] text-slate-700">
           {t('a11y.currency_rate_not_live', { source: active.rate_source })}
         </p>
       ) : null}

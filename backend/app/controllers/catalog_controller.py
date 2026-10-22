@@ -838,3 +838,88 @@ def get_store_inventory_catalog(
         active_promotions=[_promo_out(p) for p in result["active_promotions"]],
     )
 
+
+class CatalogEngagementEventInput(BaseModel):
+    event_id: str
+    product_id: int
+    sku_id: Optional[int] = None
+    event_type: str
+    attribution_source: Optional[str] = "organic"
+    photo_index: Optional[int] = None
+    recommended_size: Optional[str] = None
+    confidence_band: Optional[str] = None
+    session_token: Optional[str] = None
+
+
+ALLOWED_ENGAGEMENT_EVENT_TYPES = {
+    "view",
+    "gallery_photo_view",
+    "fit_recommendation",
+    "wishlist_save",
+    "add_to_cart",
+}
+
+
+@router.post("/events")
+def record_catalog_engagement_event(
+    payload: CatalogEngagementEventInput,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """Idempotent product & media engagement ingestion strictly derived from server-owned product/SKU rows."""
+    from backend.app.models.catalog import Product, ProductSKU
+    from backend.app.models.catalog_import import BrandAnalyticsEvent
+    from backend.app.core.exceptions import ValidationDomainError
+
+    event_type = (payload.event_type or "").strip()
+    if event_type not in ALLOWED_ENGAGEMENT_EVENT_TYPES:
+        raise ValidationDomainError(f"Unsupported catalog engagement event_type: {event_type}")
+
+    event_id = (payload.event_id or "").strip()[:100]
+    if not event_id:
+        raise ValidationDomainError("event_id is required")
+
+    product = db.query(Product).filter(Product.id == payload.product_id).first()
+    if not product:
+        raise ResourceNotFoundError("Product", payload.product_id)
+
+    sku_id = None
+    if payload.sku_id is not None:
+        sku = (
+            db.query(ProductSKU)
+            .filter(ProductSKU.id == payload.sku_id, ProductSKU.product_id == product.id)
+            .first()
+        )
+        if not sku:
+            raise ValidationDomainError("sku_id does not belong to product_id")
+        sku_id = sku.id
+
+    if db.query(BrandAnalyticsEvent.id).filter_by(event_id=event_id).first():
+        return {"status": "duplicate", "event_id": event_id}
+
+    meta: Dict[str, Any] = {}
+    if payload.photo_index is not None:
+        if payload.photo_index < 0 or payload.photo_index > 50:
+            raise ValidationDomainError("photo_index must be between 0 and 50")
+        meta["photo_index"] = int(payload.photo_index)
+    if payload.recommended_size:
+        meta["recommended_size"] = str(payload.recommended_size)[:20]
+    if payload.confidence_band:
+        meta["confidence_band"] = str(payload.confidence_band)[:20]
+
+    row = BrandAnalyticsEvent(
+        event_id=event_id,
+        brand_id=product.brand_id,
+        product_id=product.id,
+        sku_id=sku_id,
+        user_id=user.id if user else None,
+        session_token=(payload.session_token or "")[:100] or None,
+        event_type=event_type,
+        attribution_source=(payload.attribution_source or "organic")[:50],
+        event_metadata_json=json.dumps(meta, separators=(",", ":")),
+    )
+    db.add(row)
+    db.commit()
+    return {"status": "recorded", "event_id": event_id, "brand_id": product.brand_id}
+
+

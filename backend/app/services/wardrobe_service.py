@@ -554,18 +554,16 @@ class WardrobeService:
         return mode if mode in ("auto", "sync", "async") else "auto"
 
     @staticmethod
-    def _broker_reachable(timeout: float = 1.0) -> bool:
-        """Hard-budgeted broker probe.
+    def _broker_reachable(timeout: float = 0.5) -> bool:
+        """Hard-budgeted broker + active Celery worker heartbeat probe.
 
-        ``auto`` mode must distinguish "a queue that will actually be
-        processed" from "a reachable broker with no worker" (the latter
-        would leave items in ``processing`` forever). A reachable broker is
-        the best signal available without a worker-heartbeat API; the stale
-        guard remains the backstop in every mode. Any exception — including
-        a missing ``redis`` package — means "not usable", which routes to
-        inline analysis. The probe is bounded: upload latency may grow by at
-        most ~1s, and only when the broker is actually down.
+        ``auto`` mode must distinguish "a queue with a live worker that will
+        actually process the job" from "a reachable Redis instance used for
+        rate-limiting/state on Vercel or local dev with zero Celery workers"
+        (the latter previously orphaned every upload in ``processing``).
         """
+        if os.getenv("VERCEL") or os.getenv("VERCEL_ENV"):
+            return False
         try:
             import redis as redis_lib
             client = redis_lib.Redis.from_url(
@@ -574,9 +572,14 @@ class WardrobeService:
                 socket_timeout=timeout,
             )
             try:
-                return bool(client.ping())
+                if not client.ping():
+                    return False
             finally:
                 client.close()
+            from backend.app.workers.celery_app import celery_app
+            inspector = celery_app.control.inspect(timeout=timeout)
+            workers = inspector.ping() if inspector is not None else None
+            return bool(workers)
         except Exception:
             return False
 

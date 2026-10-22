@@ -15,7 +15,7 @@ export const BrandLayout: React.FC = () => {
   // and /admin (gate actions, brand CRUD) render identically. The local
   // Toast here previously double-rendered with the global one.
   return (
-    <div className="min-h-screen flex flex-col bg-white text-brand-charcoal">
+    <div className="min-h-screen flex flex-col bg-white text-brand-charcoal overflow-x-clip">
       {/* WCAG 2.4.1: the brand portal has an even longer nav (catalog,
           inventory, analytics, placements, admin) before any content. */}
       <SkipLink />

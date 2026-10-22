@@ -42,7 +42,7 @@ export interface CheckoutValidationResult {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function isValidEmail(email: string): boolean {
-  return EMAIL_RE.test(email.trim());
+  return EMAIL_RE.test((email ?? '').trim());
 }
 
 export function validateCheckoutSubmission(
@@ -52,7 +52,7 @@ export function validateCheckoutSubmission(
     return { ok: false, field: 'cart', message: msg('errors.empty_bag') };
   }
   if (!input.isAuthenticated) {
-    const email = input.guestEmail.trim();
+    const email = (input.guestEmail ?? '').trim();
     if (!email) {
       return {
         ok: false,
@@ -68,10 +68,10 @@ export function validateCheckoutSubmission(
       };
     }
   }
-  if (!input.recipientName.trim()) {
+  if (!(input.recipientName ?? '').trim()) {
     return { ok: false, field: 'recipient_name', message: msg('errors.recipient_required') };
   }
-  if (!input.phone.trim()) {
+  if (!(input.phone ?? '').trim()) {
     return { ok: false, field: 'phone', message: msg('errors.phone_required') };
   }
   if (input.fulfillmentType === 'bopis' && !input.bopisStoreId) {
@@ -81,7 +81,7 @@ export function validateCheckoutSubmission(
       message: msg('errors.store_required'),
     };
   }
-  if (input.fulfillmentType === 'delivery' && !input.addressLine.trim()) {
+  if (input.fulfillmentType === 'delivery' && !(input.addressLine ?? '').trim()) {
     return { ok: false, field: 'address', message: msg('errors.address_required') };
   }
   return { ok: true };

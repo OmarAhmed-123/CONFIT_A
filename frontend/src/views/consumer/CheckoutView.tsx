@@ -90,15 +90,25 @@ export const CheckoutView: React.FC = () => {
   const [promoInput, setPromoInput] = useState(cart?.promo_code || '');
   const [promoError, setPromoError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string>(() => newIdempotencyKey());
+  const hasLivePspMethod = paymentOptions.some((m) => Boolean(m.is_live) && m.id !== 'cod');
 
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
 
+  // Mint a fresh idempotency key ONLY when cart contents change — retries for
+  // the same cart after a network timeout reuse the identical key so the backend
+  // returns the existing order idempotently rather than charging twice.
+  const cartFingerprint = `${cart?.id ?? ''}:${cart?.items_count ?? 0}:${cart?.total ?? 0}:${cart?.promo_code ?? ''}`;
+  useEffect(() => {
+    setCheckoutIdempotencyKey(newIdempotencyKey());
+  }, [cartFingerprint]);
+
   useEffect(() => {
     if (user) {
-      setRecipientName(user.full_name);
-      if (user.phone) setPhone(user.phone);
+      if (user.full_name) setRecipientName((prev) => prev || user.full_name || '');
+      if (user.phone) setPhone((prev) => prev || user.phone || '');
     }
   }, [user]);
 
@@ -157,7 +167,7 @@ export const CheckoutView: React.FC = () => {
     // of relying on a transient toast that guests routinely missed.
     const verdict = validateCheckoutSubmission({
       isAuthenticated,
-      itemsCount: cart?.items_count ?? 0,
+      itemsCount: cart?.items_count ?? cart?.items?.length ?? 0,
       guestEmail,
       fulfillmentType,
       bopisStoreId: selectedBopisStoreId,
@@ -175,7 +185,12 @@ export const CheckoutView: React.FC = () => {
         verdict.field === 'address' ? 'address' : null;
       if (fieldId) {
         const el = document.getElementById(fieldId);
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const prefersReduced =
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'center' });
+        }
         (el as HTMLInputElement | null)?.focus({ preventScroll: true });
       }
       return;
@@ -198,11 +213,16 @@ export const CheckoutView: React.FC = () => {
         stylist_assisted: false,
         guest_email: isAuthenticated ? undefined : guestEmail.trim(),
         shipping_method: shippingMethod,
-        idempotency_key: newIdempotencyKey(),
+        idempotency_key: checkoutIdempotencyKey,
         expected_quote_total: cart?.total != null ? Number(cart.total) : undefined,
         expected_quote_currency: cart?.currency || undefined,
       });
+      if (order.payment_redirect_url && /^https?:\/\//i.test(order.payment_redirect_url)) {
+        window.location.assign(order.payment_redirect_url);
+        return;
+      }
       showToast(t('checkout.order_placed_confirmed'), 'success');
+      setCheckoutIdempotencyKey(newIdempotencyKey());
       await fetchCart();
       navigate(`/orders/${order.order_number}`);
     } catch (err: any) {
@@ -220,7 +240,8 @@ export const CheckoutView: React.FC = () => {
 
   return (
     <div className="space-y-8 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start pb-24 max-w-5xl mx-auto">
-      {/* C4 FIX: Payment Demo Safety - unmistakable banner when PAYMENTS_LIVE=false */}
+      {/* C4 FIX: Payment Demo Safety - unmistakable banner when no live PSP rail is active */}
+      {!hasLivePspMethod && (
       <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3 lg:col-span-7">
         <div aria-hidden="true" className="text-amber-600"><StatusIcon status="warning" size={22} className="text-amber-600" /></div>
         <div className="flex-1">
@@ -230,6 +251,7 @@ export const CheckoutView: React.FC = () => {
           </p>
         </div>
       </div>
+      )}
 
       <div className="border-b border-brand-hairline pb-4 lg:col-span-7">
         <h1 className="font-serif text-3xl font-bold text-brand-charcoal tracking-tight">
@@ -297,11 +319,12 @@ export const CheckoutView: React.FC = () => {
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
             <h2 className="font-serif text-base font-bold text-brand-charcoal">{t('checkout.step_fulfillment')}</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" role="group" aria-label={t('checkout.step_fulfillment')}>
               <button data-motion="financial"
                 type="button"
+                aria-pressed={fulfillmentType === 'delivery'}
                 onClick={() => setFulfillmentType('delivery')}
-                className={`p-4 rounded-2xl border text-left transition-all ${
+                className={`p-4 rounded-2xl border text-start transition-all ${
                   fulfillmentType === 'delivery'
                     ? 'border-brand-charcoal bg-brand-wash ring-1 ring-brand-charcoal'
                     : 'border-brand-field hover:bg-brand-wash'
@@ -315,8 +338,9 @@ export const CheckoutView: React.FC = () => {
               </button>
               <button data-motion="admin"
                 type="button"
+                aria-pressed={fulfillmentType === 'bopis'}
                 onClick={() => setFulfillmentType('bopis')}
-                className={`p-4 rounded-2xl border text-left transition-all ${
+                className={`p-4 rounded-2xl border text-start transition-all ${
                   fulfillmentType === 'bopis'
                     ? 'border-brand-charcoal bg-brand-wash ring-1 ring-brand-charcoal'
                     : 'border-brand-field hover:bg-brand-wash'
@@ -331,13 +355,14 @@ export const CheckoutView: React.FC = () => {
             </div>
 
             {fulfillmentType === 'delivery' && (
-              <div className="flex gap-2">
+              <div className="flex gap-2" role="group" aria-label={t('commerce.shipping')}>
                 {(['standard', 'express'] as const).map((m) => (
                   <button data-motion="progressive" data-motion-tone="icon"
                     key={m}
                     type="button"
+                    aria-pressed={shippingMethod === m}
                     onClick={() => setShippingMethod(m)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold border ${
+                    className={`min-h-11 px-4 py-2 rounded-xl text-xs font-bold border ${
                       shippingMethod === m ? 'focus-on-light-fill border-brand-charcoal bg-brand-charcoal text-white' : 'border-brand-field'
                     }`}
                   >
@@ -367,17 +392,27 @@ export const CheckoutView: React.FC = () => {
                           type="radio"
                           name="bopis_store"
                           checked={selectedBopisStoreId === s.store_id}
-                          onChange={() => setSelectedBopisStoreId(s.store_id)}
+                          onChange={() => {
+                            setSelectedBopisStoreId(s.store_id);
+                            if (fieldError === 'bopis_store') setFieldError(null);
+                          }}
                           className="accent-brand-charcoal"
                         />
                         <div className="text-xs">
                           <div className="font-bold text-brand-charcoal">{s.store_name}</div>
                           <div className="text-[10px] text-brand-muted">{s.address}</div>
-                          <div className="text-[10px] text-emerald-700 font-semibold">{s.quantity_available} available</div>
+                          <div className="text-[10px] text-emerald-700 font-semibold">
+                            {t('audit_closure.bopis_qty_available', { count: s.quantity_available })}
+                          </div>
                         </div>
                       </div>
                     </label>
                   ))
+                )}
+                {fieldError === 'bopis_store' && (
+                  <p id="bopis-store-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
+                    {t('errors.store_required')}
+                  </p>
                 )}
               </div>
             )}
@@ -417,10 +452,20 @@ export const CheckoutView: React.FC = () => {
                   id="full-name"
                   type="text"
                   required
+                  aria-invalid={fieldError === 'recipient_name'}
+                  aria-describedby={fieldError === 'recipient_name' ? 'full-name-error' : undefined}
                   value={recipientName}
-                  onChange={(e) => setRecipientName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs focus:outline-none focus:border-brand-charcoal"
+                  onChange={(e) => {
+                    setRecipientName(e.target.value);
+                    if (fieldError === 'recipient_name') setFieldError(null);
+                  }}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-brand-charcoal ${fieldError === 'recipient_name' ? 'border-rose-400 bg-rose-50' : 'border-brand-field'}`}
                 />
+                {fieldError === 'recipient_name' && (
+                  <p id="full-name-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
+                    {t('errors.recipient_required')}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-xs font-bold text-brand-charcoal block mb-1" htmlFor="phone">{t('checkout.phone')}</label>
@@ -428,10 +473,20 @@ export const CheckoutView: React.FC = () => {
                   id="phone"
                   type="tel"
                   required
+                  aria-invalid={fieldError === 'phone'}
+                  aria-describedby={fieldError === 'phone' ? 'phone-error' : undefined}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs focus:outline-none focus:border-brand-charcoal"
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    if (fieldError === 'phone') setFieldError(null);
+                  }}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-brand-charcoal ${fieldError === 'phone' ? 'border-rose-400 bg-rose-50' : 'border-brand-field'}`}
                 />
+                {fieldError === 'phone' && (
+                  <p id="phone-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
+                    {t('errors.phone_required')}
+                  </p>
+                )}
               </div>
             </div>
             {fulfillmentType === 'delivery' && (
@@ -442,10 +497,20 @@ export const CheckoutView: React.FC = () => {
                     id="address"
                     type="text"
                     required
+                    aria-invalid={fieldError === 'address'}
+                    aria-describedby={fieldError === 'address' ? 'address-error' : undefined}
                     value={addressLine}
-                    onChange={(e) => setAddressLine(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs focus:outline-none focus:border-brand-charcoal"
+                    onChange={(e) => {
+                      setAddressLine(e.target.value);
+                      if (fieldError === 'address') setFieldError(null);
+                    }}
+                    className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-brand-charcoal ${fieldError === 'address' ? 'border-rose-400 bg-rose-50' : 'border-brand-field'}`}
                   />
+                  {fieldError === 'address' && (
+                    <p id="address-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
+                      {t('errors.address_required')}
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

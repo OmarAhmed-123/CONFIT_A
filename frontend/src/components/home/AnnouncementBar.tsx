@@ -24,7 +24,8 @@ const DISMISS_KEY = "confit.announcement.freeship.v1";
 export const AnnouncementBar: React.FC<{
   threshold?: number | null;
   currency?: string | null;
-}> = ({ threshold, currency }) => {
+  onDismiss?: () => void;
+}> = ({ threshold, currency, onDismiss }) => {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? "en";
   const reduceMotion = usePrefersReducedMotion();
@@ -56,6 +57,7 @@ export const AnnouncementBar: React.FC<{
     } catch {
       /* private mode — the bar simply returns next visit */
     }
+    onDismiss?.();
   };
 
   const body = (

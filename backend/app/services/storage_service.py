@@ -11,6 +11,7 @@ This service provides pluggable storage backend with honest failure handling.
 All callers use this service instead of direct os.path operations for persistence.
 """
 import os
+import re
 import threading
 import time
 import uuid
@@ -18,7 +19,11 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
-from backend.app.core.exceptions import ValidationDomainError, FeatureNotConfiguredError
+from backend.app.core.exceptions import (
+    ValidationDomainError,
+    FeatureNotConfiguredError,
+    ProviderIntegrationError,
+)
 
 
 def storage_status() -> dict:
@@ -90,6 +95,29 @@ _probe_cache: Dict[str, Any] = {}
 _probe_lock = threading.Lock()
 
 
+def _safe_probe_error(exc: BaseException) -> str:
+    """Diagnostic text for a failed storage probe, with infrastructure redacted.
+
+    The probe exists to tell an operator *why* the bucket is unusable
+    (AccessDenied vs NoSuchBucket vs wrong endpoint). Since the store() path
+    wraps transport errors in a client-safe ProviderIntegrationError, the useful
+    cause lives in ``__cause__``. Reporting the wrapper alone would have told
+    nobody anything, which is why this unwraps it — and then strips URLs and the
+    configured bucket name so the same string is safe to expose on /health.
+    """
+    root: BaseException = exc
+    seen = set()
+    while getattr(root, "__cause__", None) is not None and id(root) not in seen:
+        seen.add(id(root))
+        root = root.__cause__  # type: ignore[assignment]
+    text = f"{type(root).__name__}: {root}"[:200]
+    text = re.sub(r"https?://[^\s\"'<>]+", "<endpoint>", text)
+    bucket = getattr(settings, "AWS_S3_BUCKET", None)
+    if bucket:
+        text = text.replace(str(bucket), "<bucket>")
+    return text
+
+
 def probe_storage(force: bool = False, backend: Optional["StorageBackend"] = None) -> Dict[str, Any]:
     """Real put/get/delete round trip against the configured object store.
 
@@ -154,7 +182,7 @@ def probe_storage(force: bool = False, backend: Optional["StorageBackend"] = Non
             result = {
                 "ok": False,
                 "verdict": "failed",
-                "error": f"{type(exc).__name__}: {str(exc)[:180]}",
+                "error": _safe_probe_error(exc),
                 "probe_key": probe_key,
                 "probe_ms": round((time.time() - started) * 1000, 1),
             }
@@ -174,22 +202,47 @@ def _safe_backend_for_probe() -> Optional["StorageBackend"]:
         return None
 
 
+def runs_on_ephemeral_filesystem() -> bool:
+    """True when this process is a serverless function whose disk does not persist.
+
+    WHY THIS IS NOT ``settings.is_production`` (measured defect, 2026-10-21):
+    the environment label and the storage reality are different questions. A
+    staging or preview deployment runs on the SAME serverless runtime with the
+    SAME ephemeral filesystem as production; only ``ENVIRONMENT`` differs. Keying
+    the durability gate on ``is_production`` meant such a deployment accepted a
+    photo upload, wrote it to a disk that is discarded when the invocation ends,
+    and returned ``/uploads/wardrobe/...`` — a URL that answers 404 on the very
+    next request. Measured on the local verify stack: capabilities reported
+    ``photo_upload_available: false`` while ``POST /wardrobe/upload`` returned
+    ``201 Created`` with an item row pointing at that URL.
+
+    The hosting platform is the honest signal, and the codebase already uses the
+    same one in ``core/database.py`` and ``core/rate_limit.py``.
+    """
+    return bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+
+
 def require_production_storage(feature: str) -> "StorageBackend":
     """Storage for user-facing upload features.
 
-    Outside production the local backend is fine (explicit development
-    convenience). In production, a non-durable or unwritable backend raises
+    Outside a serverless host, the local backend is an explicit development
+    convenience and stays available — the hermetic test suite and every developer
+    machine run on it. Where the filesystem is ephemeral, or where the deployment
+    is production, a non-durable or unwritable backend raises
     FeatureNotConfiguredError (HTTP 501) BEFORE any bytes are accepted — never a
-    PermissionError 500 and never a URL to a file that will not exist on the
-    next request.
+    PermissionError 500, never a 2xx, and never a URL to a file that will not
+    exist on the next request.
     """
     status = storage_status()
-    if settings.is_production and not status.get("production_grade"):
+    ephemeral = runs_on_ephemeral_filesystem()
+    if (settings.is_production or ephemeral) and not status.get("production_grade"):
         raise FeatureNotConfiguredError(
             feature,
             hint=(
-                "Persistent object storage is required in production: set STORAGE_PROVIDER=s3 (or r2), "
-                "AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (and S3_ENDPOINT_URL for R2)."
+                "Persistent object storage is required on a serverless host: set STORAGE_PROVIDER=s3 (or r2), "
+                "AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (and S3_ENDPOINT_URL for R2). "
+                f"Detected: provider={status.get('provider')}, "
+                f"ephemeral_filesystem={ephemeral}, environment={settings.ENVIRONMENT}."
             ),
         )
     if status["provider"] == "local" and not status.get("writable"):
@@ -386,6 +439,12 @@ class S3StorageBackend(StorageBackend):
 
     def key_for_url(self, public_url: Optional[str]) -> Optional[str]:
         prefix = self._url_prefix()
+        # Accept a presigned URL as well as the canonical one. The API hands the
+        # browser a SigV4 URL (query string) while the database keeps the
+        # unsigned form; treating the query as part of the key made cleanup
+        # target a nonexistent object, silently orphaning the upload.
+        if public_url and "?" in public_url:
+            public_url = public_url.split("?", 1)[0]
         if not public_url or not public_url.startswith(prefix):
             return None
         key = public_url[len(prefix):]
@@ -450,8 +509,20 @@ class S3StorageBackend(StorageBackend):
             )
             return self._url_prefix() + relative_path
         except Exception as e:
-            logger.error(f"S3 upload failed for {relative_path}: {e}")
-            raise ValidationDomainError(f"Storage upload failed: {str(e)}")
+            # MEASURED DEFECT (Phase 5): this used to raise ValidationDomainError,
+            # which the wardrobe endpoint turns into HTTP 422. A storage outage is
+            # not the client's mistake — the browser was told its photo was
+            # unacceptable and would have asked the shopper to fix a file that was
+            # never the problem. Worse, the message embedded the raw boto error,
+            # exposing the bucket name and internal endpoint URL.
+            # An unreachable/rejecting object store is an upstream failure: 502
+            # with retryable=True. The detail stays in the server log.
+            logger.error(f"S3 upload failed for {relative_path}: {type(e).__name__}: {e}")
+            raise ProviderIntegrationError(
+                "storage",
+                "the object store did not accept the upload",
+                retryable=True,
+            ) from e
 
     def exists(self, relative_path: str) -> bool:
         try:

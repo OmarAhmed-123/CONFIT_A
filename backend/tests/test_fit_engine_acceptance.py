@@ -38,7 +38,10 @@ from backend.app.services.fit.units import (
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "fit_acceptance_cases.json"
-DATA = json.loads(FIXTURE.read_text())
+# encoding is explicit: the fixture carries non-ASCII (Arabic) text, and a bare
+# read_text() uses the platform default (cp1252 on Windows), which raises
+# UnicodeDecodeError at import and aborts collection of the whole suite there.
+DATA = json.loads(FIXTURE.read_text(encoding="utf-8"))
 CASES = {case["id"]: case for case in DATA["cases"]}
 CHARTS = DATA["charts"]
 

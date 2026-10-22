@@ -65,6 +65,10 @@ class WardrobeUploadResultEntry(BaseModel):
     status: str  # created | failed | duplicate
     detail: Optional[str] = None
     item: Optional[WardrobeItemOut] = None
+    # True only for failures the shopper can actually do something about by
+    # retrying (server-side fault). A rejected file is False: retrying the same
+    # bytes changes nothing.
+    retryable: bool = False
 
 
 class WardrobeUploadSummary(BaseModel):

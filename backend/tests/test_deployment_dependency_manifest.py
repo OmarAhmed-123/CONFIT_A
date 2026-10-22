@@ -13,6 +13,7 @@ from what Vercel actually installs — not from some merged view.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -125,9 +126,17 @@ class TestOptionalListIsJustified:
 
 class TestGateRunsAsCiCommand:
     def test_cli_exit_code_zero_on_current_tree(self):
+        # Inherit the real environment (a hardcoded POSIX PATH like
+        # "/usr/bin:/bin" is meaningless on Windows and left proc.stdout None),
+        # keep PYTHONPATH on the repo root, and force UTF-8 on both ends so a
+        # non-ASCII byte in the gate's output cannot crash the reader with a
+        # UnicodeDecodeError (the gate prints an em dash; the parent's decode
+        # must not assume the platform default codec).
+        env = {**os.environ, "PYTHONPATH": ".", "PYTHONUTF8": "1"}
         proc = subprocess.run(
             [sys.executable, "backend/scripts/check_runtime_imports.py"],
-            cwd=ROOT, capture_output=True, text=True, env={"PYTHONPATH": ".", "PATH": "/usr/bin:/bin:/usr/local/bin"},
+            cwd=ROOT, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", env=env,
         )
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert "[vercel]" in proc.stdout and "OK" in proc.stdout

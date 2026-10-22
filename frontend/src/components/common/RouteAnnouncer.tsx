@@ -13,29 +13,35 @@ import { useTranslation } from "react-i18next";
 export const RouteAnnouncer: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
-  const prevPathRef = useRef<string | null>(null);
+  const prevPathnameRef = useRef<string | null>(null);
+  const formatRouteChanged = (heading: string) => t("a11y.route_changed", { title: heading });
+  const formatAnnouncementRef = useRef(formatRouteChanged);
+  formatAnnouncementRef.current = formatRouteChanged;
   const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
-    if (prevPathRef.current === null) {
-      prevPathRef.current = location.pathname;
+    if (prevPathnameRef.current === null) {
+      prevPathnameRef.current = location.pathname;
       return;
     }
-    if (prevPathRef.current === location.pathname) {
+    if (prevPathnameRef.current === location.pathname) {
       return;
     }
-    prevPathRef.current = location.pathname;
+    prevPathnameRef.current = location.pathname;
+    // Clear first so consecutive announcements with similar fallback titles
+    // always trigger a single polite DOM text mutation in AT live regions.
+    setAnnouncement("");
 
     const timer = window.setTimeout(() => {
       const heading =
         document.querySelector("main h1")?.textContent?.trim() ||
         document.title ||
         location.pathname;
-      setAnnouncement(t("a11y.route_changed", { title: heading }));
+      setAnnouncement(formatAnnouncementRef.current(heading));
     }, 80);
 
     return () => window.clearTimeout(timer);
-  }, [location.pathname, t]);
+  }, [location.pathname]);
 
   return (
     <div

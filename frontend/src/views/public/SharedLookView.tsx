@@ -7,6 +7,7 @@ import { publicLookService } from '../../services/apiServices';
 import { ShareCard, ShareCardItem } from '../../components/outfit/ShareCard';
 import { ShareActions } from '../../components/outfit/ShareActions';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
+import { SkipLink, SKIP_MAIN_ID } from '../../components/common/SkipLink';
 import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
 
 interface PublicLook {
@@ -87,7 +88,8 @@ export const SharedLookView: React.FC = () => {
 
   /** Shared page chrome: white field + CONFIT masthead. */
   const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <main className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
+      <SkipLink />
       <header className="w-full border-b border-brand-hairline bg-white/95">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link
@@ -102,8 +104,10 @@ export const SharedLookView: React.FC = () => {
           </span>
         </div>
       </header>
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-10">{children}</div>
-    </main>
+      <main id={SKIP_MAIN_ID} tabIndex={-1} className="flex-1 flex flex-col items-center justify-center px-4 py-10 outline-none">
+        {children}
+      </main>
+    </div>
   );
 
   if (state === 'loading') {

@@ -6,6 +6,7 @@ import { membersService } from '../../services/apiServices';
 import { ApiError } from '../../services/apiClient';
 import { useUIStore } from '../../stores/uiStore';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
+import { SkipLink, SKIP_MAIN_ID } from '../../components/common/SkipLink';
 
 /**
  * BrandTeamAcceptView — public acceptance surface for brand invitations
@@ -137,13 +138,16 @@ const BrandTeamAcceptView: React.FC = () => {
   })();
 
   return (
-    <main className="min-h-screen bg-brand-wash px-4 py-16 flex flex-col items-center">
-      <div className="flex items-center gap-3 mb-8">
-        <ConfitLogo variant="compact" size="sm" />
-        <span className="text-[10px] font-bold tracking-widest text-brand-muted uppercase">{t('brand_team.eyebrow')}</span>
-      </div>
-      <div className="w-full max-w-lg">{inner}</div>
-    </main>
+    <>
+      <SkipLink />
+      <main id={SKIP_MAIN_ID} tabIndex={-1} className="min-h-screen bg-brand-wash px-4 py-16 flex flex-col items-center outline-none">
+        <div className="flex items-center gap-3 mb-8">
+          <ConfitLogo variant="compact" size="sm" />
+          <span className="text-[10px] font-bold tracking-widest text-brand-muted uppercase">{t('brand_team.eyebrow')}</span>
+        </div>
+        <div className="w-full max-w-lg">{inner}</div>
+      </main>
+    </>
   );
 };
 

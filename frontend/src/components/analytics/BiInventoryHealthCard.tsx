@@ -120,7 +120,7 @@ export const BiInventoryHealthCard: React.FC<BiInventoryHealthCardProps> = ({ in
                     <td className="py-2 text-right">
                       {typeof item.recommended_reorder === 'number' ? (
                         <>
-                          <span className="font-mono font-bold text-brand-coral">
+                          <span className="font-mono font-bold text-rose-800">
                             {t('bi.reorder_units', { count: item.recommended_reorder })}
                           </span>
                           {/*

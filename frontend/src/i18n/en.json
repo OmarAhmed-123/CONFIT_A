@@ -3287,5 +3287,28 @@
     "sync_failed": "Could not update your saved items right now. Your selection was restored.",
     "added_announcement": "Saved to your wishlist",
     "removed_announcement": "Removed from your wishlist"
+  },
+  "audit_closure": {
+    "cart_decrease_item": "Decrease quantity of {{title}}",
+    "cart_increase_item": "Increase quantity of {{title}}",
+    "cart_size_prefix": "Size:",
+    "bopis_qty_available": "{{count}} available",
+    "return_submitting": "Submitting…",
+    "return_create_failed": "Return request could not be created.",
+    "preset_today": "Today",
+    "preset_7d": "Last 7 Days",
+    "preset_30d": "Last 30 Days",
+    "preset_90d": "Last 90 Days",
+    "preset_ytd": "Year to Date",
+    "tenant_isolated": "Tenant Isolated",
+    "period_label": "Period:",
+    "freshness_label": "Freshness:",
+    "date_to": "to",
+    "observation_badge": "Observation",
+    "top_products_title": "Top Performing Products",
+    "top_products_subtitle": "Products ranked by gross sales, units moved, and on-hand stock status",
+    "pdf_export_failed": "Could not generate PDF report right now.",
+    "csv_export_failed": "Could not export CSV report right now.",
+    "telemetry_load_failed": "Could not load business intelligence telemetry right now."
   }
 }

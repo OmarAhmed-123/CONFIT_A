@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { ConfitLogo } from "../../components/common/ConfitLogo";
+import { SkipLink, SKIP_MAIN_ID } from "../../components/common/SkipLink";
 import { LeadForm } from "./LeadForm";
 import {
   usePrefersReducedMotion,
@@ -102,11 +103,15 @@ export const PartnerGatewayView: React.FC = () => {
   };
 
   return (
-    <main
-      style={surfaceStyle}
-      className="min-h-[80vh] bg-white text-brand-charcoal"
-      data-testid="partner-gateway"
-    >
+    <>
+      <SkipLink />
+      <main
+        id={SKIP_MAIN_ID}
+        tabIndex={-1}
+        style={surfaceStyle}
+        className="min-h-[80vh] bg-white text-brand-charcoal outline-none"
+        data-testid="partner-gateway"
+      >
       {/* ── TIER 1 · editorial masthead, 7/5, form above the fold ───────── */}
       <section className="mx-auto grid max-w-[1280px] grid-cols-12 gap-6 px-5 pt-12 pb-12 sm:pt-16 lg:gap-8 lg:pt-24">
         <div className="col-span-12 flex min-h-[420px] flex-col justify-between lg:col-span-7">
@@ -327,7 +332,7 @@ export const PartnerGatewayView: React.FC = () => {
             to="/brand/register"
             className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
-            {t("brand_reg.submit_btn", "Register Brand Workspace")} &rarr;
+            {t("brand_reg.submit_btn", "Register Brand Workspace")} <span aria-hidden="true" className="ms-1 inline-block rtl:rotate-180">&rarr;</span>
           </Link>
           <button
             data-motion="admin"
@@ -347,7 +352,8 @@ export const PartnerGatewayView: React.FC = () => {
           </button>
         </div>
       </section>
-    </main>
+      </main>
+    </>
   );
 };
 

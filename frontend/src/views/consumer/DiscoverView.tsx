@@ -111,64 +111,57 @@ export const DiscoverView: React.FC = () => {
   // categories API actually returned — an unknown slug is ignored instead of
   // silently emptying the whole catalogue.
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedCategory = searchParams.get("category");
-  const appliedCategoryRef = useRef<string | null>(null);
+  const requestedCategory = searchParams.get("category") || "";
   useEffect(() => {
-    if (!requestedCategory || categories.length === 0) return;
-    if (appliedCategoryRef.current === requestedCategory) return;
-    if (categories.some((c) => c.slug === requestedCategory)) {
-      appliedCategoryRef.current = requestedCategory;
+    if (!requestedCategory) {
+      if (selectedCategory !== "") setSelectedCategory("");
+      return;
+    }
+    if (categories.length === 0) return;
+    if (categories.some((c) => c.slug === requestedCategory) && selectedCategory !== requestedCategory) {
       setSelectedCategory(requestedCategory);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedCategory, categories]);
 
-  // C02 pass (2026-10-07): the URL was a READ-ONLY deep link — filters,
-  // search and sort lived in memory only, so refresh/share/Back lost the
-  // shopper's place. State now writes back at INTERACTION time (never from
-  // a mount effect, so hydration can't clobber an incoming link), with
-  // replace:true so typing never floods the history stack.
-  const syncParams = (patch: Record<string, string | null>) => {
+  const syncParams = (patch: Record<string, string | null>, options?: { replace?: boolean }) => {
     const next = new URLSearchParams(searchParams);
     for (const [k, v] of Object.entries(patch)) {
       if (v) next.set(k, v);
       else next.delete(k);
     }
-    setSearchParams(next, { replace: true });
+    setSearchParams(next, { replace: options?.replace ?? false });
   };
 
-  // Hydrate the NON-category params once on mount. Every value is
-  // validated against the tokens this screen actually understands —
-  // junk in the URL is ignored, never applied, never echoed back.
-  const hydratedRef = useRef(false);
+  // Sync URL params on mount and on browser Back/Forward navigation. Every
+  // value is validated against the tokens this screen understands.
+  const searchSig = searchParams.toString();
   useEffect(() => {
-    if (hydratedRef.current) return;
-    hydratedRef.current = true;
     const pal = searchParams.get("palette");
-    if (pal && COLOR_VALUES.includes(pal)) setSelectedColor(pal);
+    const nextColor = pal && COLOR_VALUES.includes(pal) ? pal : "";
+    if (nextColor !== selectedColor) setSelectedColor(nextColor);
     const gen = (searchParams.get("gender") || "").trim().toLowerCase();
-    if (gen && GENDER_URL_MAP[gen]) setSelectedGender(GENDER_URL_MAP[gen]);
+    const nextGender = gen && GENDER_URL_MAP[gen] ? GENDER_URL_MAP[gen] : "";
+    if (nextGender !== selectedGender) setSelectedGender(nextGender);
     const sty = (searchParams.get("style") || "").trim();
-    if (sty) setSelectedStyle(sty);
-    const q = searchParams.get("q");
-    if (q) setSearchQuery(q);
+    if (sty !== selectedStyle) setSelectedStyle(sty);
+    const q = searchParams.get("q") || "";
+    if (q !== searchQuery) setSearchQuery(q);
     const sort = searchParams.get("sort");
-    if (sort && SORT_VALUES.includes(sort)) setSortBy(sort);
+    const nextSort = sort && SORT_VALUES.includes(sort) ? sort : "recommended";
+    if (nextSort !== sortBy) setSortBy(nextSort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchSig]);
 
-  // ?occasion= validates against the LIVE vocabulary (which loads async),
-  // so it hydrates once that data exists — same contract as ?category=.
-  // Tokens are normalised to lowercase; junk is ignored, never applied.
-  const appliedOccasionRef = useRef<string | null>(null);
-  const requestedOccasion = searchParams.get("occasion");
+  const requestedOccasion = (searchParams.get("occasion") || "").trim().toLowerCase();
   useEffect(() => {
-    if (!requestedOccasion || occasions.length === 0) return;
-    if (appliedOccasionRef.current === requestedOccasion) return;
-    const token = requestedOccasion.trim().toLowerCase();
-    if (occasions.some((o) => o.value === token)) {
-      appliedOccasionRef.current = requestedOccasion;
-      setSelectedOccasion(token);
+    if (!requestedOccasion) {
+      if (selectedOccasion !== "") setSelectedOccasion("");
+      return;
+    }
+    if (occasions.length === 0) return;
+    if (occasions.some((o) => o.value === requestedOccasion) && selectedOccasion !== requestedOccasion) {
+      setSelectedOccasion(requestedOccasion);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedOccasion, occasions]);
@@ -355,7 +348,7 @@ export const DiscoverView: React.FC = () => {
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setActiveSugIdx(-1);
-                syncParams({ q: e.target.value.trim() || null });
+                syncParams({ q: e.target.value.trim() || null }, { replace: true });
               }}
               onKeyDown={(e) => {
                 if (!showSuggestions || autocompleteSuggestions.length === 0) {

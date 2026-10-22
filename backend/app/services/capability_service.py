@@ -766,38 +766,47 @@ def capability_probes(
 
     out.append(_email_delivery_capability())
 
+    # click_and_collect needs a live count of store locations — the ONLY
+    # database read in this probe. A health check must survive an unreachable
+    # database: when the DB is already known down (database_ok is False), or the
+    # connection dies between the SELECT 1 in _probe and this query, report the
+    # capability as blocked-with-reason rather than letting the exception escape.
+    # An unguarded query here turned /api/v1/health into an opaque 500 during the
+    # 2026-10-22 outage (Neon over quota), which is exactly the failure mode
+    # schema_gate.py's docstring exists to prevent — the one endpoint that should
+    # name the cause must not be the one that dies.
+    store_count = None
+    store_count_error = None
     if database_ok:
         try:
             store_count = db.query(StoreLocation).count()
-            out.append(
-                Capability(
-                    name="click_and_collect",
-                    state=STATE_READY if store_count > 0 else STATE_BLOCKED,
-                    criticality=CRITICALITY_SUPPORTING,
-                    detail=(
-                        f"{store_count} store location(s) in the catalogue"
-                        if store_count
-                        else "no store locations exist, so BOPIS cannot be offered"
-                    ),
-                )
-            )
-        except Exception as exc:
-            logger.warning("click_and_collect_probe_failed", error=str(exc))
-            out.append(
-                Capability(
-                    name="click_and_collect",
-                    state=STATE_BLOCKED,
-                    criticality=CRITICALITY_SUPPORTING,
-                    detail="cannot inspect store locations while database query fails",
-                )
-            )
-    else:
+        except Exception as exc:  # DB died mid-probe: degrade, never crash health
+            store_count_error = f"{type(exc).__name__}: {str(exc)[:160]}"
+
+    if store_count is None:
         out.append(
             Capability(
                 name="click_and_collect",
                 state=STATE_BLOCKED,
                 criticality=CRITICALITY_SUPPORTING,
-                detail="cannot inspect store locations while database is unreachable",
+                detail=(
+                    f"store locations could not be counted: {store_count_error}"
+                    if store_count_error
+                    else "store locations could not be counted: the database is unreachable"
+                ),
+            )
+        )
+    else:
+        out.append(
+            Capability(
+                name="click_and_collect",
+                state=STATE_READY if store_count > 0 else STATE_BLOCKED,
+                criticality=CRITICALITY_SUPPORTING,
+                detail=(
+                    f"{store_count} store location(s) in the catalogue"
+                    if store_count
+                    else "no store locations exist, so BOPIS cannot be offered"
+                ),
             )
         )
 

@@ -1,0 +1,51 @@
+{
+  "dataset": "example-structure-only",
+  "notes": "PLACEHOLDER manifest showing the required shape and the diversity/consent fields. The referenced images under images/ are NOT committed and do NOT exist in the repo — replace every entry with a real, documented-consent image before any real run. consent_status is set to a placeholder here only so the dry run can exercise the plumbing.",
+  "cases": [
+    {
+      "id": "ex-001-tops-busy-pattern",
+      "person_image": "images/ex-001-person.webp",
+      "garment_image": "images/ex-001-garment.webp",
+      "category": "tops",
+      "body_type": "midsize",
+      "skin_tone": "deep",
+      "pose": "frontal-relaxed",
+      "lighting": "indoor-warm",
+      "difficulty": "busy-pattern",
+      "modest_wear": false,
+      "source": "PLACEHOLDER — replace with a documented source",
+      "consent_status": "PLACEHOLDER — replace with real documented consent",
+      "license": "PLACEHOLDER"
+    },
+    {
+      "id": "ex-002-one-pieces-modest-hijab",
+      "person_image": "images/ex-002-person.webp",
+      "garment_image": "images/ex-002-garment.webp",
+      "category": "one-pieces",
+      "body_type": "plus",
+      "skin_tone": "medium",
+      "pose": "standing-threequarter",
+      "lighting": "daylight",
+      "difficulty": "modest-wear-abaya-hijab",
+      "modest_wear": true,
+      "source": "PLACEHOLDER — replace with a documented source",
+      "consent_status": "PLACEHOLDER — replace with real documented consent",
+      "license": "PLACEHOLDER"
+    },
+    {
+      "id": "ex-003-bottoms-layering",
+      "person_image": "images/ex-003-person.webp",
+      "garment_image": "images/ex-003-garment.webp",
+      "category": "bottoms",
+      "body_type": "slim",
+      "skin_tone": "light",
+      "pose": "seated",
+      "lighting": "mixed",
+      "difficulty": "layering",
+      "modest_wear": false,
+      "source": "PLACEHOLDER — replace with a documented source",
+      "consent_status": "PLACEHOLDER — replace with real documented consent",
+      "license": "PLACEHOLDER"
+    }
+  ]
+}

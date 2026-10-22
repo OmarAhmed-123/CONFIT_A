@@ -1,0 +1,4 @@
+# Run outputs and Python caches are not committed.
+results/
+__pycache__/
+*.pyc

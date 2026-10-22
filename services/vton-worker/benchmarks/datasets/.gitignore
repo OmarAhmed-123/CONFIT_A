@@ -1,0 +1,11 @@
+# The manifest references local image files; the image BYTES are never committed.
+# Unconsented or third-party-licensed photos must not enter git history. Store the
+# actual images under images/ locally (or an object store) and keep only the
+# manifest (with provenance + consent metadata) in the repo.
+images/
+*.png
+*.jpg
+*.jpeg
+*.webp
+results/
+!.gitignore

@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "source": "docs/tryon/00-research-plan.md section 3",
+  "scale": "1-5 human rubric (mean over the test set) unless noted",
+  "policy": "thresholds are fixed before testing and are NOT lowered to pass",
+  "quality_dimensions": [
+    {"key": "garment_fidelity", "label": "Garment fidelity (pattern, logo, texture, drape)", "min_mean": 4.0, "min_category_mean": 3.5},
+    {"key": "identity_preservation", "label": "Identity preservation (face, skin tone)", "min_mean": 4.0, "hard_fail_below": 2.0, "hard_fail_note": "any identity swap is an automatic fail"},
+    {"key": "body_background_preservation", "label": "Body and background preservation", "min_mean": 4.0},
+    {"key": "modest_wear_fit", "label": "Modest-wear and cultural fit (hijab/head covering not distorted or removed)", "min_mean": 4.0, "hard_fail_below": 2.0, "hard_fail_note": "any hijab/head-covering distortion is an automatic fail"},
+    {"key": "multi_garment", "label": "Multi-garment / layering (top+bottom, dress, outerwear)", "min_mean": 3.5},
+    {"key": "robustness", "label": "Robustness to real user photos (lighting, pose, EXIF, body types)", "max_failure_rate": 0.10}
+  ],
+  "nonfunctional_gates": [
+    {"key": "warm_latency_s", "label": "Warm latency per render on the stated GPU", "max": 20.0, "note": "cold-start recorded separately"},
+    {"key": "cost_per_render_usd", "label": "Cost per render", "policy": "recorded; within the build-vs-buy budget"},
+    {"key": "privacy", "label": "User photo encrypted at rest, scoped access, retention limit, deletion on request, never in logs", "policy": "verified via abuse-case test"},
+    {"key": "honest_failure", "label": "503 on engine down (never a substitute image); idempotent jobs", "policy": "verified"},
+    {"key": "scalability", "label": "Concurrency cap, queue depth, cost ceiling, graceful degradation", "policy": "defined and load-tested"},
+    {"key": "compatibility", "label": "EN/AR + RTL + accessibility across the upload to preview journey", "policy": "verified on real devices"}
+  ]
+}

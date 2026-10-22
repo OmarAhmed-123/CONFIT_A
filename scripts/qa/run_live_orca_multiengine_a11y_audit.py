@@ -28,6 +28,7 @@ Outputs sanitized, secret-free JSON evidence to:
 from __future__ import annotations
 
 import io
+import secrets
 import json
 import os
 import re
@@ -274,11 +275,11 @@ def run_audit() -> Dict[str, Any]:
         "AI_PROBE_ENABLED": "false",
         "CONFIT_VTON_DISABLE_REMBG": "1",
         "ENVIRONMENT": "development",
-        "SECRET_KEY": "ephemeral-local-audit-secret-key-not-a-secret-32c!",
-        "JWT_SECRET_KEY": "ephemeral-local-audit-jwt-key-not-a-secret-32chars!",
-        "JWT_REFRESH_SECRET": "ephemeral-local-audit-refresh-key-not-a-secret-32!",
-        "AUDIT_HMAC_KEY": "ephemeral-local-audit-hmac-chain-key-not-secret-32!",
-        "ENCRYPTION_KEY_FOR_BODY_DATA": "0123456789abcdef0123456789abcdef",
+        "SECRET_KEY": secrets.token_hex(32),
+        "JWT_SECRET_KEY": secrets.token_hex(32),
+        "JWT_REFRESH_SECRET": secrets.token_hex(32),
+        "AUDIT_HMAC_KEY": secrets.token_hex(32),
+        "ENCRYPTION_KEY_FOR_BODY_DATA": secrets.token_hex(16),
         "MARKET_FX_RATES": '{"EGP": "50.00", "SAR": "3.75", "AED": "3.67"}',
     })
 

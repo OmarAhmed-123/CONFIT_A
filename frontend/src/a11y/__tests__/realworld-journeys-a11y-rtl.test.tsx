@@ -7,12 +7,19 @@ import axe from 'axe-core';
 import i18n from '../../i18n/i18n';
 import { NoPhotoFitModal, resolveRecommendedInStockSku } from '../../components/tryon/NoPhotoFitModal';
 import { ProductDetailView } from '../../views/consumer/ProductDetailView';
+import { CheckoutView } from '../../views/consumer/CheckoutView';
+import { OrderTrackingView } from '../../views/consumer/OrderTrackingView';
+import { BrandAnalyticsView } from '../../views/b2b/BrandAnalyticsView';
+import { CartDrawer } from '../../components/commerce/CartDrawer';
+import { DuplicateAlertModal } from '../../components/wardrobe/DuplicateAlertModal';
+import { SkipLink, SKIP_MAIN_ID } from '../../components/common/SkipLink';
+import { SharedLookView } from '../../views/public/SharedLookView';
 import { RouteAnnouncer } from '../../components/common/RouteAnnouncer';
 import { useDeviceWishlist, resetWishlistCacheForTests, WISHLIST_STORAGE_KEY } from '../../hooks/useDeviceWishlist';
 import { useUIStore } from '../../stores/uiStore';
 import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
-import { catalogService, profileService, tryOnService } from '../../services/apiServices';
+import { brandService, catalogService, commerceService, profileService, publicLookService, tryOnService } from '../../services/apiServices';
 import type { Product } from '../../models';
 
 const MULTI_SKU_PRODUCT: Product = {
@@ -327,8 +334,368 @@ describe('Real-World Accessibility, Localization & Journey Closure Contracts', (
         vi.advanceTimersByTime(150);
       });
       expect(screen.getByTestId('spa-route-announcer').textContent).toContain('Partner Houses');
+
+      // Locale switch on the same route re-announces localized surface
+      await act(async () => {
+        await i18n.changeLanguage('ar');
+      });
+      act(() => {
+        vi.advanceTimersByTime(150);
+      });
+      expect(screen.getByTestId('spa-route-announcer').textContent).toContain('Partner Houses');
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('SkipLink programmatically transfers focus onto #confit-main-content on activation across all engines including WebKit', () => {
+    render(
+      <div>
+        <SkipLink />
+        <header>
+          <a href="/discover">Header Nav</a>
+        </header>
+        <main id={SKIP_MAIN_ID} tabIndex={-1}>
+          <h1>Catalog Surface</h1>
+        </main>
+      </div>,
+    );
+
+    const skip = screen.getByRole('link', { name: /skip to main content/i });
+    const main = document.getElementById(SKIP_MAIN_ID)!;
+    skip.focus();
+    expect(document.activeElement).toBe(skip);
+
+    fireEvent.click(skip);
+    expect(document.activeElement).toBe(main);
+  });
+
+  it('CartDrawer isolates background siblings, traps Escape, exposes localized +/- item labels and <bdi dir="ltr"> values in Arabic RTL', async () => {
+    await i18n.changeLanguage('ar');
+    document.documentElement.dir = 'rtl';
+
+    const closeCartSpy = vi.fn();
+    useCartStore.setState({
+      isOpen: true,
+      closeCart: closeCartSpy,
+      cart: {
+        items: [
+          {
+            id: 91,
+            product_sku_id: 102,
+            product_title: 'معطف صوف مُفصّل أتيليه',
+            brand_name: 'Nordhaus',
+            size: 'XL',
+            color: 'Charcoal',
+            ai_fit_verdict: '94% Match',
+            unit_price: 420,
+            subtotal: 420,
+            quantity: 1,
+            image_url: 'https://example.com/coat-0.jpg',
+          },
+        ],
+        subtotal: 420,
+        discount_amount: 0,
+        total: 420,
+        total_items: 1,
+        currency: 'EGP',
+      },
+      appliedPromo: null,
+      updateQuantity: vi.fn(),
+      removeItem: vi.fn(),
+      applyPromo: vi.fn(),
+      clearPromo: vi.fn(),
+    } as any);
+
+    const { container } = render(
+      <MemoryRouter>
+        <div>
+          <main data-testid="storefront-bg">
+            <a href="/discover">Storefront Link</a>
+          </main>
+          <CartDrawer />
+        </div>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('storefront-bg')).toHaveAttribute('aria-hidden', 'true');
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'cart-drawer-title');
+
+    // Arabic localized +/- buttons name the exact item
+    expect(screen.getByRole('button', { name: /تقليل كمية معطف صوف مُفصّل أتيليه/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /زيادة كمية معطف صوف مُفصّل أتيليه/i })).toBeInTheDocument();
+
+    // Bidi isolation on size + currency totals
+    const bdiNodes = container.querySelectorAll('bdi[dir="ltr"]');
+    expect(bdiNodes.length).toBeGreaterThanOrEqual(2);
+
+    const axeRes = await axe.run(container);
+    expect(axeRes.violations).toHaveLength(0);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(closeCartSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('DuplicateAlertModal traps focus, marks background aria-hidden, and closes on Escape with zero axe violations', async () => {
+    const dismissSpy = vi.fn();
+    useCartStore.setState({
+      pendingDuplicateAlert: {
+        owned_item: {
+          id: 12,
+          title: 'Black Cashmere Knit',
+          category: 'tops',
+          color_name: 'Black',
+          wear_count: 8,
+          wear_frequency: 'weekly',
+          image_url: 'https://example.com/knit.jpg',
+        },
+        similarity_score: 91,
+        reason: 'Identical silhouette and color family',
+      },
+      confirmAddDuplicate: vi.fn(),
+      dismissDuplicate: dismissSpy,
+    } as any);
+
+    const { container } = render(
+      <div>
+        <main data-testid="wardrobe-bg">
+          <button data-motion="neutral" type="button">Add Item</button>
+        </main>
+        <DuplicateAlertModal />
+      </div>,
+    );
+
+    expect(screen.getByTestId('wardrobe-bg')).toHaveAttribute('aria-hidden', 'true');
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+
+    const axeRes = await axe.run(container);
+    expect(axeRes.violations).toHaveLength(0);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(dismissSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('CheckoutView associates validation errors via aria-invalid + aria-describedby + role="alert" in Arabic RTL', async () => {
+    await i18n.changeLanguage('ar');
+    document.documentElement.dir = 'rtl';
+
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: { id: 42, email: 'shopper@confit.org', role: 'user' } as any,
+    });
+
+    vi.spyOn(commerceService, 'getPaymentMethods').mockResolvedValue({
+      available_methods: [
+        {
+          id: 'card',
+          title_en: 'Card',
+          description_en: 'Pay securely by card',
+          provider_name: 'fawaterak',
+        },
+      ],
+      currency_code: 'EGP',
+    } as any);
+
+    useCartStore.setState({
+      cart: {
+        items: [
+          {
+            id: 91,
+            product_sku_id: 102,
+            product_title: 'معطف صوف مُفصّل أتيليه',
+            size: 'XL',
+            color: 'Charcoal',
+            unit_price: 420,
+            subtotal: 420,
+            quantity: 1,
+          },
+        ],
+        subtotal: 420,
+        discount_amount: 0,
+        total: 420,
+        total_items: 1,
+        currency: 'EGP',
+      },
+      appliedPromo: null,
+      fetchCart: vi.fn().mockResolvedValue(undefined),
+    } as any);
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <Routes>
+          <Route path="/checkout" element={<CheckoutView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { level: 1 });
+    fireEvent.submit(container.querySelector('form')!);
+
+    const nameInput = document.getElementById('full-name')!;
+    await waitFor(() => {
+      expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+      expect(nameInput).toHaveAttribute('aria-describedby', 'full-name-error');
+      expect(document.activeElement).toBe(nameInput);
+    });
+    expect(document.getElementById('full-name-error')).toHaveAttribute('role', 'alert');
+
+    const axeRes = await axe.run(container);
+    expect(axeRes.violations).toHaveLength(0);
+  });
+
+  it('OrderTrackingView formats line subtotals with formatMoney + <bdi dir="ltr"> and isolates Return Request modal', async () => {
+    await i18n.changeLanguage('ar');
+    document.documentElement.dir = 'rtl';
+
+    vi.spyOn(commerceService, 'getOrderDetail').mockResolvedValue({
+      id: 55,
+      order_number: 'CNF-2026-0055',
+      status: 'delivered',
+      payment_method: 'card',
+      payment_status: 'paid',
+      payment_mode: 'live',
+      fulfillment_method: 'delivery',
+      currency: 'EGP',
+      subtotal: 1250,
+      shipping_cost: 0,
+      tax_amount: 0,
+      discount_amount: 0,
+      total_amount: 1250,
+      created_at: '2026-10-20T12:00:00Z',
+      items: [
+        {
+          id: 1,
+          product_title: 'معطف صوف مُفصّل أتيليه',
+          size: 'XL',
+          color: 'Charcoal',
+          quantity: 1,
+          unit_price: 1250,
+          subtotal: 1250,
+        },
+      ],
+    } as any);
+    vi.spyOn(commerceService, 'getOrderTracking').mockResolvedValue({
+      status: 'delivered',
+      carrier: 'Aramex',
+      tracking_number: 'ARMX-998877',
+      timeline: [
+        {
+          status_key: 'delivered',
+          label: 'Delivered',
+          completed: true,
+          current: true,
+          timestamp: '2026-10-21T10:00:00Z',
+        },
+      ],
+    } as any);
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/orders/CNF-2026-0055']}>
+        <div>
+          <aside data-testid="orders-sibling">Sibling Nav</aside>
+          <Routes>
+            <Route path="/orders/:orderNumber" element={<OrderTrackingView />} />
+          </Routes>
+        </div>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('CNF-2026-0055');
+    // Order currency EGP must be rendered instead of hardcoded '$'
+    expect(container.textContent).not.toContain('$1250.00');
+
+    // Open Return Request modal -> sibling hidden + Escape closes
+    fireEvent.click(screen.getByRole('button', { name: /طلب إرجاع/i }));
+    expect(await screen.findByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+    expect(screen.getByTestId('orders-sibling')).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('BrandAnalyticsView localizes presets/headings in Arabic RTL and reports export failures via non-blocking toast instead of window.alert', async () => {
+    await i18n.changeLanguage('ar');
+    document.documentElement.dir = 'rtl';
+
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(brandService, 'getBiDashboard').mockResolvedValue({
+      brand: { id: 4, name: 'Nordhaus', slug: 'nordhaus' },
+      currency: 'AED',
+      methodology: 'Server-verified ledger aggregation',
+      period: { label: '2026-09-22 — 2026-10-22', days: 30 },
+      filters: { branches: [], categories: [] },
+      kpis: {
+        gross_sales: 18400,
+        gross_sales_change_pct: 12.4,
+        net_sales: 16900,
+        net_sales_change_pct: 10.1,
+        orders_count: 44,
+        orders_count_change_pct: 8.0,
+        units_sold: 61,
+        units_sold_change_pct: 9.2,
+        average_order_value: 418,
+        average_order_value_change_pct: 3.1,
+        return_rate: 4.5,
+        returned_units: 3,
+      },
+      timeseries: [],
+      products: [
+        {
+          product_id: 777,
+          title: 'Atelier Tailored Wool Coat',
+          category: 'Outerwear',
+          units_sold: 14,
+          gross_sales: 5880,
+          return_rate: 2.1,
+          current_stock: 10,
+          low_stock: false,
+        },
+      ],
+      branches: [],
+      promotions: [],
+      insights: [],
+    } as any);
+    vi.spyOn(brandService, 'downloadBiCsv').mockRejectedValue(new Error('503 Export Gateway Busy'));
+
+    const { container } = render(
+      <MemoryRouter>
+        <BrandAnalyticsView />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('المنتجات الأعلى أداءً')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'آخر 30 يوماً' })).toHaveAttribute('aria-pressed', 'true');
+    expect(container.querySelectorAll('th[scope="col"]').length).toBeGreaterThanOrEqual(6);
+
+    fireEvent.click(screen.getByRole('button', { name: /csv/i }));
+    await waitFor(() => {
+      expect(alertSpy).not.toHaveBeenCalled();
+      expect(useUIStore.getState().toast?.type).toBe('error');
+    });
+  });
+
+  it('SharedLookView separates top-level banner header from #confit-main-content main landmark', async () => {
+    vi.spyOn(publicLookService, 'getPublicLook').mockRejectedValue({ status: 404 });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/look/missing-look']}>
+        <Routes>
+          <Route path="/look/:token" element={<SharedLookView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const main = await screen.findByRole('main');
+    expect(main).toHaveAttribute('id', SKIP_MAIN_ID);
+    const header = container.querySelector('header')!;
+    expect(main.contains(header)).toBe(false);
+
+    const axeRes = await axe.run(container);
+    expect(axeRes.violations).toHaveLength(0);
   });
 });

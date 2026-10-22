@@ -12,8 +12,9 @@ import {
 import { BopisIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 import { useAuthStore } from '../../stores/authStore';
-import { formatDate, formatDateTime } from '../../i18n/format';
+import { formatDate, formatDateTime, formatMoney } from '../../i18n/format';
 import type { Order as OrderSummary } from '../../models';
+import { useModalFocus } from '../../hooks/useModalFocus';
 
 export const OrderTrackingView: React.FC = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
@@ -35,6 +36,10 @@ export const OrderTrackingView: React.FC = () => {
   const [returnLabelUrl, setReturnLabelUrl] = useState<string | null>(null);
   const [returnError, setReturnError] = useState<string | null>(null);
   const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const returnModalRef = useModalFocus<HTMLDivElement>(
+    () => setReturnModalOpen(false),
+    returnModalOpen,
+  );
   // CUS-09 second factor for guest orders + Cycle7 anti-enumeration
   const [guestEmailInput, setGuestEmailInput] = useState('');
   const [guestEmailForLookup, setGuestEmailForLookup] = useState<string | undefined>(undefined);
@@ -222,7 +227,7 @@ export const OrderTrackingView: React.FC = () => {
                 >
                   <div className="flex flex-wrap justify-between gap-2">
                     <span className="text-sm font-bold text-brand-charcoal">
-                      {t('order.number_label')} {o.order_number}
+                      {t('order.number_label')} <bdi dir="ltr">{o.order_number}</bdi>
                     </span>
                     <span className="text-xs text-brand-muted">{formatDate(o.created_at, lang)}</span>
                   </div>
@@ -276,7 +281,7 @@ export const OrderTrackingView: React.FC = () => {
         setReturnLabelUrl(res.return_label_url || null);
       }
     } catch (err: any) {
-      setReturnError(err?.message || 'Return could not be created.');
+      setReturnError(err?.message || t('audit_closure.return_create_failed'));
     } finally {
       setReturnSubmitting(false);
     }
@@ -297,7 +302,7 @@ export const OrderTrackingView: React.FC = () => {
             {localizeOrderStatus(timeline.current_status, t)}
           </span>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold text-brand-charcoal mt-1">
-            {t('order.number_label')}{order.order_number}
+            {t('order.number_label')} <bdi dir="ltr">{order.order_number}</bdi>
           </h1>
           <p className="text-xs text-brand-muted mt-1">
             {formatDate(order.created_at, lang)} ·{' '}
@@ -307,7 +312,7 @@ export const OrderTrackingView: React.FC = () => {
           </p>
           {timeline.tracking_number && (
             <p className="text-xs text-brand-muted mt-1">
-              {timeline.carrier} · {timeline.tracking_number}
+              {timeline.carrier} · <bdi dir="ltr">{timeline.tracking_number}</bdi>
             </p>
           )}
           {isGuestOrder && (
@@ -356,7 +361,7 @@ export const OrderTrackingView: React.FC = () => {
       <div className="bg-white rounded-3xl border border-brand-hairline p-6 sm:p-8 shadow-sm space-y-6">
         <h2 className="font-serif text-xl font-bold text-brand-charcoal">{t('order.fulfillment_progress')}</h2>
         <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-brand-hairline">
-          {timeline.timeline.map((step) => (
+          {(timeline.timeline || []).map((step) => (
             <div key={step.status_key} className="relative">
               <div
                 className={`absolute -left-6 top-1 w-4 h-4 rounded-full border-2 ${
@@ -403,15 +408,29 @@ export const OrderTrackingView: React.FC = () => {
                   {it.is_returned ? t('order.returned_suffix') : ''}
                 </div>
               </div>
-              <div className="text-right font-bold text-brand-charcoal">${it.subtotal.toFixed(2)}</div>
+              <div className="text-end font-bold text-brand-charcoal">
+                <bdi dir="ltr">{formatMoney(Math.round(it.subtotal * 100), order.currency || 'USD', lang)}</bdi>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
       {returnModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-charcoal/70 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="return-title">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-charcoal/70 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setReturnModalOpen(false);
+          }}
+        >
+          <div
+            ref={returnModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="return-title"
+            tabIndex={-1}
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4 outline-none"
+          >
             <h3 id="return-title" className="font-serif text-lg font-bold text-brand-charcoal">
               {t('order.request_return')}
             </h3>
@@ -450,8 +469,9 @@ export const OrderTrackingView: React.FC = () => {
                 </div>
                 {isGuestOrder && (
                   <div>
-                    <label className="font-bold text-brand-charcoal block mb-1">{t('order.guest_email_label')}</label>
+                    <label className="font-bold text-brand-charcoal block mb-1" htmlFor="return-guest-email">{t('order.guest_email_label')}</label>
                     <input
+                      id="return-guest-email"
                       type="email"
                       value={guestEmailForLookup || guestEmailInput}
                       onChange={(e) => setGuestEmailInput(e.target.value)}
@@ -467,7 +487,7 @@ export const OrderTrackingView: React.FC = () => {
                     {t('common.cancel')}
                   </button>
                   <button data-motion="progressive" data-motion-tone="icon" type="submit" disabled={returnSubmitting} className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold shadow-md disabled:opacity-50 min-h-11">
-                    {returnSubmitting ? 'Submitting...' : t('order.submit_return')}
+                    {returnSubmitting ? t('audit_closure.return_submitting') : t('order.submit_return')}
                   </button>
                 </div>
               </form>

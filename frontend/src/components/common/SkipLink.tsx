@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
  * Placed as the first focusable element inside each layout, before the header.
  */
 export const SKIP_TARGET_ID = 'confit-main-content';
+export const SKIP_MAIN_ID = SKIP_TARGET_ID;
 
 export const SkipLink: React.FC<{ targetId?: string }> = ({ targetId = SKIP_TARGET_ID }) => {
   const { t } = useTranslation();
@@ -30,6 +31,19 @@ export const SkipLink: React.FC<{ targetId?: string }> = ({ targetId = SKIP_TARG
     <a
       href={`#${targetId}`}
       data-testid="skip-link"
+      onClick={(e) => {
+        const target = document.getElementById(targetId);
+        if (target) {
+          e.preventDefault();
+          const prefersReduced =
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          target.focus({ preventScroll: true });
+          if (typeof target.scrollIntoView === 'function') {
+            target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
+          }
+        }
+      }}
       className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[100] focus:px-4 focus:py-2.5 focus:rounded-xl focus:bg-brand-charcoal focus:text-white focus:text-xs focus:font-bold focus:shadow-2xl focus:border focus:border-brand-hairline focus:ring-2 focus:ring-brand-charcoal"
     >
       {t('a11y.skip_to_content')}

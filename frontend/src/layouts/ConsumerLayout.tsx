@@ -136,7 +136,7 @@ export const ConsumerLayout: React.FC = () => {
   const fabHidden = scrollHidden || focusHidden;
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-brand-charcoal">
+    <div className="min-h-screen flex flex-col bg-white text-brand-charcoal overflow-x-clip">
       {/* WCAG 2.4.1 — first focusable element on the page. Hidden with
           sr-only (not display:none) and revealed on focus. */}
       <SkipLink />

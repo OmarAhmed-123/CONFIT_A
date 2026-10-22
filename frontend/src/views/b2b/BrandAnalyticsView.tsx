@@ -9,19 +9,20 @@ import { BiBranchPerformanceTable } from '../../components/analytics/BiBranchPer
 import { BiInventoryHealthCard } from '../../components/analytics/BiInventoryHealthCard';
 import { BiPromotionTable } from '../../components/analytics/BiPromotionTable';
 import { DownloadIcon, RefreshIcon } from '../../components/icons/ConfitIcons';
+import { useUIStore } from '../../stores/uiStore';
 import type { BiDashboardResponse } from '../../models';
-
-const PRESET_WINDOWS = [
-  { label: 'Today', days: 1 },
-  { label: 'Last 7 Days', days: 7 },
-  { label: 'Last 30 Days', days: 30 },
-  { label: 'Last 90 Days', days: 90 },
-  { label: 'Year to Date', days: 365 },
-] as const;
 
 export const BrandAnalyticsView: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { showToast } = useUIStore();
   const isRtl = i18n.dir() === 'rtl';
+  const presetWindows = [
+    { label: t('audit_closure.preset_today'), days: 1 },
+    { label: t('audit_closure.preset_7d'), days: 7 },
+    { label: t('audit_closure.preset_30d'), days: 30 },
+    { label: t('audit_closure.preset_90d'), days: 90 },
+    { label: t('audit_closure.preset_ytd'), days: 365 },
+  ] as const;
 
   // Filters State
   const [selectedDays, setSelectedDays] = useState<number | 'custom'>(30);
@@ -61,7 +62,7 @@ export const BrandAnalyticsView: React.FC = () => {
       setData(res);
       setLastFetched(new Date());
     } catch (err: any) {
-      setError(err?.message || 'Failed to load business intelligence telemetry.');
+      setError(err?.message || t('audit_closure.telemetry_load_failed'));
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +96,7 @@ export const BrandAnalyticsView: React.FC = () => {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      alert('Failed to generate PDF: ' + (e?.message || 'Unknown error'));
+      showToast(e?.message || t('audit_closure.pdf_export_failed'), 'error');
     } finally {
       setIsExportingPdf(false);
     }
@@ -125,7 +126,7 @@ export const BrandAnalyticsView: React.FC = () => {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      alert('Failed to export CSV: ' + (e?.message || 'Unknown error'));
+      showToast(e?.message || t('audit_closure.csv_export_failed'), 'error');
     } finally {
       setIsExportingCsv(false);
     }
@@ -141,7 +142,7 @@ export const BrandAnalyticsView: React.FC = () => {
   };
 
   if (isLoading && !data) {
-    return <LoadingSpinner text={t('bi.loading_telemetry', 'Computing business intelligence telemetry and revenue metrics...')} />;
+    return <LoadingSpinner text={t('common.loading')} />;
   }
 
   if (error && !data) {
@@ -149,7 +150,7 @@ export const BrandAnalyticsView: React.FC = () => {
       <EmptyState
         title={t('brand_analytics.telemetry_unavailable')}
         description={error}
-        actionText="Retry"
+        actionText={t('common.retry')}
         onAction={fetchData}
       />
     );
@@ -231,16 +232,16 @@ export const BrandAnalyticsView: React.FC = () => {
               {t('bi.title', 'Advanced Business Intelligence & Reporting')}
             </h1>
             <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-charcoal text-white">
-              Tenant Isolated
+              {t('audit_closure.tenant_isolated')}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl">
             {data?.methodology}
           </p>
           <div className="flex items-center gap-3 text-[11px] text-brand-muted mt-2 font-mono">
-            <span>Period: <strong className="text-slate-700">{data?.period?.label}</strong></span>
+            <span>{t('audit_closure.period_label')} <strong className="text-slate-700"><bdi dir="ltr">{data?.period?.label}</bdi></strong></span>
             {lastFetched && (
-              <span>· Freshness: <strong className="text-slate-700">{lastFetched.toLocaleTimeString()}</strong></span>
+              <span>· {t('audit_closure.freshness_label')} <strong className="text-slate-700"><bdi dir="ltr">{lastFetched.toLocaleTimeString()}</bdi></strong></span>
             )}
           </div>
         </div>
@@ -302,7 +303,7 @@ export const BrandAnalyticsView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           {/* Preset Buttons */}
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('bi.preset_windows', 'Preset Windows')}>
-            {PRESET_WINDOWS.map((win) => (
+            {presetWindows.map((win) => (
               <button data-motion="filter" data-motion-tone="icon"
                 key={win.days}
                 type="button"
@@ -341,7 +342,7 @@ export const BrandAnalyticsView: React.FC = () => {
                 className="min-h-10 px-3 rounded-xl border border-slate-300 text-xs text-slate-700"
                 aria-label={t('bi.start_date', 'Start Date')}
               />
-              <span className="text-brand-muted">to</span>
+              <span className="text-brand-muted">{t('audit_closure.date_to')}</span>
               <input
                 type="date"
                 value={customTo}
@@ -418,7 +419,7 @@ export const BrandAnalyticsView: React.FC = () => {
               <div className="font-bold flex items-center justify-between">
                 <span>{ins.title}</span>
                 <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-white/60">
-                  Observation
+                  {t('audit_closure.observation_badge')}
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed opacity-90">{ins.message}</p>
@@ -532,24 +533,24 @@ export const BrandAnalyticsView: React.FC = () => {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="font-serif text-lg font-bold text-brand-charcoal">
-                Top Performing Products
+                {t('audit_closure.top_products_title')}
               </h3>
               <p className="text-[11px] text-slate-500">
-                Products ranked by gross sales, units moved, and on-hand stock status
+                {t('audit_closure.top_products_subtitle')}
               </p>
             </div>
           </div>
 
           <div className="overflow-x-auto max-h-80">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] uppercase text-slate-500">
-                  <th className="py-2">{t('bi.product', 'Product')}</th>
-                  <th className="py-2">{t('bi.category', 'Category')}</th>
-                  <th className="py-2 text-right">{t('bi.units', 'Units')}</th>
-                  <th className="py-2 text-right">{t('bi.gross_sales', 'Gross Sales')}</th>
-                  <th className="py-2 text-center">{t('bi.return_rate', 'Return Rate')}</th>
-                  <th className="py-2 text-right">{t('bi.current_stock', 'Stock')}</th>
+                  <th scope="col" className="py-2 text-start">{t('bi.product', 'Product')}</th>
+                  <th scope="col" className="py-2 text-start">{t('bi.category', 'Category')}</th>
+                  <th scope="col" className="py-2 text-end">{t('bi.units', 'Units')}</th>
+                  <th scope="col" className="py-2 text-end">{t('bi.gross_sales', 'Gross Sales')}</th>
+                  <th scope="col" className="py-2 text-center">{t('bi.return_rate', 'Return Rate')}</th>
+                  <th scope="col" className="py-2 text-end">{t('bi.current_stock', 'Stock')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -560,14 +561,14 @@ export const BrandAnalyticsView: React.FC = () => {
                         {p.title}
                       </td>
                       <td className="py-2.5 text-slate-600">{p.category}</td>
-                      <td className="py-2.5 text-right font-mono font-bold text-slate-800">{p.units_sold}</td>
-                      <td className="py-2.5 text-right font-mono font-bold text-emerald-700">
-                        {currency} {p.gross_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      <td className="py-2.5 text-end font-mono font-bold text-slate-800">{p.units_sold}</td>
+                      <td className="py-2.5 text-end font-mono font-bold text-emerald-700">
+                        <bdi dir="ltr">{currency} {p.gross_sales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</bdi>
                       </td>
                       <td className="py-2.5 text-center font-mono text-[11px]">
-                        {p.return_rate !== null ? `${p.return_rate}%` : 'N/A'}
+                        <bdi dir="ltr">{p.return_rate !== null ? `${p.return_rate}%` : 'N/A'}</bdi>
                       </td>
-                      <td className="py-2.5 text-right font-mono text-slate-700">
+                      <td className="py-2.5 text-end font-mono text-slate-700">
                         <span
                           className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             p.stock_level === 0

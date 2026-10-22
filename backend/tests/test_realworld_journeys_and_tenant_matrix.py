@@ -647,3 +647,29 @@ def test_positive_first_bola_bfla_isolation_matrix_and_commerce_journey(client, 
     finished = db_session.get(CatalogImportJob, stalled_id)
     assert finished.status == "completed", finished.errors_json
     assert finished.accepted_rows == 1
+
+
+def test_wardrobe_auto_mode_never_orphans_into_workerless_redis(client, monkeypatch):
+    """DEF-23 (P0): When Upstash/local Redis responds to PING (rate-limiting/state)
+    with zero live Celery workers consuming the queue, WARDROBE_ANALYSIS_MODE='auto'
+    must analyze inline to a terminal state instead of leaving items stuck in 'processing'."""
+    import io
+    from PIL import Image
+    from backend.app.core import config as config_mod
+
+    monkeypatch.setattr(config_mod.settings, "WARDROBE_ANALYSIS_MODE", "auto", raising=False)
+    monkeypatch.setattr(config_mod.settings, "GEMINI_API_KEY", None, raising=False)
+
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), color=(36, 37, 38)).save(buf, format="PNG")
+    headers, _ = _register_and_auth(client, "shopper-wardrobe-def23")
+
+    res = client.post(
+        "/api/v1/wardrobe/upload",
+        headers=headers,
+        files={"file": ("blazer.png", buf.getvalue(), "image/png")},
+    )
+    assert res.status_code == 201, res.text
+    item = res.json()["results"][0]["item"]
+    assert item["processing_status"] == "failed"
+

@@ -6,6 +6,7 @@ import { ArrowLeft, Compass, Home } from 'lucide-react';
 
 import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
+import { SkipLink, SKIP_MAIN_ID } from '../../components/common/SkipLink';
 
 /**
  * Honest 404 (audit 2026-10-06).
@@ -31,7 +32,9 @@ export const NotFoundView: React.FC = () => {
   const location = useLocation();
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-4 py-14">
+    <>
+      <SkipLink />
+      <main className="flex min-h-screen items-center justify-center bg-white px-4 py-14 outline-none" id={SKIP_MAIN_ID} tabIndex={-1}>
       <motion.section
         initial={reduce ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -94,6 +97,7 @@ export const NotFoundView: React.FC = () => {
           {t('not_found.back_cta')}
         </button>
       </motion.section>
-    </main>
+      </main>
+    </>
   );
 };

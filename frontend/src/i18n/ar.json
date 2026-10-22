@@ -3294,5 +3294,28 @@
     "sync_failed": "تعذّر تحديث عناصرك المحفوظة حالياً. تمت استعادة اختيارك السابق.",
     "added_announcement": "تم الحفظ في قائمة الأمنيات",
     "removed_announcement": "تمت الإزالة من قائمة الأمنيات"
+  },
+  "audit_closure": {
+    "cart_decrease_item": "تقليل كمية {{title}}",
+    "cart_increase_item": "زيادة كمية {{title}}",
+    "cart_size_prefix": "المقاس:",
+    "bopis_qty_available": "{{count}} متوفر",
+    "return_submitting": "جارٍ الإرسال…",
+    "return_create_failed": "تعذّر إنشاء طلب الإرجاع.",
+    "preset_today": "اليوم",
+    "preset_7d": "آخر 7 أيام",
+    "preset_30d": "آخر 30 يوماً",
+    "preset_90d": "آخر 90 يوماً",
+    "preset_ytd": "منذ بداية العام",
+    "tenant_isolated": "عزل كامل للمستأجر",
+    "period_label": "الفترة:",
+    "freshness_label": "التحديث:",
+    "date_to": "إلى",
+    "observation_badge": "ملاحظة",
+    "top_products_title": "المنتجات الأعلى أداءً",
+    "top_products_subtitle": "المنتجات مرتّبة حسب إجمالي المبيعات والوحدات المباعة وحالة المخزون المتاح",
+    "pdf_export_failed": "تعذّر إنشاء تقرير PDF حالياً.",
+    "csv_export_failed": "تعذّر تصدير تقرير CSV حالياً.",
+    "telemetry_load_failed": "تعذّر تحميل بيانات التحليلات حالياً."
   }
 }

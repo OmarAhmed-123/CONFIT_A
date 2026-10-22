@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 import { ConfitLogo } from '../common/ConfitLogo';
+import { SkipLink, SKIP_MAIN_ID } from '../common/SkipLink';
 import { usePrefersReducedMotion } from '../common/InteractionPrimitives';
 
 /**
@@ -22,20 +23,25 @@ export const AuthPageShell: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const reduce = usePrefersReducedMotion();
   return (
-    <main className="min-h-screen bg-white px-4 py-14">
-      <motion.section
-        initial={reduce ? false : { opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={
-          reduce ? { duration: 0 } : { duration: 0.4, ease: [0.25, 1, 0.5, 1] }
-        }
-        className="mx-auto w-full max-w-md rounded-3xl border border-brand-hairline bg-white p-8 text-center shadow-sm"
-      >
-        <div className="mx-auto mb-5 flex justify-center">
-          <ConfitLogo variant="compact" theme="dark" size="sm" />
+    <>
+      <SkipLink />
+      <main className="min-h-screen bg-white px-4 py-14">
+        <div id={SKIP_MAIN_ID} tabIndex={-1} className="outline-none">
+          <motion.section
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={
+              reduce ? { duration: 0 } : { duration: 0.4, ease: [0.25, 1, 0.5, 1] }
+            }
+            className="mx-auto w-full max-w-md rounded-3xl border border-brand-hairline bg-white p-8 text-center shadow-sm"
+          >
+            <div className="mx-auto mb-5 flex justify-center">
+              <ConfitLogo variant="compact" theme="dark" size="sm" />
+            </div>
+            {children}
+          </motion.section>
         </div>
-        {children}
-      </motion.section>
-    </main>
+      </main>
+    </>
   );
 };

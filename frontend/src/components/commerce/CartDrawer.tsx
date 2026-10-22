@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCartStore } from '../../stores/cartStore';
@@ -6,12 +6,15 @@ import { BagIcon, SparkleIcon } from '../icons/ConfitIcons';
 import { BNPLBadge } from '../common/CommonComponents';
 import { HonestProductImage } from '../common/HonestProductImage';
 import { formatMoney } from '../../i18n/format';
+import { useModalFocus } from '../../hooks/useModalFocus';
 
 export const CartDrawer: React.FC = () => {
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? 'en';
+  const isRtl = i18n.dir() === 'rtl';
   const navigate = useNavigate();
   const { cart, isOpen, closeCart, fetchCart, updateQuantity, removeItem } = useCartStore();
+  const drawerRef = useModalFocus<HTMLDivElement>(closeCart, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -26,9 +29,21 @@ export const CartDrawer: React.FC = () => {
   const subtotal = cart?.subtotal || 0;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200">
+    <div
+      className="fixed inset-0 z-50 overflow-hidden bg-slate-950/50 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) closeCart();
+      }}
+    >
+      <div className="absolute inset-y-0 end-0 max-w-full flex ps-10">
+        <div
+          ref={drawerRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cart-drawer-title"
+          tabIndex={-1}
+          className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-s border-slate-200 outline-none"
+        >
           {/* Header */}
           <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-brand-wash">
             <div className="flex items-center gap-2.5">
@@ -36,7 +51,7 @@ export const CartDrawer: React.FC = () => {
                 <BagIcon size={20} color="#FFFFFF" />
               </div>
               <div>
-                <h3 className="font-serif text-base font-bold text-brand-charcoal">
+                <h3 id="cart-drawer-title" className="font-serif text-base font-bold text-brand-charcoal">
                   {t('commerce.cart_title')}
                 </h3>
                 <span className="text-xs text-slate-500" aria-live="polite">
@@ -103,7 +118,7 @@ export const CartDrawer: React.FC = () => {
                       </div>
                       <h4 className="text-xs font-bold text-brand-charcoal truncate">{item.product_title}</h4>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-600">
-                        <span>Size: <strong>{item.size}</strong></span>
+                        <span>{t('audit_closure.cart_size_prefix')} <strong><bdi dir="ltr">{item.size}</bdi></strong></span>
                         <span>•</span>
                         <span>{item.color}</span>
                       </div>
@@ -117,22 +132,22 @@ export const CartDrawer: React.FC = () => {
                       <div className="flex items-center border border-slate-200 rounded-lg bg-white">
                         <button data-motion="commerce" data-motion-tone="icon"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-l flex items-center justify-center"
-                          aria-label={`Decrease quantity of ${item.product_title}`}
+                          className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-s flex items-center justify-center"
+                          aria-label={t('audit_closure.cart_decrease_item', { title: item.product_title })}
                         >
                           <span aria-hidden="true">-</span>
                         </button>
                         <span className="px-2 text-xs font-bold text-slate-800" aria-live="polite">{item.quantity}</span>
                         <button data-motion="commerce" data-motion-tone="icon"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-r flex items-center justify-center"
-                          aria-label={`Increase quantity of ${item.product_title}`}
+                          className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-e flex items-center justify-center"
+                          aria-label={t('audit_closure.cart_increase_item', { title: item.product_title })}
                         >
                           <span aria-hidden="true">+</span>
                         </button>
                       </div>
                       <span className="text-xs font-bold text-brand-charcoal">
-                        {formatMoney(Math.round(item.subtotal * 100), cart?.currency || 'USD', lang)}
+                        <bdi dir="ltr">{formatMoney(Math.round(item.subtotal * 100), cart?.currency || 'USD', lang)}</bdi>
                       </span>
                     </div>
                   </div>
@@ -195,7 +210,7 @@ export const CartDrawer: React.FC = () => {
                 className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 <span>{t('commerce.checkout')}</span>
-                <span>→</span>
+                <span aria-hidden="true">{isRtl ? '←' : '→'}</span>
               </button>
             </div>
           )}

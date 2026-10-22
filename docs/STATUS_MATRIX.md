@@ -503,3 +503,117 @@ owner approval, not a requirement.
 | NVDA / JAWS / VoiceOver / TalkBack / Orca | **BLOCKED** — unchanged |
 | Real High Contrast, physical devices, production RUM | **NOT TESTED** / **BLOCKED** |
 | Production deployment of any Phase-5 fix | **PENDING APPROVAL** |
+
+## 12. Phase 6 — branch integration and release attempt (2026-10-22)
+
+**Candidate:** `ba7b7bc` (merge of `origin/main` @ `cfc6d803` into `work/production-hardening`)
+**PR:** #372, retargeted `fix/wizard-reappearing` → `main`.
+**Decision this section supports: NO-GO for production release.** The blocker is external to
+the code and is named in 12.3.
+
+### 12.1 Repository state at integration
+
+| Item | Value |
+|---|---|
+| `main` before integration | `cfc6d803` (PR #375) |
+| Branch before integration | `978b403` (4 Phase-5 commits) |
+| Divergence | diverged — 4 ahead, 10 behind |
+| Merge commit | **`ba7b7bc`** (parents `978b403`, `cfc6d803`) |
+| Conflict | one, `docs/STATUS_MATRIX.md`; both sides kept verbatim |
+| Auto-merged, then manually verified | `wardrobe_service.py`, `HomeView.tsx` |
+| `fix/wizard-reappearing` | **fully contained in `main`** (0 unique commits, 15 behind) — so the
+retarget abandons nothing. This resolves the earlier "designated integration target" note
+with evidence rather than substitution. |
+
+A local object-store corruption was also found and repaired in this phase: `git fsck`
+reported missing blobs and `git fetch` failed with `unresolved deltas left after unpacking`.
+The repository was re-cloned after verifying every local commit existed on the remote and that
+the clone reproduced the identical tree hash (`921ffe63…`), then swapped in. No work was lost.
+
+### 12.2 Quality gates on the merged tree
+
+| Gate | Result |
+|---|---|
+| `npm run verify` (i18n parity + tsc + vitest + build) | **EXIT 0** — 156 files / **2,356 tests**, build OK |
+| `pytest backend/tests/` | **4,547 passed, 25 skipped, 0 failed** |
+| CI `frontend` | success |
+| CI `backend` | success |
+| CI `postgres migration chain + schema gate` | success |
+| CI `stylist drawer browser gate` | success |
+| CI `gitleaks secret scan` | success |
+| CI `production parity (deployment contract)` | success |
+| CI `Workers Builds: confit-a` | **failure** — also fails on base `43377d8`; not attributable to this branch, not a required check |
+| **`release gate (production schema parity)`** | **required check — fails closed, see 12.3** |
+
+### 12.3 Production is NOT deployable, and not because of this branch
+
+Verification of `https://confit-a.vercel.app` at 2026-10-22T04:0xZ:
+
+| Probe | Result |
+|---|---|
+| `/api/v1/catalog/capabilities` | **503** `DATABASE_UNREACHABLE` |
+| `/api/v1/catalog/products`, `/categories`, `/brands` | **503** |
+| `/api/v1/health` | **500** |
+| `/` | 200 (static shell only) |
+
+The server names its own cause:
+
+```
+ProgrammingError: (pg8000.dbapi.ProgrammingError) {'S': 'ERROR', 'C': '53000',
+ 'M': 'Your account or project has exceeded the quota. Upgrade your plan to increase limits.'}
+expected_head: 0046_user_wishlist_items, database_revision: null
+```
+
+**This is quota exhaustion at the database provider, not schema drift and not a code defect.**
+The deployed commit is `cfc6d803` — already `main`, and unrelated to this PR. The same endpoint
+host (`ep-frosty-term-b2ivqwuz-pooler…`) also serves the verify database, which fails
+identically, so the whole Neon project is unavailable. The SPA still serves because it is static.
+
+Consequences, stated plainly:
+
+* `check_release_schema_parity.py` exits **2 (indeterminate)** because production cannot answer
+  `/health`. The required check therefore blocks the merge — the gate doing exactly its job.
+  It was **not** bypassed, and no allowlist or workflow edit was made to turn it green.
+* Production cannot be smoke-tested, so "the deployment serves the correct release" is
+  **UNVERIFIED** for any commit, including the current one.
+* `0046_user_wishlist_items` is additive and idempotent. Once the database is reachable,
+  `alembic upgrade head` completes the release; the recovery plan is forward-only, with no
+  destructive step and no data rewrite.
+
+**Owner action required:** raise or restore the Neon project quota (or repoint production at a
+database with capacity), then confirm `/api/v1/health` returns 200. Only then can the release
+gate pass and a deploy be verified.
+
+### 12.4 CLS fix verified after the merge, against a reference build of `main`
+
+Measured on the merged build and, for comparison, on a separately built `origin/main`, same
+probe, same data, 412×915:
+
+| Build | Branch A (policy present) | Branch B (fetch aborted) |
+|---|---|---|
+| `main` `cfc6d803` (no fix) | **0.8583** — shift target `#confit-main-content` container at t≈566 ms | 0.0147 |
+| merged branch (with fix) | **0.0581** — residual shift is the header utility strip (y=6, h=62) | 0.0145 |
+
+The fix survives the merge and removes ~93% of the shift on this dataset. The residual 0.0581
+is a **different element** — the header's "Partner Portal / English / العربية / currency" strip,
+which re-wraps — not the announcement slot (slot 46 px, heroTop 253, identical geometry either
+way). It measured 0.0145 on the verify dataset, so it is dataset- and timing-dependent; it is
+recorded here as an open observation rather than claimed clean, and it stays well inside the
+"good" band (<0.1).
+
+### 12.5 What could not be run, and why
+
+| Item | State |
+|---|---|
+| Orca / AT-SPI2 / Xvfb / Firefox AT harness (`scripts/qa/…`) | **BLOCKED** — `Xvfb`, `orca`, `espeak-ng`, `firefox`, `python-gi`, `psql`, `redis-server` are all absent here. The committed report is from `1cee410` on another machine and is **not** presented as a Phase-6 result. |
+| NVDA / JAWS / VoiceOver (macOS + iOS) / TalkBack | **BLOCKED** — no such hosts or devices |
+| Production smoke tests, worker/import verification | **BLOCKED** — production API is down (12.3) |
+| Neon-backed local E2E (verify DB) | **BLOCKED** — same quota fault; local UI checks ran on SQLite instead, which is a substitute, not production |
+
+### 12.6 Release decision
+
+**NO-GO for production release.** The code is integrated and green on every runnable gate; the
+release cannot be evidenced because the production database is refusing all connections for a
+billing/quota reason outside this repository. Merging while the required gate fails closed
+would be a bypass, and deploying into a database that cannot boot would make recovery harder,
+not easier.

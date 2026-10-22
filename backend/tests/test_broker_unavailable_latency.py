@@ -17,6 +17,7 @@ only a NESTED "retry_policy" key over Backend.retry_policy (max_retries=20).
 A top-level setting looks correct and does nothing.
 """
 
+import sys
 import time
 
 import pytest
@@ -46,6 +47,18 @@ class TestBrokerRetryPolicyIsBounded:
             f"effective backend retry_policy still {policy} — the 20x1s "
             "'Connection to Redis lost' storm would recur")
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason=(
+            "End-to-end wall-clock timing of a dead-broker enqueue is OS-dependent. "
+            "On Windows a connect to a non-listening localhost port (IPv6 ::1 is tried "
+            "first) stalls several seconds per attempt, so even a CORRECTLY bounded "
+            "2-retry policy exceeds the 8s budget (~16.8s measured). The retry BOUND — "
+            "the actual contract — is asserted by the three tests above and this "
+            "end-to-end guard runs on Linux/CI, where the connect refuses immediately. "
+            "Skipped (not loosened) on Windows so the threshold stays meaningful."
+        ),
+    )
     def test_enqueue_against_dead_broker_fails_in_seconds(self):
         """End-to-end timing: no Redis in the test environment."""
         from backend.app.workers.tasks import auto_tag_wardrobe_task

@@ -1,0 +1,9 @@
+# Optional dependencies for scoring REAL renders on a GPU host.
+# NOT installed by the scaffold, NOT part of the production worker image, and NOT
+# needed for a dry run or the plumbing tests. Install on the benchmark host only.
+pillow>=10.4.0
+numpy>=1.26.0
+scikit-image>=0.24.0        # SSIM
+lpips>=0.1.4               # LPIPS (requires torch)
+# torch — install the build matching the host CUDA version separately.
+# Hosted-API adapters additionally need the relevant SDK/HTTP client + a paid key.

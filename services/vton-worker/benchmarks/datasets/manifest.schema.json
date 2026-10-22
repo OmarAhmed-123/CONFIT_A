@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CONFIT VTON benchmark dataset manifest",
+  "type": "object",
+  "required": ["dataset", "cases"],
+  "properties": {
+    "dataset": {"type": "string", "description": "name of this test set"},
+    "notes": {"type": "string"},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "person_image", "garment_image", "category"],
+        "properties": {
+          "id": {"type": "string"},
+          "person_image": {"type": "string", "description": "local path under images/ (bytes not committed)"},
+          "garment_image": {"type": "string"},
+          "category": {"enum": ["tops", "bottoms", "one-pieces"]},
+          "body_type": {"type": "string"},
+          "skin_tone": {"type": "string"},
+          "pose": {"type": "string"},
+          "lighting": {"type": "string"},
+          "difficulty": {"type": "string", "description": "e.g. busy-pattern, logo, sheer, layering"},
+          "modest_wear": {"type": "boolean"},
+          "source": {"type": "string", "description": "where the image came from"},
+          "consent_status": {"type": "string", "description": "documented consent / license for use"},
+          "license": {"type": "string"}
+        }
+      }
+    }
+  }
+}

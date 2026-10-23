@@ -181,6 +181,7 @@ def get_vton_capabilities(
 
 
 @router.get("/try-on/garments/{product_id}/asset", response_model=GarmentAssetOut)
+@router.get("/tryon/garments/{product_id}/asset", response_model=GarmentAssetOut)
 def get_garment_asset(
     product_id: int,
     db: Session = Depends(get_db)
@@ -867,6 +868,7 @@ def save_measurement_session_to_profile(
 # 7. Visual Search Endpoints
 # =========================================================================
 @router.post("/tryon/visual-search", response_model=VisualSearchResponse)
+@router.post("/try-on/visual-search", response_model=VisualSearchResponse)
 @limiter.limit("30/hour")
 @router.post("/visual-search/sessions", response_model=VisualSearchResponse)
 async def visual_style_match(

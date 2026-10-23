@@ -1113,8 +1113,13 @@ class CommerceService:
         order = self.commerce_repo.get_order_by_id(order_id)
         if not order:
             raise ResourceNotFoundError("Order", order_id)
-        if user_id and order.user_id and order.user_id != user_id:
-            raise AuthorizationError("You cannot return another customer's order.")
+        # Authenticated callers may return ONLY their own orders. The earlier
+        # check skipped GUEST orders (order.user_id is None), so a logged-in user
+        # could file a return against a stranger's guest order by enumerating the
+        # integer order_id (IDOR, object-level authorization). Guests use the
+        # /returns/guest path, which proves ownership via assert_order_access.
+        if user_id is not None and order.user_id != user_id:
+            raise AuthorizationError("You can only return your own orders.")
         if user_id is None and guest_email and order.guest_email and order.guest_email.lower() != guest_email.lower():
             raise AuthorizationError("Guest email does not match this order.")
 

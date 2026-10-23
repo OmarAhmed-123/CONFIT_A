@@ -311,3 +311,53 @@ def test_anonymous_read_is_guest_only_and_owned_orders_are_denied(client: TestCl
     ).status_code == 200
     # Without second factor, guest order should be 404 (anti-enumeration), not 200
     assert client.get(f"/api/v1/commerce/orders/{guest_number}").status_code == 404
+
+
+def test_authenticated_user_cannot_file_a_return_against_a_guest_order(client: TestClient) -> None:
+    """IDOR (object-level authz) on a MUTATION: an authenticated user must not be
+    able to file a return against a GUEST order (user_id is None) they do not own.
+
+    create_return only denied when the order belonged to a *different registered*
+    customer (order.user_id set and != caller); a guest order (user_id None) slipped
+    through the check, and /commerce/returns carries no rate limit, so a logged-in
+    caller could file returns against strangers' guest orders by enumerating the
+    integer order_id. Authorization is checked before eligibility, so the order is
+    promoted to a returnable state to prove ownership is the only thing that blocks it.
+    """
+    from backend.app.models.commerce import Order
+    from backend.tests.conftest import TestingSessionLocal
+
+    guest_token = f"g5ac_ret_guest_{uuid.uuid4().hex[:6]}"
+    guest = _checkout_one_item(
+        client, _guest_headers(guest_token), guest_email="g5ac.ret.guest@example.com"
+    )
+    assert guest.get("user_id") is None, "fixture guard: guest order must have no owner"
+    order_number = guest["order_number"]
+
+    db = TestingSessionLocal()
+    try:
+        order = db.query(Order).filter(Order.order_number == order_number).one()
+        order_id = order.id
+        item_id = order.items[0].id
+        order.status = "delivered"  # returnable, and a fresh order is within the window
+        db.commit()
+    finally:
+        db.close()
+
+    intruder = _register(
+        client, f"g5ac_ret_intruder_{uuid.uuid4().hex[:6]}@confit.io", "Intruder Buyer"
+    )
+    resp = client.post(
+        "/api/v1/commerce/returns",
+        headers={"Authorization": f"Bearer {intruder}"},
+        json={
+            "order_id": order_id,
+            "reason": "Quality Issue",
+            "details": "not mine",
+            "item_ids": [item_id],
+        },
+    )
+    assert resp.status_code in (401, 403, 404), (
+        "an authenticated user filed a return against a guest order they do not own "
+        f"(status {resp.status_code}): {resp.text[:200]}"
+    )

@@ -32,7 +32,7 @@ async def _require_safe_image(
     blob: bytes,
     content_type: Optional[str],
     *,
-    user_id: int,
+    user_id: Optional[int] = None,
     service: ContentSafetyService = content_safety_service,
 ) -> None:
     """Moderate raw upload bytes, or refuse the upload.

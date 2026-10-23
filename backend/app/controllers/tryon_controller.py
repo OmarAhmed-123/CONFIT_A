@@ -820,9 +820,12 @@ async def photo_estimate_measurements(
             detail="Empty upload.",
         )
     # Same fail-closed moderation gate as wardrobe photos (body photos are
-    # people imagery — S4 policy applies before anything is processed).
-    if user is not None:
-        await _require_safe_image(data, mime, user_id=user.id)
+    # people imagery — S4 policy applies before anything is processed). This
+    # runs for GUESTS too: S4 (body imagery of minors, non-consensual imagery)
+    # must never depend on being signed in, and guests are a documented caller
+    # of this endpoint. The gate itself stands down when the classifier is
+    # unconfigured (local/dev/air-gapped), so it adds no burden there.
+    await _require_safe_image(data, mime, user_id=user.id if user else None)
 
     data_url = f"data:{mime};base64," + base64.b64encode(data).decode("ascii")
 

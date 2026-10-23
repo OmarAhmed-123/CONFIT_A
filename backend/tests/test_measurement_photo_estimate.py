@@ -473,5 +473,84 @@ def test_provider_sends_dedicated_token_and_height(worker_env):
     assert captured["payload"]["job_id"].startswith("anthro_")
 
 
+# ───────────────────── F-013: guest S4 moderation parity ─────────────────────
+# A guest body photo must pass the SAME fail-closed S4 content-safety gate as an
+# authenticated one BEFORE it is sent to the worker. The controller previously
+# ran the gate only `if user is not None`, so an unauthenticated upload reached
+# the Modal worker completely unscreened — a CSAM/NCII gate that depended on
+# being signed in, contradicting the endpoint's own documented contract.
+from backend.app.services.content_safety_service import (  # noqa: E402
+    SafetyVerdict,
+    Severity,
+    content_safety_service,
+)
+
+
+@pytest.fixture
+def s4_blocks(monkeypatch):
+    """Configure the S4 classifier and make it block, counting every call."""
+    calls = {"n": 0, "contexts": []}
+    monkeypatch.setattr(type(content_safety_service), "configured",
+                        property(lambda self: True))
+
+    async def blocked(image_url, *, caption="", context="upload"):  # noqa: ARG001
+        calls["n"] += 1
+        calls["contexts"].append(context)
+        return SafetyVerdict(safe=False, measured=True, severity=Severity.HARD_BLOCK,
+                             categories=["S4"], model_id="nvidia/test-safety")
+
+    monkeypatch.setattr(content_safety_service, "check_image", blocked)
+    return calls
+
+
+@pytest.fixture
+def worker_spy(monkeypatch):
+    """Records whether the anthropometry worker was reached at all."""
+    calls = {"n": 0}
+
+    async def fake_call(self, data_url, sex, height_cm=None):  # noqa: ARG001
+        calls["n"] += 1
+        return _worker_envelope(_worker_ok())
+
+    monkeypatch.setattr(AnthropometryProvider, "_call_worker", fake_call)
+    return calls
+
+
+def test_guest_photo_is_screened_by_s4_before_the_worker(
+        broker_down, worker_env, s4_blocks, worker_spy):
+    """A GUEST (unauthenticated) body photo is moderated before processing.
+
+    RED before the fix: the guest path skipped `_require_safe_image`, so the
+    photo reached the (stubbed-success) worker and returned 200 unscreened.
+    GREEN after: the S4 gate runs for the guest, blocks, and the worker is
+    never called.
+    """
+    from backend.app.main import app as main_app
+
+    guest = TestClient(main_app)
+    guest_headers = {"X-Session-Token": "guest-s4-token"}
+    res = guest.post("/api/v1/measurements/sessions", headers=guest_headers,
+                     json={"capture_mode": "server_side", "consent_granted": True})
+    assert res.status_code == 201, res.text
+    gsid = res.json()["id"]
+
+    res = _post_estimate(guest, guest_headers, gsid)
+
+    assert res.status_code == 422, res.text
+    assert s4_blocks["n"] == 1, "the guest photo must be screened exactly once"
+    assert worker_spy["n"] == 0, "a blocked guest photo must never reach the worker"
+
+
+def test_authenticated_photo_still_screened_by_s4(
+        client, broker_down, worker_env, s4_blocks, worker_spy):
+    """Control: the authenticated path keeps its S4 gate (unchanged)."""
+    headers = _register(client, "s4a")
+    sid = _create_session(client, headers)
+    res = _post_estimate(client, headers, sid)
+    assert res.status_code == 422, res.text
+    assert s4_blocks["n"] == 1
+    assert worker_spy["n"] == 0
+
+
 # keep the unused-import linters honest
 

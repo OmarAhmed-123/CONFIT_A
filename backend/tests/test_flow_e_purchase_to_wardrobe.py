@@ -676,7 +676,11 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # never "whose host is this". A brand now proves control of a hostname with a
     # DNS TXT claim, per-brand, and imports are authorized against that record at
     # validation, at commit and on every redirect hop. Additive table only.
-    assert expected_head_revision() == "0046_user_wishlist_items"
+    # -> 0047 (notifications). The head moved consciously: a serverless-safe,
+    # strictly per-recipient in-app notification table (polling REST; Vercel
+    # cannot hold a WebSocket). Additive table only; the chain stays linear.
+    assert expected_head_revision() == "0047_notifications"
+    assert chain["0047_notifications"] == "0046_user_wishlist_items"
     assert chain["0046_user_wishlist_items"] == "0045_brand_verified_domains"
     assert chain["0045_brand_verified_domains"] == "0044_product_price_provenance"
     assert chain["0044_product_price_provenance"] == "0043_import_job_payload"

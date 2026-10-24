@@ -48,15 +48,13 @@ const NotificationRow: React.FC<{
   onClose: () => void;
 }> = ({ n, t, onRead, onClose }) => {
   const text = lineFor(t, n);
-  const d = (n.data || {}) as Record<string, unknown>;
-  // Secondary line: a language-neutral counts summary for imports; the stored
-  // body for generic types; nothing for the self-contained order/new-order lines.
-  let body: string | null = null;
-  if (n.type === 'catalog_import' && d.total !== undefined) {
-    body = `${d.accepted ?? 0} ✓ · ${d.rejected ?? 0} ✗ · ${d.total ?? 0}`;
-  } else if (n.type !== 'order_status' && n.type !== 'new_order' && n.body) {
-    body = n.body;
-  }
+  // Secondary line only for generic types; order_status, new_order and
+  // catalog_import lines are self-contained in the localized title (and never
+  // use a unicode/emoji status channel).
+  const body =
+    n.type !== 'order_status' && n.type !== 'new_order' && n.type !== 'catalog_import' && n.body
+      ? n.body
+      : null;
   const handle = () => {
     if (!n.read) onRead();
     onClose();
@@ -75,7 +73,7 @@ const NotificationRow: React.FC<{
       {inner}
     </Link>
   ) : (
-    <button type="button" onClick={handle} className="block w-full text-start" role="menuitem">
+    <button data-motion="neutral" type="button" onClick={handle} className="block w-full text-start" role="menuitem">
       {inner}
     </button>
   );
@@ -118,6 +116,8 @@ export const NotificationBell: React.FC<{ tone?: 'light' | 'dark' }> = ({ tone =
   return (
     <div className="relative" ref={ref}>
       <button
+        data-motion="neutral"
+        data-motion-tone="icon"
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"
@@ -147,6 +147,7 @@ export const NotificationBell: React.FC<{ tone?: 'light' | 'dark' }> = ({ tone =
             <span className="text-sm font-bold text-brand-charcoal">{t('notifications.title')}</span>
             {unread > 0 ? (
               <button
+                data-motion="neutral"
                 type="button"
                 onClick={() => void markAllRead()}
                 className="text-xs font-semibold text-brand-field hover:underline"

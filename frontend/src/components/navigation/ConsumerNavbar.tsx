@@ -16,6 +16,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { msg } from '../../i18n/messages';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { CurrencySwitcher } from './CurrencySwitcher';
+import { NotificationBell } from './NotificationBell';
 import { CONSUMER_NAV, isSectionActive, isItemActive, type NavAction, type NavItem, type NavSection } from './navMetadata';
 
 /**
@@ -305,6 +306,8 @@ export const ConsumerNavbar: React.FC = () => {
             >
               <BagIcon size={20} badge={itemsCount} />
             </button>
+
+            {isAuthenticated && user ? <NotificationBell /> : null}
 
             {isAuthenticated && user ? (
               <div

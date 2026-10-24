@@ -161,3 +161,93 @@ def test_service_clamps_unknown_type_and_serialises_data(client: TestClient):
     item = client.get("/api/v1/notifications", headers=a_h).json()["items"][0]
     assert item["type"] == "system"            # unknown type clamped, not 500
     assert item["data"] == {"order_id": 42, "n": 3}
+
+
+# ─────────────── producer: order status change → owner notification ───────────────
+import json as _json
+from decimal import Decimal
+
+from backend.app.models.commerce import Order
+from backend.app.services.commerce_service import CommerceService
+
+
+def _make_order(db, user_id, *, status="processing", paid=True):
+    o = Order(
+        order_number=f"NOTIF-{uuid.uuid4().hex[:10]}",
+        user_id=user_id,
+        total_amount=Decimal("100.00"),
+        subtotal_amount=Decimal("100.00"),
+        status=status,
+        payment_status="paid" if paid else "pending",
+        payment_method="card",
+    )
+    db.add(o)
+    db.commit()
+    db.refresh(o)
+    return o
+
+
+def _order_notifs(user_id):
+    db = TestingSessionLocal()
+    try:
+        return [r for r in NotificationService(db).list_for_user(user_id) if r.type == "order_status"]
+    finally:
+        db.close()
+
+
+def test_order_milestone_notifies_the_owner(client: TestClient):
+    uid, _ = _register(client, "ordowner")
+    db = TestingSessionLocal()
+    try:
+        onum = _make_order(db, uid, status="processing", paid=True).order_number
+    finally:
+        db.close()
+
+    db2 = TestingSessionLocal()
+    try:
+        CommerceService(db2).transition_order(onum, "shipped")  # customer milestone
+    finally:
+        db2.close()
+
+    notifs = _order_notifs(uid)
+    assert len(notifs) == 1
+    assert onum in notifs[0].title
+    assert _json.loads(notifs[0].data_json)["status"] == "shipped"
+    assert notifs[0].read_at is None  # arrives unread
+
+
+def test_guest_order_milestone_creates_no_notification(client: TestClient):
+    db = TestingSessionLocal()
+    try:
+        o = Order(
+            order_number=f"NOTIF-{uuid.uuid4().hex[:10]}", user_id=None,
+            total_amount=Decimal("50.00"), subtotal_amount=Decimal("50.00"),
+            status="processing", payment_status="paid", payment_method="card",
+        )
+        db.add(o)
+        db.commit()
+        onum = o.order_number
+    finally:
+        db.close()
+    # Must not raise and must not create any notification (no in-app recipient).
+    db2 = TestingSessionLocal()
+    try:
+        res = CommerceService(db2).transition_order(onum, "shipped")
+        assert res["status"] == "shipped"
+    finally:
+        db2.close()
+
+
+def test_internal_status_change_is_not_notified(client: TestClient):
+    uid, _ = _register(client, "internalmove")
+    db = TestingSessionLocal()
+    try:
+        onum = _make_order(db, uid, status="placed", paid=True).order_number
+    finally:
+        db.close()
+    db2 = TestingSessionLocal()
+    try:
+        CommerceService(db2).transition_order(onum, "processing")  # not a notify milestone
+    finally:
+        db2.close()
+    assert _order_notifs(uid) == []

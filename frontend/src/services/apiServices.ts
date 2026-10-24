@@ -1741,7 +1741,7 @@ const adminAnalyticsContract = z
     tryon_adoption_rate: z.number().nullable(),
     stylist_conversion_ratio: z.number().nullable(),
     platform_avg_return_rate: z.number().nullable(),
-    revenue_attribution: z.record(z.number().nullable()),
+    revenue_attribution: z.record(z.string(), z.number().nullable()),
     top_performing_brands: z.array(z.object({ brand: z.string() }).passthrough()),
     time_range: z
       .object({

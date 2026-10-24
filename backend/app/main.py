@@ -132,7 +132,16 @@ async def request_id_guard(request: Request, call_next):
 # BEFORE any session exists) — a cross-site attacker cannot supply those, so
 # the double-submit cookie adds nothing and would only break the MFA step
 # for a shopper who still carries a stale session cookie.
-CSRF_EXEMPT_PATH_PREFIXES = ("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/social-login", "/api/v1/auth/mfa/email-code", "/v1/auth/", "/auth/")
+#
+# Matched by SUFFIX, not prefix, so the exemption is IDENTICAL on every router
+# mount (/api/v1/auth/..., /v1/auth/..., /auth/...). A bare "/v1/auth/" +
+# "/auth/" prefix here previously exempted the ENTIRE auth router on those two
+# mounts — including session-authenticated state-changers (change-password,
+# mfa/disable, mfa/setup, mfa/regenerate-codes, logout, DELETE /account) — so
+# they bypassed the double-submit guard on two of the three mounts while
+# /api/v1/auth/* enforced it. Only the four credential-auth endpoints below
+# (no session yet) are ever exempt, and on every mount.
+CSRF_EXEMPT_SUFFIXES = ("/auth/login", "/auth/register", "/auth/social-login", "/auth/mfa/email-code")
 
 
 @app.middleware("http")
@@ -142,7 +151,7 @@ async def csrf_cookie_guard(request: Request, call_next):
         has_bearer = (request.headers.get("authorization") or "").startswith("Bearer ")
         if has_session_cookie and not has_bearer:
             path = request.url.path
-            if not any(path.startswith(p) for p in CSRF_EXEMPT_PATH_PREFIXES):
+            if not any(path.endswith(s) for s in CSRF_EXEMPT_SUFFIXES):
                 csrf_cookie = request.cookies.get("confit_csrf")
                 csrf_header = request.headers.get("x-csrf-token")
                 if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:

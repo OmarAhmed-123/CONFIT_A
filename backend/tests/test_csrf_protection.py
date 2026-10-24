@@ -245,3 +245,56 @@ class TestCSRFRealFlow:
         client.cookies.clear()
         assert "confit_csrf" not in client.cookies
         assert "confit_token" not in client.cookies
+
+
+class TestCSRFMountParity:
+    """F-014: the double-submit guard must apply on EVERY router mount.
+
+    Routers mount at /api/v1, /v1 and "" (root), so the auth router answers at
+    /api/v1/auth/*, /v1/auth/* and /auth/*. The exemption must cover ONLY the
+    credential-authenticated endpoints (login / register / social-login /
+    mfa-email-code) on all mounts — never the whole auth router on the /v1 and
+    root mounts, which previously let session-authenticated state-changers
+    (change-password, mfa/disable, DELETE /account) bypass CSRF there.
+    """
+
+    # (method, path, body) for state-changing, session-authenticated endpoints
+    PROTECTED = [
+        ("post", "/auth/change-password",
+         {"current_password": "x", "new_password": "Zzzz123!@#"}),
+        ("post", "/v1/auth/change-password",
+         {"current_password": "x", "new_password": "Zzzz123!@#"}),
+        ("post", "/auth/mfa/disable", {"password": "x"}),
+        ("post", "/v1/auth/mfa/disable", {"password": "x"}),
+        ("delete", "/auth/account", {"confirm": "DELETE"}),
+    ]
+
+    @pytest.mark.parametrize("method,path,body", PROTECTED)
+    def test_state_changing_auth_requires_csrf_on_every_mount(self, method, path, body):
+        c = TestClient(app)
+        # Cookie-authenticated (no Bearer) + no X-CSRF-Token header: the
+        # double-submit guard MUST refuse before the handler ever runs.
+        c.cookies.set("confit_token", "cookie-session-value")
+        resp = c.request(method, path, json=body)
+        assert resp.status_code == 403, (
+            f"{method.upper()} {path} bypassed the CSRF guard (got "
+            f"{resp.status_code}); a cookie-authenticated state change must "
+            f"require the double-submit token on every mount"
+        )
+        assert resp.json()["error"]["code"] == "CSRF_TOKEN_MISMATCH"
+
+    @pytest.mark.parametrize("path", [
+        "/auth/login", "/v1/auth/login", "/api/v1/auth/login",
+    ])
+    def test_login_stays_csrf_exempt_on_every_mount(self, path):
+        """Credential-auth endpoints carry no session yet; the guard must stay
+        out of their way on every mount, even if a stale session cookie rides
+        along."""
+        c = TestClient(app)
+        c.cookies.set("confit_token", "stale-session-value")
+        resp = c.request("post", path, json={"email": "nobody@confit.io", "password": "wrong"})
+        is_csrf_block = (
+            resp.status_code == 403
+            and resp.json().get("error", {}).get("code") == "CSRF_TOKEN_MISMATCH"
+        )
+        assert not is_csrf_block, f"{path} must remain CSRF-exempt (credential-authenticated)"

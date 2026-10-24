@@ -26,6 +26,7 @@ from backend.app.models.notification import Notification
 KNOWN_TYPES = {
     "system",
     "order_status",
+    "new_order",
     "catalog_import",
     "new_product",
     "promotion",

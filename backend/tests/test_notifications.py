@@ -251,3 +251,96 @@ def test_internal_status_change_is_not_notified(client: TestClient):
     finally:
         db2.close()
     assert _order_notifs(uid) == []
+
+
+# ─────────── producer: CSV import completion → brand member (actor) ───────────
+from types import SimpleNamespace
+
+from backend.app.services.brand_catalog_service import BrandCatalogService
+from backend.app.models.user import BrandProfile
+
+
+def _all_notifs(user_id):
+    db = TestingSessionLocal()
+    try:
+        return NotificationService(db).list_for_user(user_id, limit=100)
+    finally:
+        db.close()
+
+
+def test_catalog_import_complete_notifies_the_actor(client: TestClient):
+    uid, _ = _register(client, "importactor")
+    db = TestingSessionLocal()
+    try:
+        job = SimpleNamespace(id=4321, status="completed", accepted_rows=18, rejected_rows=2, total_rows=20)
+        BrandCatalogService(db)._notify_import_complete(uid, job)
+    finally:
+        db.close()
+    notifs = [r for r in _all_notifs(uid) if r.type == "catalog_import"]
+    assert len(notifs) == 1
+    assert "completed" in notifs[0].title.lower()
+    assert _json.loads(notifs[0].data_json)["accepted"] == 18
+
+
+def test_catalog_import_without_actor_is_noop(client: TestClient):
+    db = TestingSessionLocal()
+    try:
+        job = SimpleNamespace(id=1, status="completed", accepted_rows=1, rejected_rows=0, total_rows=1)
+        BrandCatalogService(db)._notify_import_complete(None, job)  # must not raise, must create nothing
+    finally:
+        db.close()
+
+
+# ─────────── producer: new order → each brand owner ───────────
+def _make_brand(db, owner_user_id, label):
+    suffix = uuid.uuid4().hex[:8]
+    bp = BrandProfile(
+        user_id=owner_user_id,
+        brand_name=f"{label}-{suffix}",
+        slug=f"{label.lower()}-{suffix}",
+    )
+    db.add(bp)
+    db.commit()
+    db.refresh(bp)
+    return bp.id
+
+
+def test_new_order_notifies_each_brand_owner(client: TestClient):
+    owner_a, _ = _register(client, "brandownerA")
+    owner_b, _ = _register(client, "brandownerB")
+    db = TestingSessionLocal()
+    try:
+        ba = _make_brand(db, owner_a, "BrandA")
+        bb = _make_brand(db, owner_b, "BrandB")
+        order = Order(
+            order_number=f"NOTIF-{uuid.uuid4().hex[:10]}", user_id=None,
+            total_amount=Decimal("200.00"), subtotal_amount=Decimal("200.00"),
+            status="placed", payment_status="paid", payment_method="card",
+        )
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        onum = order.order_number
+        CommerceService(db)._notify_brands_of_new_order(order, [ba, bb])
+    finally:
+        db.close()
+    for owner in (owner_a, owner_b):
+        notifs = [r for r in _all_notifs(owner) if r.type == "new_order"]
+        assert len(notifs) == 1, f"owner {owner} should have exactly one new_order notification"
+        assert onum in notifs[0].title
+        assert "customer" in notifs[0].body.lower()  # no PII, just "a customer"
+
+
+def test_new_order_with_no_brands_is_noop(client: TestClient):
+    db = TestingSessionLocal()
+    try:
+        order = Order(
+            order_number=f"NOTIF-{uuid.uuid4().hex[:10]}", user_id=None,
+            total_amount=Decimal("10.00"), subtotal_amount=Decimal("10.00"),
+            status="placed", payment_status="paid", payment_method="card",
+        )
+        db.add(order)
+        db.commit()
+        CommerceService(db)._notify_brands_of_new_order(order, [])  # must not raise
+    finally:
+        db.close()

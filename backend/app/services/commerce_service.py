@@ -583,6 +583,18 @@ class CommerceService:
                 order_number=order.order_number, error=str(_e)[:200],
             )
 
+        # Best-effort in-app notification to each brand with items in this order
+        # — this is the customer→store-owner link. Guarded: the order is already
+        # committed and must never be rolled back or failed by a notification,
+        # and no customer PII is included (just the order number).
+        try:
+            self._notify_brands_of_new_order(order, brand_ids)
+        except Exception as _e:  # noqa: BLE001
+            logger.warn(
+                "brand_order_notification_failed",
+                order_number=order.order_number, error=str(_e)[:200],
+            )
+
         from backend.app.providers.payment.fawaterak import to_minor_units
 
         pay_result = await self.payments.initiate_payment(
@@ -2090,6 +2102,39 @@ class CommerceService:
                 order=getattr(order, "order_number", "?"),
                 error=str(exc)[:200],
             )
+
+    def _notify_brands_of_new_order(self, order: Order, brand_ids) -> None:
+        """Notify each brand OWNER that a customer ordered their items.
+
+        Owner-addressed (BrandProfile.user_id); no customer PII is included —
+        only the order number. Best-effort and called after the order commit,
+        so it can never roll back or fail the order.
+        """
+        ids = [b for b in (brand_ids or []) if b]
+        if not ids:
+            return
+        from backend.app.models.user import BrandProfile
+        from backend.app.services.notification_service import NotificationService
+
+        owners = (
+            self.db.query(BrandProfile.id, BrandProfile.user_id)
+            .filter(BrandProfile.id.in_(ids), BrandProfile.user_id.isnot(None))
+            .all()
+        )
+        if not owners:
+            return
+        svc = NotificationService(self.db)
+        for _bid, owner_id in owners:
+            svc.create(
+                owner_id,
+                "new_order",
+                f"New order {order.order_number}",
+                body="A customer placed an order that includes your items.",
+                link="/brand-dashboard/orders",
+                data={"order_number": order.order_number, "order_id": order.id},
+                commit=False,
+            )
+        self.db.commit()
 
     def _settle_cod_at_handover(self, order: Order) -> None:
         """PAY-01: cash-on-delivery settles exactly when the goods change hands."""

@@ -73,7 +73,7 @@ const NotificationRow: React.FC<{
       {inner}
     </Link>
   ) : (
-    <button data-motion="neutral" type="button" onClick={handle} className="block w-full text-start" role="menuitem">
+    <button data-motion="neutral" data-motion-tone="icon" type="button" onClick={handle} className="block w-full text-start" role="menuitem">
       {inner}
     </button>
   );
@@ -115,9 +115,7 @@ export const NotificationBell: React.FC<{ tone?: 'light' | 'dark' }> = ({ tone =
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        data-motion="neutral"
-        data-motion-tone="icon"
+      <button data-motion="neutral"
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="true"
@@ -146,8 +144,7 @@ export const NotificationBell: React.FC<{ tone?: 'light' | 'dark' }> = ({ tone =
           <div className="flex items-center justify-between px-1 pb-2 border-b border-slate-100">
             <span className="text-sm font-bold text-brand-charcoal">{t('notifications.title')}</span>
             {unread > 0 ? (
-              <button
-                data-motion="neutral"
+              <button data-motion="neutral"
                 type="button"
                 onClick={() => void markAllRead()}
                 className="text-xs font-semibold text-brand-field hover:underline"

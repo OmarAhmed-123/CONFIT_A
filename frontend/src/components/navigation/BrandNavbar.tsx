@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ConfitLogo } from '../common/ConfitLogo';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { NotificationBell } from './NotificationBell';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { usePrefersReducedMotion } from '../common/InteractionPrimitives';
@@ -497,7 +498,10 @@ export const BrandNavbar: React.FC = () => {
             <ConfitLogo variant="compact" theme="light" size="sm" />
             <span className="truncate text-xs font-bold text-white">{portalTitle}</span>
           </Link>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-1">
+            <NotificationBell tone="dark" />
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 
@@ -571,7 +575,8 @@ export const BrandNavbar: React.FC = () => {
             {!collapsed && t('brand_nav.storefront')}
           </Link>
           {!collapsed && (
-            <div className="px-3 py-1">
+            <div className="px-3 py-1 flex items-center gap-2">
+              <NotificationBell tone="dark" />
               <LanguageSwitcher />
             </div>
           )}

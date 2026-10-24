@@ -3324,6 +3324,13 @@
     "empty": "لا توجد إشعارات جديدة.",
     "loading": "جارٍ التحميل…",
     "aria_label": "الإشعارات ({{count}} غير مقروء)",
-    "order_prefix": "الطلب"
+    "order_prefix": "الطلب",
+    "new_order_prefix": "طلب جديد",
+    "import_prefix": "استيراد الكتالوج",
+    "import_status": {
+      "completed": "اكتمل",
+      "partially_completed": "اكتمل جزئياً",
+      "failed": "فشل"
+    }
   }
 }

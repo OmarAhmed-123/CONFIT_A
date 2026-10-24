@@ -17,6 +17,81 @@ from backend.app.providers.nvidia import ModelRole, NvidiaClient
 _stylist_nvidia_client = NvidiaClient(key_attempts=1)
 
 
+
+# ── budget-claim guard ────────────────────────────────────────────────────
+# MEASURED DEFECT (2026-10-24, live IBM Granite calls): asked for "a look under
+# 7000 EGP" from two items priced 4200 and 6800, the model answered "under
+# 7000 EGP" while recommending BOTH - 11,000 EGP. Reproduced 3/3, English and
+# Arabic. `_verify_grounding` rejects an invented BRAND but had no notion of a
+# number, so that answer was accepted verbatim.
+#
+# The shopper's harm is not an invented product, it is a price promise the
+# catalogue cannot keep. The claim is cheap to check because the total is
+# authoritative and already computed server-side: refuse when the answer
+# advertises a ceiling below the look's real total, and let the deterministic
+# engine answer instead (it states no figures at all).
+_BUDGET_CLAIM_RE = re.compile(
+    r"(?:under|below|less than|within|no more than|up to|max(?:imum)?(?: of)?|"
+    r"أقل من|اقل من|تحت|بأقل من|في حدود|بحد أقصى|لا يزيد عن)\s*"
+    r"(?:(?:EGP|AED|SAR|USD|EUR|GBP|جنيه(?:اً)?|ج\.م|درهم|ريال)\s*)?"
+    r"([0-9][0-9,٬\.]*)",
+    re.IGNORECASE,
+)
+
+
+def _parse_amount(raw: str) -> Optional[float]:
+    cleaned = raw.replace(",", "").replace("٬", "").strip().rstrip(".")
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _outfit_total(outfit: Optional[Dict[str, Any]]) -> float:
+    """The authoritative total for a look: the composer's, else the item sum."""
+    if not outfit:
+        return 0.0
+    total = outfit.get("total_price")
+    if isinstance(total, (int, float)) and total > 0:
+        return float(total)
+    running = 0.0
+    for item in outfit.get("items") or []:
+        price = item.get("price")
+        if isinstance(price, (int, float)):
+            running += float(price)
+    return running
+
+
+def budget_claim_violated(
+    ai_text: str, outfit: Optional[Dict[str, Any]]
+) -> Optional[Tuple[float, float]]:
+    """Return (claimed_ceiling, real_total) when the text promises too much.
+
+    ``None`` means the answer makes no provable contradiction. Conservative by
+    design: only an explicit "under/below/less than <amount>" claim is checked,
+    so ordinary prose, sizes and dates are never refused.
+    """
+    if not ai_text or not outfit:
+        return None
+    total = _outfit_total(outfit)
+    if total <= 0:
+        return None
+
+    claims = []
+    for match in _BUDGET_CLAIM_RE.finditer(ai_text):
+        amount = _parse_amount(match.group(1))
+        if amount and amount > 0:
+            claims.append(amount)
+    if not claims:
+        return None
+
+    # The strictest promise the answer makes is the one that binds it.
+    ceiling = min(claims)
+    if total > ceiling + 0.5:  # half a unit of rounding tolerance
+        return ceiling, total
+    return None
+
+
 class MultiProviderAIOrchestrator:
     """Production Multi-Provider AI Orchestrator implementing live failover across NVIDIA, Groq, Gemini, and OpenAI."""
 
@@ -45,6 +120,16 @@ class MultiProviderAIOrchestrator:
                 reason=reason,
                 action_required="check API key validity and account billing/credit",
             )
+
+    @staticmethod
+    @staticmethod
+    def _watsonx_configured() -> bool:
+        try:
+            from backend.app.providers.watsonx import watsonx_client
+
+            return watsonx_client.is_configured()
+        except Exception:  # pragma: no cover - status must never raise
+            return False
 
     @staticmethod
     def _nvidia_pool_configured() -> bool:
@@ -78,6 +163,13 @@ class MultiProviderAIOrchestrator:
                 # per-model keys and no legacy shared key); see keypool.py.
                 "configured": bool(settings.NVIDIA_API_KEY) or self._nvidia_pool_configured(),
                 "cooling_for_seconds": max(0, round(self.cooldowns["nvidia"] - now, 1)) if "nvidia" in self.cooldowns else 0,
+            },
+            "watsonx": {
+                "configured": self._watsonx_configured(),
+                "cooling_for_seconds": (
+                    max(0, round(self.cooldowns["watsonx"] - now, 1))
+                    if "watsonx" in self.cooldowns else 0
+                ),
             },
             "unorouter": {
                 "configured": unorouter_provider.is_configured(),
@@ -256,6 +348,14 @@ class MultiProviderAIOrchestrator:
                     if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
+
+                elif provider == "watsonx" and self._watsonx_configured():
+                    res = await self._call_watsonx(system_prompt, user_prompt)
+                    if self._is_usable(res):
+                        text, model_id = res
+                        return self._format_response(
+                            text, prompt, intent, f"IBM {model_id}",
+                            selected_outfit, catalogue_brands, alternate_outfits)
 
                 elif provider == "unorouter":
                     res = await self._call_unorouter(system_prompt, user_prompt)
@@ -436,6 +536,29 @@ class MultiProviderAIOrchestrator:
             res.raise_for_status()
             return self._accept_chat_completion(
                 "groq", res.json(), "openai/gpt-oss-120b")
+
+    async def _call_watsonx(
+        self, system_prompt: str, user_prompt: str
+    ) -> Optional[Tuple[str, str]]:
+        """IBM watsonx.ai (Granite) leg.
+
+        Auth is an IAM key -> access token exchange, cached in the client, so this
+        costs nothing per request once warm. ``chat()`` returns None rather than
+        an empty string when IBM serves no usable message; an auth fault raises so
+        the loop can quarantine the leg instead of retrying it on every request.
+        """
+        from backend.app.providers.watsonx import WatsonxAuthError, watsonx_client
+
+        try:
+            return await watsonx_client.chat(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                max_tokens=self._max_tokens(),
+                temperature=0.7,
+            )
+        except WatsonxAuthError as exc:
+            self.mark_cooling("watsonx", f"auth: {type(exc).__name__}")
+            raise
 
     async def _call_gemini(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=self._timeout("gemini")) as client:
@@ -696,6 +819,23 @@ class MultiProviderAIOrchestrator:
         catalogue_brands: Optional[List[str]] = None,
         alternate_outfits: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
+        # Budget promise check, BEFORE accepting the answer. The shopper reads
+        # "under 7000 EGP" as a fact about the total; the catalogue is the only
+        # authority on that total, so an answer that promises less than the look
+        # costs is refused exactly like an invented brand.
+        violated = budget_claim_violated(ai_text, selected_outfit)
+        if violated is not None:
+            ceiling, real_total = violated
+            logger.info(
+                "Budget claim rejected, using deterministic fallback",
+                provider=provider_name,
+                claimed_ceiling=ceiling,
+                real_total=real_total,
+            )
+            return self._deterministic_fallback(
+                prompt, intent, selected_outfit, answer_source="budget_claim_rejected",
+            )
+
         # C14: Verify grounding before accepting AI response
         self._last_refused_brand = None
         if selected_outfit and not self._verify_grounding(

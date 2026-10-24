@@ -8,6 +8,10 @@ from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.services.styling_engine import StylingEngine
+from backend.app.services.styling.watsonx_list_builder import (
+    WatsonxListBuilder,
+    watsonx_list_builder,
+)
 from backend.app.services.query_translation import (
     contains_arabic,
     translate_query,
@@ -263,11 +267,27 @@ class StylistService:
         # 7. Compose strict slot-based complete outfits grounded in the catalog.
         # Only pixel-supported photo colours (palette_items) steer the selection.
         intent["image_palette"] = [p["color_family"] for p in palette_items if p.get("color_family")]
+        # Granite CHOOSES the look when watsonx.ai is configured - the IBM
+        # "AI stylist" step. This is the async boundary, so the model call lives
+        # here and the composer stays synchronous; the composer never blocks the
+        # event loop. Strictly additive: build() returns None on any doubt
+        # (unconfigured, timeout, malformed JSON, invented product, incomplete
+        # shape) and the rule-based selection below is used unchanged.
+        ai_selection = None
+        if WatsonxListBuilder.is_enabled():
+            ai_selection = await watsonx_list_builder.build(all_products, intent)
+
         recommended_outfits, alternatives_meta = StylingEngine.compose_outfits_with_meta(
             available_products=all_products,
             intent=intent,
             user_profile=usp,
-            max_outfits=2
+            max_outfits=2,
+            ai_selection=ai_selection,
+        )
+        # Record WHICH selector produced the look. A shopper-visible claim is
+        # never made from this; it is operational provenance.
+        alternatives_meta["selection_source"] = (
+            f"watsonx:{ai_selection['model_id']}" if ai_selection else "deterministic"
         )
         # Whether a second look was requested, published, or suppressed because it
         # held the same products as the first — part of the record, not a log

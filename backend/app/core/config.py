@@ -323,6 +323,11 @@ class Settings(BaseSettings):
     WATSONX_TIMEOUT_SECONDS: float = 45.0
     #: IAM tokens live 60 minutes; refresh early so a request never races expiry.
     WATSONX_TOKEN_REFRESH_SECONDS: float = 3000.0
+    #: Let Granite CHOOSE the outfit (IBM "AI stylist" step), not only describe
+    #: one the deterministic engine chose. Kill switch: set to false to pin the
+    #: shipped rule-based selection without touching code. A model selection is
+    #: used only when it validates against the exact shortlist it was shown.
+    WATSONX_LIST_BUILDING: bool = True
 
     # ── Self-hosted stylist inference (activates on GPU renewal) ──────────
     #

@@ -141,7 +141,26 @@ async def request_id_guard(request: Request, call_next):
 # they bypassed the double-submit guard on two of the three mounts while
 # /api/v1/auth/* enforced it. Only the four credential-auth endpoints below
 # (no session yet) are ever exempt, and on every mount.
-CSRF_EXEMPT_SUFFIXES = ("/auth/login", "/auth/register", "/auth/social-login", "/auth/mfa/email-code")
+#
+# The exempt set is EVERY credential/token endpoint that establishes or uses
+# auth WITHOUT a pre-existing session (a cross-site attacker cannot supply the
+# credentials, and there is no session being leveraged), matched by suffix so
+# it is identical on every mount. Session-authenticated mutations
+# (change-password, logout, mfa/setup|verify|disable|regenerate-codes, DELETE
+# /account) are deliberately NOT here — they are exactly what the double-submit
+# guard must protect. ("/brand/register" also covers "/auth/brand/register".)
+CSRF_EXEMPT_SUFFIXES = (
+    "/auth/login",
+    "/auth/register",
+    "/brand/register",
+    "/auth/social-login",
+    "/auth/refresh",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/verify-email",
+    "/auth/verify-email/request",
+    "/auth/mfa/email-code",
+)
 
 
 @app.middleware("http")

@@ -3317,5 +3317,20 @@
     "pdf_export_failed": "تعذّر إنشاء تقرير PDF حالياً.",
     "csv_export_failed": "تعذّر تصدير تقرير CSV حالياً.",
     "telemetry_load_failed": "تعذّر تحميل بيانات التحليلات حالياً."
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "mark_all_read": "تعليم الكل كمقروء",
+    "empty": "لا توجد إشعارات جديدة.",
+    "loading": "جارٍ التحميل…",
+    "aria_label": "الإشعارات ({{count}} غير مقروء)",
+    "order_prefix": "الطلب",
+    "new_order_prefix": "طلب جديد",
+    "import_prefix": "استيراد الكتالوج",
+    "import_status": {
+      "completed": "اكتمل",
+      "partially_completed": "اكتمل جزئياً",
+      "failed": "فشل"
+    }
   }
 }

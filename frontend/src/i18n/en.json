@@ -3310,5 +3310,20 @@
     "pdf_export_failed": "Could not generate PDF report right now.",
     "csv_export_failed": "Could not export CSV report right now.",
     "telemetry_load_failed": "Could not load business intelligence telemetry right now."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "mark_all_read": "Mark all read",
+    "empty": "You're all caught up.",
+    "loading": "Loading…",
+    "aria_label": "Notifications ({{count}} unread)",
+    "order_prefix": "Order",
+    "new_order_prefix": "New order",
+    "import_prefix": "Catalogue import",
+    "import_status": {
+      "completed": "completed",
+      "partially_completed": "partially completed",
+      "failed": "failed"
+    }
   }
 }

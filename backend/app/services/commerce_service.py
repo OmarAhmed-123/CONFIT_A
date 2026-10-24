@@ -113,6 +113,16 @@ FULFILLMENT_STATES: Set[str] = {
     "picked_up",
 }
 
+# Customer-facing order milestones that warrant an in-app notification to the
+# order's OWNER. Deliberately a SUBSET of ORDER_TRANSITIONS: early/internal
+# moves (placed, payment_pending, processing, preparing) are not notified, so
+# the shopper hears about shipment/delivery/refund progress without noise.
+_CUSTOMER_NOTIFY_STATUSES: Set[str] = {
+    "ready_for_pickup", "dispatched", "shipped", "out_for_delivery",
+    "delivered", "picked_up", "failed_delivery",
+    "partially_returned", "returned", "refunded", "rejected", "cancelled",
+}
+
 # Explicit payment state machine (single source of truth alongside ORDER_TRANSITIONS).
 # Forward-only semantics protect settled payments against out-of-order failure callbacks,
 # cancelled-order races, and duplicate refunds.
@@ -570,6 +580,18 @@ class CommerceService:
         except Exception as _e:  # noqa: BLE001
             logger.error(
                 "order_confirmation_email_failed",
+                order_number=order.order_number, error=str(_e)[:200],
+            )
+
+        # Best-effort in-app notification to each brand with items in this order
+        # — this is the customer→store-owner link. Guarded: the order is already
+        # committed and must never be rolled back or failed by a notification,
+        # and no customer PII is included (just the order number).
+        try:
+            self._notify_brands_of_new_order(order, brand_ids)
+        except Exception as _e:  # noqa: BLE001
+            logger.warn(
+                "brand_order_notification_failed",
                 order_number=order.order_number, error=str(_e)[:200],
             )
 
@@ -2040,6 +2062,79 @@ class CommerceService:
         if new_status == "ready_for_pickup":
             order.ready_for_pickup_at = datetime.now(timezone.utc)
         self.db.flush()
+        self._notify_order_status(order, new_status)
+
+    def _notify_order_status(self, order: Order, new_status: str) -> None:
+        """Best-effort in-app notification to the order's OWNER on a
+        customer-facing status change.
+
+        Joins the caller's transaction (``commit=False``) so the notification
+        commits atomically with the order move. Guarded end-to-end: a
+        notification problem is logged and swallowed — it must NEVER roll back
+        or fail an order transition. Guest orders (no ``user_id``) have no
+        in-app recipient and are skipped (they are served by order tracking /
+        email instead).
+        """
+        if order.user_id is None:
+            return
+        if new_status not in _CUSTOMER_NOTIFY_STATUSES:
+            return
+        try:
+            from backend.app.services.notification_service import NotificationService
+
+            human = new_status.replace("_", " ")
+            NotificationService(self.db).create(
+                order.user_id,
+                "order_status",
+                f"Order {order.order_number}: {human}",
+                body=f"Your order {order.order_number} is now {human}.",
+                link="/account/orders",
+                data={
+                    "order_number": order.order_number,
+                    "order_id": order.id,
+                    "status": new_status,
+                },
+                commit=False,
+            )
+        except Exception as exc:  # noqa: BLE001 — never fail an order move on a notification
+            logger.warning(
+                "order_status_notification_failed",
+                order=getattr(order, "order_number", "?"),
+                error=str(exc)[:200],
+            )
+
+    def _notify_brands_of_new_order(self, order: Order, brand_ids) -> None:
+        """Notify each brand OWNER that a customer ordered their items.
+
+        Owner-addressed (BrandProfile.user_id); no customer PII is included —
+        only the order number. Best-effort and called after the order commit,
+        so it can never roll back or fail the order.
+        """
+        ids = [b for b in (brand_ids or []) if b]
+        if not ids:
+            return
+        from backend.app.models.user import BrandProfile
+        from backend.app.services.notification_service import NotificationService
+
+        owners = (
+            self.db.query(BrandProfile.id, BrandProfile.user_id)
+            .filter(BrandProfile.id.in_(ids), BrandProfile.user_id.isnot(None))
+            .all()
+        )
+        if not owners:
+            return
+        svc = NotificationService(self.db)
+        for _bid, owner_id in owners:
+            svc.create(
+                owner_id,
+                "new_order",
+                f"New order {order.order_number}",
+                body="A customer placed an order that includes your items.",
+                link="/brand-dashboard/orders",
+                data={"order_number": order.order_number, "order_id": order.id},
+                commit=False,
+            )
+        self.db.commit()
 
     def _settle_cod_at_handover(self, order: Order) -> None:
         """PAY-01: cash-on-delivery settles exactly when the goods change hands."""

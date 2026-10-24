@@ -1456,6 +1456,40 @@ class BrandCatalogService:
             logger.error('catalog_import_media_error', product_id=getattr(product, 'id', None), reason=type(exc).__name__)
             return MediaResolvability(0, False, 'materialization_failed')
 
+    def _notify_import_complete(self, actor_id, job) -> None:
+        """Best-effort in-app notification to the brand member who ran a
+        catalogue import. Guarded: logged and swallowed, never changes the
+        import outcome. No-op without an actor (e.g. a system retry)."""
+        if not actor_id:
+            return
+        try:
+            from backend.app.services.notification_service import NotificationService
+
+            label = {
+                "completed": "completed",
+                "partially_completed": "partially completed",
+                "failed": "failed",
+            }.get(job.status, job.status)
+            NotificationService(self.db).create(
+                actor_id,
+                "catalog_import",
+                f"Catalogue import {label}",
+                body=(f"{job.accepted_rows} accepted, {job.rejected_rows} rejected "
+                      f"of {job.total_rows} rows."),
+                link="/brand-dashboard",
+                data={
+                    "job_id": job.id,
+                    "status": job.status,
+                    "accepted": job.accepted_rows,
+                    "rejected": job.rejected_rows,
+                    "total": job.total_rows,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 — never fail the import on a notification
+            from backend.app.core.logging import logger as _logger
+
+            _logger.warning("import_notification_failed", job_id=getattr(job, "id", "?"), error=str(exc)[:200])
+
     def _process(self, brand_id, file_name, file_size, prepare, actor_id=None, target_store_id=None,
                  send_notifications=False, job=None):
         """Run an import against a job row and persist the outcome.
@@ -1503,6 +1537,10 @@ class BrandCatalogService:
             self.db.add(AuditLog(user_id=actor_id, action='BRAND_CATALOG_IMPORTED', resource_type='CatalogImportJob',
                                  resource_id=str(job_id), details_json=json.dumps(dict(brand_id=brand_id, accepted=accepted, rejected=job.rejected_rows))))
             self.db.commit()
+
+            # Best-effort in-app notification to the brand member who ran the
+            # import (never changes the import's outcome).
+            self._notify_import_complete(actor_id, job)
 
             # Dispatch automated email notifications to eligible customers
             notif_result = {"queued": 0, "recipients_count": 0}

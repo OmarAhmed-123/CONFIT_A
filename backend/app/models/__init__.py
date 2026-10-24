@@ -32,6 +32,9 @@ from backend.app.models.membership import BrandMembership, BrandInvitation
 # Email outbox (spec 15): registered so create_all/alembic autogenerate see it.
 from backend.app.models.email_outbox import EmailOutbox
 from backend.app.models.email_preference import EmailPreference
+# In-app notifications (polling REST; serverless-safe). Registered so
+# create_all/alembic autogenerate and the schema-drift gate see the mapper.
+from backend.app.models.notification import Notification
 
 __all__ = [
     "User",
@@ -85,4 +88,5 @@ __all__ = [
     "BrandAnalyticsEvent",
     "BrandMembership",
     "BrandInvitation",
+    "Notification",
 ]

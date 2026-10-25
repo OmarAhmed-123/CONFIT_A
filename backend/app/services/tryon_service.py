@@ -443,10 +443,72 @@ class TryOnService:
             if slot not in SUPPORTED_SLOTS:
                 slot = DEFAULT_VTON_SLOT
 
-            # Try to fetch as base64 first for reliability (avoids worker SSRF/fetch issues)
-            b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+            # ── WHICH IMAGE IS THE GARMENT? ──────────────────────────────
+            # BUG FIXED 2026-10-25: this used to be
+            #     b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+            # with no second look at the prepared asset. A `tryon_ready`
+            # asset therefore only SKIPPED the ghost-hands gate while the
+            # bytes sent to the segmentation-free engine were still the
+            # catalogue photo. Measured live: product 3 (a white Oxford
+            # shirt whose stock thumbnail shows THREE shirts on a table)
+            # rendered as a purple jacket, and two runs a minute apart with
+            # different prepared assets returned a byte-identical image -
+            # proof the asset was never read. It also made `tryon_ready`
+            # UNSAFE: it waved an ON-MODEL photo past the gate, which is the
+            # exact ghost-hands incident the gate exists to prevent.
+            #
+            # The prepared asset IS the garment. Prefer it, and fail closed if
+            # it cannot be fetched rather than silently substituting the
+            # on-model catalogue photo.
+            from backend.app.models.tryon import GarmentAsset as _GarmentAsset
 
-            if gate_enabled:
+            _asset = (
+                self.db.query(_GarmentAsset)
+                .filter(_GarmentAsset.product_id == p.id)
+                .first()
+            )
+            _prepared_url = None
+            if _asset and _asset.tryon_ready:
+                _prepared_url = _asset.clean_image_url or _asset.segmented_garment_url
+
+            if _prepared_url:
+                # The object store is PRIVATE by default (anonymous GET on the
+                # Neon endpoint returns 403 - verified 2026-10-25). The database
+                # stores the canonical unsigned URL, so it must be signed at
+                # read time, exactly like the API does at response boundaries.
+                # Without this the prepared asset is correct in the row and
+                # still unfetchable, and the render fails closed forever.
+                _fetch_url = _prepared_url
+                try:
+                    from backend.app.services.storage_service import get_storage_backend
+
+                    _store = get_storage_backend()
+                    _key = _store.key_for_url(_prepared_url)
+                    if _key:
+                        _signed = _store.presign_url(_key)
+                        if _signed:
+                            _fetch_url = _signed
+                except Exception as _exc:  # noqa: BLE001
+                    logger.warn(
+                        "garment_asset_presign_failed",
+                        product_id=p.id,
+                        error=type(_exc).__name__,
+                    )
+
+                b64 = await self._fetch_image_as_base64(_fetch_url)
+                if not b64:
+                    raise ValidationDomainError(
+                        f"VTON_GARMENT_ASSET_INVALID: product {p.id} "
+                        f"({p.title!r}) has a validated clean asset but it could "
+                        "not be fetched. Refusing to fall back to the catalogue "
+                        "photo, which may be an on-model shot (fail closed)."
+                    )
+            else:
+                # No prepared asset: the catalogue photo is the only candidate,
+                # and the ghost-hands gate below decides whether it may be used.
+                b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+
+            if gate_enabled and not _prepared_url:
                 from backend.app.models.tryon import GarmentAsset
                 from backend.app.services.garment_asset_guard import (
                     asset_gate_error,

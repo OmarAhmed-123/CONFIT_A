@@ -436,6 +436,22 @@ export const VirtualTryOnModal: React.FC = () => {
                 >
                   {t("tryon.avatar_demo_disclosure")}
                 </p>
+                {/* The garment side of the same honesty. Products whose
+                    try-on asset is a `generated-demo` flat-lay render a
+                    stand-in, not the catalogue photograph: the shopper is
+                    looking at a different garment than the one they may buy.
+                    Driven by the backend's per-product provenance, never by a
+                    blanket label — that would become false the day real
+                    photography lands. */}
+                {vtonCapabilities?.[tryOnProduct.id]?.garment_asset_provenance ===
+                  "generated-demo" && (
+                  <p
+                    data-testid="tryon-garment-demo-disclosure"
+                    className="text-[10px] leading-snug font-medium text-amber-700"
+                  >
+                    {t("tryon.garment_demo_disclosure")}
+                  </p>
+                )}
 
                 {/* Avatar Strip */}
                 <div className="flex gap-2 overflow-x-auto pb-1">

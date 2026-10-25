@@ -780,6 +780,9 @@ export interface TryOnProductCapability {
   reason_code: string;
   message: string;
   provider: string;
+  /** "generated-demo" => the try-on garment is an AI-generated stand-in, not
+   *  the catalogue product. The studio must disclose it. */
+  garment_asset_provenance?: string | null;
 }
 
 /**

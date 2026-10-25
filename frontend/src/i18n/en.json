@@ -539,7 +539,8 @@
     "live_scan": "Live Scan",
     "download_result": "Download Result",
     "temporary_render_note": "Temporary render — download to keep it",
-    "btn_undo": "Undo"
+    "btn_undo": "Undo",
+    "garment_demo_disclosure": "The garment you see on the model in this try-on is an AI-generated demo image, not the actual product photograph."
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",

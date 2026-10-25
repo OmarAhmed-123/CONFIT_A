@@ -52,6 +52,7 @@ const EXTRACTED = [
   // disclosure, and three strings that were hardcoded English inside an
   // otherwise-translated modal (they rendered in English under AR).
   'tryon.person_framing_hint', 'tryon.avatar_demo_disclosure',
+  'tryon.garment_demo_disclosure',
   'tryon.live_scan', 'tryon.download_result', 'tryon.temporary_render_note',
   'tryon.btn_undo',
   // consumer

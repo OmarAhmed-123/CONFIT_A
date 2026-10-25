@@ -1928,8 +1928,39 @@ class TryOnService:
                 "reason_code": code,
                 "message": msg,
                 "provider": provider,
+                # "generated-demo" => the studio must disclose that the
+                # rendered garment is an AI-generated demo, not the product
+                # photograph. None (unknown) is not disclosed as real.
+                "garment_asset_provenance": self.garment_asset_provenance(product.id),
             })
         return out
+
+    def garment_asset_provenance(self, product_id: int) -> Optional[str]:
+        """Where the try-on garment image came from — read only, never creates.
+
+        ``generated-demo`` means an AI-generated flat-lay stands in for the real
+        product photo, so the studio must say so: the garment the shopper sees
+        dressed onto the model is not the one in the catalogue picture.
+
+        Returns None when there is no asset or the provenance cannot be read.
+        None is deliberately distinct from "real-photo" — an unknown asset must
+        never be presented to the customer as the actual product.
+        """
+        asset = (
+            self.db.query(GarmentAsset)
+            .filter(GarmentAsset.product_id == product_id)
+            .first()
+        )
+        if asset is None or not asset.classification_json:
+            return None
+        try:
+            meta = json.loads(asset.classification_json)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(meta, dict):
+            return None
+        provenance = meta.get("provenance")
+        return provenance if isinstance(provenance, str) else None
 
     def get_or_create_garment_asset(self, product_id: int) -> Dict[str, Any]:
         asset = self.db.query(GarmentAsset).filter(GarmentAsset.product_id == product_id).first()

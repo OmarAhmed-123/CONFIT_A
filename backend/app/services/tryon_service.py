@@ -984,6 +984,15 @@ class TryOnService:
                 logger.error("vton_pilot_failed", job_id=job_id,
                              reason=reason, detail=str(exc)[:200])
                 return None
+            # ── The same gate the worker path uses ────────────────────────
+            # The pilot computes verify.PASS from the pixels, but nothing
+            # asserted on it: an engine that answered 200 with an unchanged
+            # person (ZeroGPU quota, a 404 /upload, a silent no-op) produced a
+            # `completed` job and an unverified image. A pilot render now has
+            # to clear `assert_layer_applied` exactly like a worker render, so
+            # "completed" means verified on both paths — or the job fails with
+            # the one canonical code.
+            assert_layer_applied(result.get("verify") or {}, job_id)
             logger.info("vton_pilot_served", job_id=job_id, reason=reason,
                         engine=result.get("model_used"))
             return result

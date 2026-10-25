@@ -16,6 +16,7 @@ import os
 import time
 import hashlib
 import asyncio
+import pathlib
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -94,24 +95,143 @@ def _clamp_model_used(value) -> str:
 #
 # The ids/assets mirror the frontend avatar picker
 # (frontend/src/components/tryon/VirtualTryOnModal.tsx).
+#
+# 2026-10-25 — the avatars used to be four Unsplash PORTRAITS, and every
+# schema defaulted ``avatar_model_id`` to ``avatar_athletic_m``: a face crop.
+# The default try-on path therefore smeared a garment onto a head-and-
+# shoulders photo and still returned ``fit_confidence_score: 100`` with the
+# per-layer gate passing — the gate verifies the GARMENT layer, and there is
+# nothing on the person side that asked whether a body was in the frame at
+# all. A green gate on a meaningless image is worse than an honest failure.
+#
+# The four bundled assets below are AI-generated full-body studio figures
+# (head to feet, plain contrasting backdrop, hands visible) shipped with the
+# repo so the default path renders on an actual body. They are DEMO people,
+# tagged ``synthetic-demo``, and the UI labels them as such — they are not
+# customers and not product photography.
+#
+# The ids are deliberately UNCHANGED: a stale browser still running the old
+# front-end bundle keeps working and silently gets the corrected asset,
+# which is what makes the fix reach cached clients without a cache purge.
+AVATAR_ASSET_SCHEME = "asset://vton-avatars/"
+VTON_AVATAR_ASSET_DIR = (
+    pathlib.Path(__file__).resolve().parents[2] / "assets" / "vton_avatars"
+)
+
+FRAMING_FULL_BODY = "full_body"
+FRAMING_PORTRAIT = "portrait"
+
 VTON_AVATARS = {
-    "avatar_athletic_m": (
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
-    "avatar_hourglass_f": (
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
-    "avatar_curvy_f": (
-        "https://images.unsplash.com/photo-1517841905240-472988babdf9"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
-    "avatar_tall_m": (
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
+    "avatar_athletic_m": AVATAR_ASSET_SCHEME + "avatar_athletic_m.jpg",
+    "avatar_hourglass_f": AVATAR_ASSET_SCHEME + "avatar_hourglass_f.jpg",
+    "avatar_curvy_f": AVATAR_ASSET_SCHEME + "avatar_curvy_f.jpg",
+    "avatar_tall_m": AVATAR_ASSET_SCHEME + "avatar_tall_m.jpg",
 }
+
+#: Framing of each bundled person reference. The registry is the ONLY source
+#: of truth about framing: nothing infers it from pixels at render time.
+VTON_AVATAR_FRAMING = {
+    "avatar_athletic_m": FRAMING_FULL_BODY,
+    "avatar_hourglass_f": FRAMING_FULL_BODY,
+    "avatar_curvy_f": FRAMING_FULL_BODY,
+    "avatar_tall_m": FRAMING_FULL_BODY,
+}
+
+#: Where each bundled asset came from, for licence/consent hygiene.
+VTON_AVATAR_PROVENANCE = {avatar_id: "synthetic-demo" for avatar_id in VTON_AVATARS}
+
+#: The four Unsplash portraits the avatars pointed at before 2026-10-25
+#: (query string stripped). They are retired, but a cached front-end bundle or
+#: an older API client can still send them — and a render on one puts a
+#: garment on a face while the layer gate reports success. Refuse them.
+VTON_RETIRED_PORTRAIT_REFERENCES = frozenset({
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
+    "https://images.unsplash.com/photo-1517841905240-472988babdf9",
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e",
+})
+
+
+def avatar_asset_path(avatar_model_id: str) -> Optional[pathlib.Path]:
+    """Filesystem path of a bundled avatar asset, or None for a non-avatar."""
+    ref = VTON_AVATARS.get(avatar_model_id)
+    if not ref or not ref.startswith(AVATAR_ASSET_SCHEME):
+        return None
+    return VTON_AVATAR_ASSET_DIR / ref[len(AVATAR_ASSET_SCHEME):]
+
+
+def expand_avatar_asset(ref: str) -> str:
+    """Turn an ``asset://`` reference into a data URL the worker can consume.
+
+    Bundled assets are resolved in-process instead of over the network: no
+    public origin, no bucket permissions, no CSP, nothing to presign and no
+    third-party dependency that can disappear from under a render.
+    """
+    import base64
+
+    rel = ref[len(AVATAR_ASSET_SCHEME):]
+    # ``rel`` reaches the filesystem, so refuse traversal outright.
+    if "/" in rel or "\\" in rel or rel.startswith("."):
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: malformed bundled avatar reference {ref!r}."
+        )
+    path = VTON_AVATAR_ASSET_DIR / rel
+    try:
+        raw = path.read_bytes()
+    except OSError as e:
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: bundled avatar asset {rel!r} is unavailable ({e.__class__.__name__})."
+        ) from e
+    mime = _mime_from_bytes(raw)
+    return f"data:{mime};base64," + base64.b64encode(raw).decode()
+
+
+def _canonical_person_reference(ref: str) -> str:
+    """Canonical form used to look a person reference up in the registry."""
+    return ref.split("?", 1)[0].strip().rstrip("/")
+
+
+def ensure_renderable_person_reference(
+    person_ref: str, avatar_model_id: Optional[str] = None
+) -> None:
+    """Refuse a person reference we KNOW is not a full body. Never guesses.
+
+    Two sources of truth, and only two:
+
+    * the bundled avatar registry (``VTON_AVATAR_FRAMING``), and
+    * the retired-portrait list of third-party URLs the avatars used to use.
+
+    Anything else is accepted. That is a deliberate, measured decision, not an
+    oversight: a head-width heuristic (PIL+numpy) scored a legitimate
+    cluttered-background full-body photo at 37.7% "head width" — indistinguishable
+    from a bust crop — and a YCrCb skin-blob heuristic returned NO blob at all
+    for an obvious portrait while misreading the same cluttered photo at 95.9%.
+    Both would refuse real customers, disproportionately people photographing
+    themselves at home and people with darker skin tones. A framing detector
+    that is worth trusting needs a pose model, which belongs on the GPU worker
+    (it already runs DWPose), not on the serverless bundle — a separate
+    infrastructure decision, not something to smuggle in here.
+    """
+    if avatar_model_id:
+        framing = VTON_AVATAR_FRAMING.get(avatar_model_id)
+        if framing == FRAMING_PORTRAIT:
+            raise ValidationDomainError(
+                f"VTON_PERSON_FRAMING_INVALID: avatar '{avatar_model_id}' is a "
+                f"head-and-shoulders portrait, and a try-on needs a full-body "
+                f"photo. Pick a full-body avatar or upload a photo showing your "
+                f"whole body, head to feet."
+            )
+
+    if person_ref in VTON_AVATARS.values():
+        return
+
+    canonical = _canonical_person_reference(person_ref)
+    if canonical in VTON_RETIRED_PORTRAIT_REFERENCES:
+        raise ValidationDomainError(
+            "VTON_PERSON_FRAMING_INVALID: that photo is a head-and-shoulders "
+            "portrait, and a try-on needs a full-body photo showing the whole "
+            "body head to feet. Please upload a full-length photo."
+        )
 
 
 def resolve_person_reference(
@@ -127,6 +247,7 @@ def resolve_person_reference(
     silently, and never uses a garment/model image as the person reference.
     """
     if user_image_url:
+        ensure_renderable_person_reference(user_image_url)
         return user_image_url
     if user_image_base64:
         return user_image_base64
@@ -137,6 +258,8 @@ def resolve_person_reference(
                 f"VTON_INPUT_INVALID: unknown avatar_model_id '{avatar_model_id}'. "
                 f"Known ids: {sorted(VTON_AVATARS)}."
             )
+        # Registry-tagged framing: a portrait avatar can never reach a render.
+        ensure_renderable_person_reference(asset, avatar_model_id=avatar_model_id)
         return asset
     raise ValidationDomainError(
         "VTON_INPUT_INVALID: a person reference is required — upload a person "
@@ -649,6 +772,14 @@ class TryOnService:
         then fails explicitly, and no GPU call is made with a bad reference.
         """
         import base64
+
+        # Bundled avatar: resolved in-process to a data URL. No network, no
+        # bucket, nothing that can 403 or be swapped underneath a render.
+        if person_ref.startswith(AVATAR_ASSET_SCHEME):
+            data_url = expand_avatar_asset(person_ref)
+            raw = base64.b64decode(data_url.split(",", 1)[1])
+            check_person_bytes(raw, f"bundled avatar {person_ref[:80]}")
+            return data_url
 
         if person_ref.startswith("http"):
             data_url = await self._fetch_image_as_base64(person_ref)

@@ -533,7 +533,13 @@
     "ruler_feature_desc": "Privacy-first measurement calculator calibrated against published garment size charts.",
     "ruler_feature_cta": "Open Fit Finder",
     "visual_feature_desc": "Upload an inspiration photo to match available pieces across the catalog.",
-    "visual_feature_cta": "Match Outfit"
+    "visual_feature_cta": "Match Outfit",
+    "person_framing_hint": "Use a full-body photo — head to feet, standing, arms slightly away from your body. A plain, contrasting background works best. Head-and-shoulders portraits cannot be dressed.",
+    "avatar_demo_disclosure": "Demo models are AI-generated full-body figures, not customers.",
+    "live_scan": "Live Scan",
+    "download_result": "Download Result",
+    "temporary_render_note": "Temporary render — download to keep it",
+    "btn_undo": "Undo"
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",

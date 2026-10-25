@@ -46,7 +46,7 @@ def test_tryon_job_rate_limit_returns_429(limiter_on):
     for i in range(21):
         last = client.post("/api/v1/try-on/jobs", json={
             "product_ids": [1],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+            "user_image_url": "https://example.com/vton/full-body-person.jpg",
         })
         if last.status_code == 429:
             break

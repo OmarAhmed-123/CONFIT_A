@@ -10,7 +10,7 @@ def test_vton_job_fails_truthfully_without_worker(monkeypatch):
     monkeypatch.delenv("VTON_WORKER_URL", raising=False)
     res = client.post("/api/v1/try-on/jobs", json={
         "product_ids": [1, 3],
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+        "user_image_url": "https://example.com/vton/full-body-person.jpg",
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",
         "output_aspect": "9:16",
@@ -66,7 +66,7 @@ def test_vton_job_empty_product_ids_validation():
     """Verifies that submitting empty product list returns validation error."""
     res = client.post("/api/v1/try-on/jobs", json={
         "product_ids": [],
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+        "user_image_url": "https://example.com/vton/full-body-person.jpg"
     })
     assert res.status_code in [400, 422]
 
@@ -76,7 +76,7 @@ def test_vton_job_cancel_endpoint():
     # Create job
     res = client.post("/api/v1/try-on/jobs", json={
         "product_ids": [1],
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+        "user_image_url": "https://example.com/vton/full-body-person.jpg"
     })
     job_id = res.json()["job_id"]
 

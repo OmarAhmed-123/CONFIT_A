@@ -36,7 +36,7 @@ AgnosticMaskGenerator = _segmentation.AgnosticMaskGenerator
 def _submit_job(**overrides):
     payload = {
         "product_ids": [1],
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+        "user_image_url": "https://example.com/vton/full-body-person.jpg",
         "avatar_model_id": "avatar_athletic_m",
         "consent_retain_photo": False,
     }

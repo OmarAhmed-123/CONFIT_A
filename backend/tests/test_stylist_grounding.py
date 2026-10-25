@@ -84,7 +84,7 @@ def test_measurement_session_tryon_scaling(client: TestClient):
         repo = TryOnRepository(db)
         session = repo.create_tryon_session(
             product_id=1,
-            input_user_image_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+            input_user_image_url="https://example.com/vton/full-body-person.jpg",
             guest_token=tok,
         )
         tryon_sess_id = session.id

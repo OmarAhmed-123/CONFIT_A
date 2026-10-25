@@ -221,6 +221,58 @@ def _validate_and_decode_image(raw: bytes, context: str = "image") -> Image.Imag
         raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Invalid {context} data: {type(e).__name__}: {str(e)[:200]}"}})
 
 
+def _enforce_person_framing(engine: Any, person: Image.Image) -> None:
+    """Refuse a non-full-body person image before any diffusion is spent.
+
+    Raises HTTP 422 with `VTON_PERSON_FRAMING_INVALID` so the backend and the UI
+    can show the guided "upload a full-body photo" hint, exactly as they do for
+    the registry avatars.
+
+    Fail-closed, but honestly: if the pose model itself cannot run, that is an
+    infrastructure fault, not a bad customer photo — it is reported as
+    INFERENCE_FAILED rather than dressed up as a framing refusal, because a
+    framing code would tell the customer to retake a photo that was fine.
+    """
+    from vton_framing import assess_person_framing
+
+    t0 = time.time()
+    try:
+        pose = engine.detect_person_pose(person)
+    except Exception as exc:  # noqa: BLE001 — infrastructure, not the customer
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "code": "INFERENCE_FAILED",
+                    "message": (
+                        "Person framing could not be checked (pose detection "
+                        f"failed: {type(exc).__name__}: {str(exc)[:200]})"
+                    ),
+                }
+            },
+        )
+    elapsed = time.time() - t0
+
+    verdict = assess_person_framing(pose)
+    if verdict["full_body"]:
+        return
+
+    raise HTTPException(
+        status_code=422,
+        detail={
+            "error": {
+                "code": verdict["code"],
+                "message": verdict["message"],
+                # Evidence for the operator, and the proof that the refusal was
+                # cheap: pose-only seconds, no MMDiT pass spent.
+                "evidence": verdict["evidence"],
+                "pose_check_seconds": round(elapsed, 3),
+                "diffusion_performed": False,
+            }
+        },
+    )
+
+
 class VTONJobRequest(BaseModel):
     job_id: str
     user_image_base64_or_url: str
@@ -450,6 +502,16 @@ class FashnInferenceService:
         # first passing seed wins and identity regions are pasted back from
         # the person input. If NO seed passes, the job fails LOUDLY
         # (QA_GATE_FAILED) instead of returning a contaminated image.
+        # ── Person framing gate — MUST stay before the first MMDiT pass ──────
+        # A portrait/bust upload used to reach the seed ladder and come back as
+        # a garment smeared over a face with the per-layer gate reporting
+        # success, because that gate verifies the GARMENT, not the person. The
+        # decision is made from DWPose keypoints (geometry only, no skin or
+        # background term) and it runs here, so a refusal costs one pose pass
+        # (~1-2 s) instead of the full diffusion ladder (~18 s per seed).
+        # Do not move this below self.engine.render(...).
+        _enforce_person_framing(self.engine, person)
+
         import torch
         from vton_qa import QA_SEED_LADDER, paste_back_identity, qa_gate
 

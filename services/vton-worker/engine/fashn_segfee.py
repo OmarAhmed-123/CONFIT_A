@@ -59,6 +59,28 @@ class FashnSegfeeVTONEngine(VTONEngine):
                 f"fashn_vton_segfee supports category in {{tops, bottoms, one-pieces}}, got {category!r}"
             )
 
+    def detect_person_pose(self, person_image: Image.Image) -> Dict[str, Any]:
+        """Run the pipeline's own DWPose model on the person image only.
+
+        This is the same model, on the same pre-resized BGR array, that
+        ``TryOnPipeline.__call__`` uses for its pose conditioning — it simply
+        stops there, before any MMDiT pass. That is what makes a framing
+        refusal cost one pose pass instead of a diffusion ladder.
+
+        It deliberately does not duplicate the detection code: if the pipeline
+        changes how it feeds DWPose, this follows automatically. If pose
+        detection is unavailable the pipeline cannot run either, so the caller
+        must treat an exception here as a hard failure rather than a pass.
+        """
+        if not self._ready:
+            raise RuntimeError("engine not loaded; call load() first")
+        import numpy as np
+
+        pre_resized = self._pipe.pre_resize(person_image, allow_upsampling=False)
+        person_array = np.array(pre_resized)
+        # DWPose expects BGR — identical to pipeline.py's call.
+        return self._pipe.pose_model(person_array[..., ::-1])
+
     def render(
         self,
         person_image: Image.Image,

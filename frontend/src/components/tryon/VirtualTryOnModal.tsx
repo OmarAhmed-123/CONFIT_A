@@ -35,6 +35,7 @@ export const VirtualTryOnModal: React.FC = () => {
 
   const {
     tryOnStatus,
+    errorMessage,
     motionStatus,
     isRendering,
     isAnimating,
@@ -399,6 +400,24 @@ export const VirtualTryOnModal: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* A refusal the WORKER made, after seeing the real photo.
+                    It carries VTON_PERSON_FRAMING_INVALID plus an English,
+                    operator-grade message; showing only that would leave a
+                    shopper — especially an Arabic one — with an error they
+                    cannot act on. Pair the code with the localised framing
+                    guidance the studio already ships. */}
+                {tryOnStatus === 'failed' &&
+                  typeof errorMessage === 'string' &&
+                  errorMessage.includes('VTON_PERSON_FRAMING_INVALID') && (
+                    <p
+                      data-testid="tryon-framing-refusal"
+                      role="alert"
+                      className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-snug font-medium text-amber-900"
+                    >
+                      {t("tryon.person_framing_hint")}
+                    </p>
+                  )}
 
                 {/* Framing hint. The backend refuses a person reference it
                     KNOWS is a portrait (VTON_PERSON_FRAMING_INVALID). For an

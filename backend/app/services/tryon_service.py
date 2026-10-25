@@ -412,6 +412,40 @@ def assert_layer_applied(verify: Dict[str, Any], job_id: str) -> None:
     )
 
 
+def _map_worker_error_code(error_str: str) -> str:
+    """Turn a worker exception string into the canonical failure code.
+
+    Single source of truth for the taxonomy: the async job path and the tests
+    both go through here, so a code can never be mapped one way in one branch
+    and differently in another.
+
+    ``VTON_PERSON_FRAMING_INVALID`` is deliberately its own branch rather than
+    folded into ``VTON_INPUT_INVALID``: it is an input problem, and it must keep
+    the guided "upload a full-body photo" hint attached instead of being
+    re-labelled ``GPU_WORKER_ERROR``, which tells the shopper the hardware broke
+    when their photo was the problem.
+    """
+    if "VTON_AUTH_FAILURE" in error_str:
+        return "VTON_AUTH_FAILURE"
+    if "VTON_WORKER_NOT_READY" in error_str:
+        return "VTON_WORKER_NOT_READY"
+    if "VTON_WORKER_COLD_START" in error_str:
+        return "VTON_WORKER_COLD_START"
+    if "VTON_LAYER_NOT_APPLIED" in error_str:
+        return "VTON_LAYER_NOT_APPLIED"
+    if "VTON_PERSON_FRAMING_INVALID" in error_str:
+        return "VTON_PERSON_FRAMING_INVALID"
+    if "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
+        return "VTON_INPUT_INVALID"
+    if "VTON_OUTPUT_INVALID" in error_str:
+        return "VTON_OUTPUT_INVALID"
+    if "VTON_TIMEOUT" in error_str:
+        return "VTON_TIMEOUT"
+    if "VTON_ENGINE_UNAVAILABLE" in error_str:
+        return "VTON_ENGINE_UNAVAILABLE"
+    return "GPU_WORKER_ERROR"
+
+
 class TryOnService:
     def __init__(self, db: Session):
         self.db = db
@@ -1568,25 +1602,8 @@ class TryOnService:
 
             except Exception as exc:
                 error_str = str(exc)
-                # Error taxonomy mapping
-                if "VTON_AUTH_FAILURE" in error_str:
-                    error_code = "VTON_AUTH_FAILURE"
-                elif "VTON_WORKER_NOT_READY" in error_str:
-                    error_code = "VTON_WORKER_NOT_READY"
-                elif "VTON_WORKER_COLD_START" in error_str:
-                    error_code = "VTON_WORKER_COLD_START"
-                elif "VTON_LAYER_NOT_APPLIED" in error_str:
-                    error_code = "VTON_LAYER_NOT_APPLIED"
-                elif "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
-                    error_code = "VTON_INPUT_INVALID"
-                elif "VTON_OUTPUT_INVALID" in error_str:
-                    error_code = "VTON_OUTPUT_INVALID"
-                elif "VTON_TIMEOUT" in error_str:
-                    error_code = "VTON_TIMEOUT"
-                elif "VTON_ENGINE_UNAVAILABLE" in error_str:
-                    error_code = "VTON_ENGINE_UNAVAILABLE"
-                else:
-                    error_code = "GPU_WORKER_ERROR"
+                # Error taxonomy mapping — one helper, so every path agrees.
+                error_code = _map_worker_error_code(error_str)
 
                 # Honest, user-facing copy + circuit feedback. The old message
                 # ("GPU Inference Worker Failure: ... not ready after 3
@@ -1611,6 +1628,11 @@ class TryOnService:
                 # message from the render contract; do not prefix it as a generic
                 # worker failure (it is the engine not applying the garment).
                 if error_code == "VTON_LAYER_NOT_APPLIED":
+                    job.error_message = error_str[:500]
+                elif error_code == "VTON_PERSON_FRAMING_INVALID":
+                    # Keeps the guided full-body hint the worker wrote; the UI
+                    # shows it verbatim (EN) and pairs it with the localised
+                    # framing hint.
                     job.error_message = error_str[:500]
                 elif error_code == "VTON_INPUT_INVALID":
                     # Input problems carry an actionable reason already.

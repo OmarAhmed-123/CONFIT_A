@@ -676,7 +676,11 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # never "whose host is this". A brand now proves control of a hostname with a
     # DNS TXT claim, per-brand, and imports are authorized against that record at
     # validation, at commit and on every redirect hop. Additive table only.
-    assert expected_head_revision() == "0046_user_wishlist_items"
+    # -> 0047 (wardrobe analysis_source). The AI stylist must be able to say
+    # WHICH model tagged a wardrobe piece (or that a human did); two nullable,
+    # additive columns, no backfill.
+    assert expected_head_revision() == "0047_wardrobe_analysis_source"
+    assert chain["0047_wardrobe_analysis_source"] == "0046_user_wishlist_items"
     assert chain["0046_user_wishlist_items"] == "0045_brand_verified_domains"
     assert chain["0045_brand_verified_domains"] == "0044_product_price_provenance"
     assert chain["0044_product_price_provenance"] == "0043_import_job_payload"

@@ -57,6 +57,13 @@ class WardrobeItem(Base):
     processing_status = Column(String(20), default="ready", nullable=False, index=True)
     processing_error = Column(Text, nullable=True)              # last failure detail for retry UX
     ai_confidence = Column(Float, nullable=True)                # vision model confidence 0.0-1.0
+    # Migration 0047 — FR-18 honesty: the model id that produced the AI
+    # metadata (e.g. "ibm/granite-4-h-small", "gemini-flash-lite-latest"),
+    # "manual" when the user supplied/corrected it, NULL for legacy rows.
+    analysis_source = Column(String(120), nullable=True)
+    # One factual sentence from the vision model ("what is visible"), shown
+    # to the user so they can judge and correct the inference.
+    analysis_description = Column(Text, nullable=True)
     image_hash = Column(String(64), nullable=True, index=True)  # sha256 — duplicate upload protection
     # FLOW E lineage: which persisted OrderItem this piece was synchronised
     # from (NULL for uploaded / manually added items). Server-authoritative

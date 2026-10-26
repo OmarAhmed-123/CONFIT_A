@@ -1050,6 +1050,75 @@ export interface WardrobeFirstOutfit {
   message: string;
 }
 
+/* ── IBM watsonx.ai stylist (wardrobe → outfit) ─────────────────── */
+export type StylistTimeOfDay = "morning" | "afternoon" | "evening" | "night";
+export type StylistSeason = "spring" | "summer" | "autumn" | "winter";
+
+export interface OutfitRecommendationRequest {
+  occasion: string;
+  time_of_day?: StylistTimeOfDay;
+  season?: StylistSeason;
+  location?: string;
+  activity?: string;
+  dress_code?: string;
+  style_preferences?: string[];
+  color_preferences?: string[];
+  comfort_needs?: string;
+  exclusions?: string;
+  excluded_item_ids?: number[];
+  previous_item_ids?: number[];
+  language?: 'en' | 'ar';
+}
+
+export interface RecommendedWardrobeItem {
+  wardrobe_item_id: number;
+  role: "top" | "bottom" | "dress" | "footwear" | "outerwear" | "accessory";
+  category: string;
+  title: string;
+  subcategory?: string | null;
+  color_name: string;
+  color_hex: string;
+  image_url: string;
+  reason: string;
+  analysis_source?: string | null;
+  ai_confidence?: number | null;
+}
+
+export interface OutfitRecommendation {
+  outfit_id: string;
+  occasion: string;
+  title: string;
+  summary: string;
+  items: RecommendedWardrobeItem[];
+  styling_notes: string[];
+  limitations: string[];
+  missing_categories: string[];
+  assumptions: string[];
+  is_complete: boolean;
+  /** Honesty block — never render "AI" when ai_generated is false. */
+  source: "watsonx" | "deterministic_fallback";
+  ai_generated: boolean;
+  model_id?: string | null;
+  prompt_version?: string | null;
+  fallback_reason?: string | null;
+  latency_seconds?: number | null;
+  rejected_references: number[];
+  context: Record<string, unknown>;
+}
+
+export interface StylistStatus {
+  watsonx_configured: boolean;
+  watsonx_url?: string | null;
+  vision_model_id?: string | null;
+  reasoning_model_id?: string | null;
+  vision_provider_mode: string;
+  stylist_provider_mode: string;
+  legacy_vision_configured: boolean;
+  ready_items: number;
+  categories_present: string[];
+  prompt_version: string;
+}
+
 /**
  * Response contracts for reversible deletion, validated with zod because the
  * Undo affordance is rendered FROM this payload: a missing `undoable` or a
@@ -1169,6 +1238,15 @@ export const wardrobeService = {
     request<WardrobeFirstOutfit>(
       `/wardrobe/outfit-suggestions?occasion=${encodeURIComponent(occasion)}`,
     ),
+
+  /** IBM Granite stylist flow: context + owned items → one validated outfit. */
+  recommendOutfit: (payload: OutfitRecommendationRequest) =>
+    request<OutfitRecommendation>(`/wardrobe/outfit-recommendation`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getStylistStatus: () => request<StylistStatus>(`/wardrobe/stylist/status`),
 
   checkDuplicate: (payload: {
     product_id: number;

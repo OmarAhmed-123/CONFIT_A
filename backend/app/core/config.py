@@ -382,6 +382,43 @@ class Settings(BaseSettings):
     # Image-carrying stylist turns per caller per hour (cost control, STY-08).
     STYLIST_IMAGE_TURNS_PER_HOUR: int = 5
     AI_STYLIST_PROVIDER: str = "hybrid"
+
+    # ── IBM watsonx.ai (Granite) — wardrobe vision + outfit reasoning ──
+    # Follows the IBM "Build an AI stylist with Granite" tutorial contract:
+    # IAM api key + project id + regional runtime URL. All three are required
+    # for the tier to be considered configured; nothing is ever defaulted to a
+    # fake value, and a missing key degrades to the existing providers (or an
+    # honest 503) rather than a mock.
+    WATSONX_APIKEY: Optional[str] = None
+    WATSONX_PROJECT_ID: Optional[str] = None
+    # Region matters: the tutorial uses us-south, but a project is bound to the
+    # runtime instance of ITS region (verified 2026-10-26: this operator's
+    # runtime + project are in eu-de). Keep configurable.
+    WATSONX_URL: str = "https://us-south.ml.cloud.ibm.com"
+    # Model ids verified against GET /ml/v1/foundation_model_specs on
+    # 2026-10-26. The tutorial's `ibm/granite-vision-3-2-2b` is REMOVED (live
+    # call → 404 model_not_supported) and no granite-vision-* model is served
+    # multitenant in eu-de/us-south today; llama-4-maverick is the available
+    # image_chat model. `ibm/granite-3-2-8b-instruct` was withdrawn 2026-02-22
+    # with `ibm/granite-4-h-small` as IBM's named replacement. Whatever model
+    # actually answers is recorded in `analysis_source` / `model_id` so the UI
+    # never labels a non-Granite result as Granite.
+    WATSONX_VISION_MODEL_ID: str = "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
+    WATSONX_REASONING_MODEL_ID: str = "ibm/granite-4-h-small"
+    WATSONX_API_VERSION: str = "2024-10-08"
+    WATSONX_TIMEOUT_SECONDS: float = 45.0
+    WATSONX_MAX_RETRIES: int = 2
+    # Which vision tier analyses wardrobe uploads first:
+    #   "auto"    → watsonx when configured, else the existing Gemini/NVIDIA/Qwen chain
+    #   "watsonx" → watsonx only (honest failure if it is unavailable)
+    #   "legacy"  → existing chain only (watsonx never called for vision)
+    WARDROBE_VISION_PROVIDER: str = "auto"
+    # Outfit recommendation engine for /wardrobe/outfit-recommendation:
+    #   "auto"    → Granite when configured, labelled deterministic fallback otherwise
+    #   "watsonx" → Granite only (503 when unavailable; never a fallback)
+    #   "deterministic" → never call a model (useful for offline/dev)
+    WARDROBE_STYLIST_PROVIDER: str = "auto"
+
     VTON_PROVIDER: str = "hybrid"
     # Server-decided production VTON engine (the frontend never selects this).
     # Only engines in SUPPORTED_VTON_ENGINES are accepted. Wired to the worker

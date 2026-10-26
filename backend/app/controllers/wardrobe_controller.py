@@ -24,6 +24,12 @@ from backend.app.schemas.wardrobe import (
     WardrobeImportResponse,
     WardrobeFirstOutfitOut,
 )
+from backend.app.schemas.wardrobe_stylist import (
+    OutfitRecommendation,
+    OutfitRecommendationRequest,
+    StylistStatus,
+)
+from backend.app.services.wardrobe_stylist_service import WardrobeStylistService
 
 router = APIRouter(prefix="/wardrobe", tags=["Virtual Wardrobe & Smart Reuse"])
 
@@ -53,15 +59,20 @@ async def _require_safe_image(
 
     import base64
 
-    from backend.app.services.wardrobe_service import ALLOWED_IMAGE_TYPES
+    from backend.app.core.exceptions import ValidationDomainError
+    from backend.app.services.wardrobe_service import WardrobeService
 
     mime = (content_type or "").split(";")[0].strip().lower()
-    if mime not in ALLOWED_IMAGE_TYPES:
-        # Cheap, deterministic validation runs FIRST. An unsupported type is
-        # rejected by WardrobeService._validate_image with the precise error the
-        # API contract promises; moderating it here would both waste a model
-        # call on bytes that can never be stored and replace that specific
-        # 422 with a generic safety refusal.
+    try:
+        # Cheap, deterministic validation runs FIRST (same checks the service
+        # repeats before persisting: MIME, emptiness, 15 MB cap, Pillow
+        # decode). Anything that fails here is rejected downstream with the
+        # precise 422 the API contract promises; moderating it would both waste
+        # a model call on bytes that can never be stored and replace that
+        # specific error with a generic safety refusal (observed 2026-10-26: a
+        # 16 MB upload surfaced as 503 "safety screening unavailable").
+        WardrobeService._validate_image(None, mime, blob)  # type: ignore[arg-type]
+    except ValidationDomainError:
         return
     data_uri = f"data:{mime};base64,{base64.b64encode(blob).decode('ascii')}"
     verdict = await service.check_image(data_uri, context="wardrobe_upload")
@@ -330,6 +341,37 @@ async def auto_tag_item(
     analysis_available=false instead of returning fabricated attributes."""
     service = WardrobeService(db)
     return await service.auto_tag_image(payload.image_url, payload.image_base64)
+
+
+@router.post("/outfit-recommendation", response_model=OutfitRecommendation)
+# A reasoning-model call per request; bounded so a client loop cannot drain
+# the watsonx.ai quota (the "another outfit" button is the legitimate retry).
+@limiter.limit("40/hour")
+async def recommend_outfit_from_wardrobe(
+    request: Request,
+    payload: OutfitRecommendationRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """IBM Granite stylist flow: occasion + time of day + season + location +
+    preferences → ONE outfit assembled from the caller's analysed wardrobe.
+
+    Every item reference the model returns is validated against the caller's
+    real wardrobe rows; images are resolved from those rows, never from model
+    text. The payload states honestly whether a language model produced it
+    (`source="watsonx"`, `ai_generated=true`, `model_id`) or the rule-based
+    fallback did (`source="deterministic_fallback"`, `ai_generated=false`).
+    """
+    service = WardrobeStylistService(db)
+    return await service.recommend(user.id, payload)
+
+
+@router.get("/stylist/status", response_model=StylistStatus)
+def wardrobe_stylist_status(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Configuration + readiness the UI needs to set expectations: whether
+    watsonx.ai is configured (never the key), which model ids will be used,
+    and how many analysed items/categories the caller has."""
+    return WardrobeStylistService(db).status(user.id)
 
 
 @router.get("/outfit-suggestions", response_model=WardrobeFirstOutfitOut)

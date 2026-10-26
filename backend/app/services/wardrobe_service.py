@@ -357,6 +357,11 @@ class WardrobeService:
         if "occasions" in updates and updates["occasions"] is not None:
             updates["occasions"] = taxonomy.normalize_occasions(updates["occasions"])
 
+        # FR-05/FR-18: a human correction of AI-inferred descriptors changes
+        # the provenance. Wear/favourite bookkeeping does not.
+        _DESCRIPTOR_FIELDS = {"title", "category", "subcategory", "color_name", "color_hex",
+                              "pattern", "occasions", "seasonality"}
+        touched_descriptor = False
         for key, val in updates.items():
             if key not in _UPDATEABLE_FIELDS or val is None:
                 continue  # silently drop non-whitelisted / null fields
@@ -366,6 +371,11 @@ class WardrobeService:
                 setattr(item, key, json.dumps(val))
             else:
                 setattr(item, key, val)
+            if key in _DESCRIPTOR_FIELDS:
+                touched_descriptor = True
+        if touched_descriptor:
+            prior = getattr(item, "analysis_source", None)
+            item.analysis_source = "manual" if not prior or prior == "manual" else f"manual (was {prior})"[:120]
 
         self.wardrobe_repo.update_item(item)
         return self._to_dict(item)
@@ -979,27 +989,32 @@ class WardrobeService:
         accepts, and the raw model output passes through the taxonomy
         normalizer before touching controlled columns.
         """
-        from backend.app.providers.tryon_provider import VisualSearchAIProvider
-
         item.processing_status = "processing"
         item.processing_error = None
         self.wardrobe_repo.update_item(item)
 
         try:
             data_url = self._image_ref_for_analysis(item.image_url)
-            provider = VisualSearchAIProvider()
-            raw = await provider.analyze_wardrobe_image(data_url)
+            raw = await self._analyze_with_vision_chain(data_url)
 
             if not raw.get("analysis_available"):
-                raise ProviderIntegrationError(
-                    "vision", "wardrobe analysis temporarily unavailable", retryable=True
-                )
+                reason = str(raw.get("reason") or "")
+                detail = "wardrobe analysis temporarily unavailable"
+                if reason == "watsonx_not_configured":
+                    detail = "no vision model is configured (set WATSONX_* or GEMINI_API_KEY)"
+                elif reason:
+                    detail = f"wardrobe analysis unavailable ({reason})"
+                raise ProviderIntegrationError("vision", detail, retryable=True)
             if not raw.get("category"):
                 raise ValidationDomainError(
                     "The image does not appear to show a clothing item."
                 )
 
             normalized = taxonomy.normalize_wardrobe_analysis(raw)
+            # FR-18: record the model that really answered (never a fallback).
+            item.analysis_source = str(raw.get("analysis_source") or "unknown")[:120]
+            desc = raw.get("description")
+            item.analysis_description = str(desc).strip()[:600] if isinstance(desc, str) and desc.strip() else None
             item.title = normalized["item_type"] or item.title
             item.category = normalized["category"]
             item.subcategory = normalized["item_type"]
@@ -1025,6 +1040,47 @@ class WardrobeService:
             logger.error("Wardrobe AI analysis error", item_id=item.id, error=str(exc))
 
         return self.wardrobe_repo.update_item(item)
+
+    async def _analyze_with_vision_chain(self, data_url: str) -> Dict[str, Any]:
+        """Route one image through the configured vision tiers.
+
+        ``WARDROBE_VISION_PROVIDER``:
+          * ``auto``    – watsonx.ai first when configured; if it is not
+                          configured OR fails for a service reason, the legacy
+                          Gemini/NVIDIA/Qwen chain is tried. A *content*
+                          verdict (``category: null`` = not a garment) is final
+                          and is NOT second-guessed by another model.
+          * ``watsonx`` – watsonx.ai only; honest failure otherwise.
+          * ``legacy``  – legacy chain only.
+        Every envelope carries ``analysis_source`` naming the model that
+        answered, so the persisted row never misattributes the inference.
+        """
+        mode = (getattr(settings, "WARDROBE_VISION_PROVIDER", "auto") or "auto").lower()
+        if mode not in ("auto", "watsonx", "legacy"):
+            mode = "auto"
+
+        last: Dict[str, Any] = {"analysis_available": False, "reason": "no_vision_provider"}
+        if mode in ("auto", "watsonx"):
+            from backend.app.providers.watsonx.vision import WatsonxVisionProvider
+            wx = WatsonxVisionProvider()
+            if wx.is_configured():
+                try:
+                    last = await wx.analyze_wardrobe_image(data_url)
+                except ValueError as exc:  # unreadable image = validation, final
+                    raise ValidationDomainError(f"Uploaded image could not be processed: {exc}") from exc
+                if last.get("analysis_available") or mode == "watsonx":
+                    return last
+                logger.warn("wardrobe_vision_watsonx_degraded", reason=last.get("reason"))
+            elif mode == "watsonx":
+                return {"analysis_available": False, "reason": "watsonx_not_configured", "analysis_source": None}
+
+        from backend.app.providers.tryon_provider import VisualSearchAIProvider
+        raw = await VisualSearchAIProvider().analyze_wardrobe_image(data_url)
+        if raw.get("analysis_available") and not raw.get("analysis_source"):
+            raw["analysis_source"] = settings.VISION_MODEL
+        if not raw.get("analysis_available") and last.get("reason") and not raw.get("reason"):
+            raw["reason"] = last["reason"]
+        return raw
 
     def _image_ref_for_analysis(self, image_url: str) -> str:
         """Build a data URL from the stored image bytes for the provider.
@@ -1126,5 +1182,7 @@ class WardrobeService:
             "processing_status": getattr(item, "processing_status", "ready") or "ready",
             "processing_error": getattr(item, "processing_error", None),
             "ai_confidence": getattr(item, "ai_confidence", None),
+            "analysis_source": getattr(item, "analysis_source", None),
+            "analysis_description": getattr(item, "analysis_description", None),
             "created_at": item.created_at,
         }

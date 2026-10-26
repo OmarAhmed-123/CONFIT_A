@@ -72,13 +72,104 @@ to the app's 5/min sign-up limit and excluded from the timing window.
 | `recommend` | p50 **5.47 s** · p95 **8.02 s** · max 8.02 s |
 | Verdict | **PASS** (all live targets) |
 
+## Re-validation pass (2026-10-26, later the same day) — production-like rig
+
+Rig: **PostgreSQL 16** (local, UTF8, Alembic head 0048), uvicorn **2 workers**,
+per-process (memory) rate-limit storage — the app's documented fallback when
+no external Redis is configured, so limits are per worker; a shared store was
+not required for these scenarios because every VU is its own user and
+registration is paced — same host, idle machine, same harness, **unchanged
+targets**.
+
+### Mocked — 20 VUs × 20 requests (`stylist_mocked_20vu_postgres_2workers.json`)
+
+Double at its defaults (0.9 s ± 0.4 s model latency, 2 % injected 503) → targets
+derived by the harness: p95 < 2.4 s, p99 < 3.9 s.
+
+| Metric | SQLite / 1 worker (earlier run, 5 s model) | **PostgreSQL / 2 workers (0.9 s model)** |
+|---|---|---|
+| Requests (window) | 660 in 151 s → 4.36 req/s | 660 in **29.7 s → 22.2 req/s** |
+| 5xx / 4xx from our code | 0 / 0 | **0 / 0** |
+| Provenance | 400/400 Granite-labelled | **400/400** `watsonx · ai=true · ibm/granite-4-h-small`, 0 fallbacks |
+| `recommend` p50 / p95 / p99 | 6.35 / 9.26 / 12.40 s | **1.23 / 1.69 / 2.01 s** (max 3.14 s) |
+| `save_outfit` p50 / p95 | 1.18 / 3.00 s | **0.24 / 0.55 s** |
+| `list_outfits` p50 / p95 | 9 ms / 1.14 s | **11 ms / 0.34 s** |
+| `add_item` p50 / p99 | 119 ms / 3.75 s | **157 ms / 0.30 s** |
+| Verdict | p95/p99 MISSED | **PASS — VERIFIED** (p95 1.69 < 2.4; p99 2.01 < 3.9; error rate 0; no 5xx) |
+
+Reading: application overhead above model latency at p95 is ≈ **0.8 s** with 20
+concurrent users (vs. ≈ 2.8 s on the SQLite/1-worker rig). The earlier miss is
+therefore confirmed as rig attribution, not stylist code. Note the model
+latencies differ between the two runs (the comparison that matters is overhead
+above the model, which the harness's targets are expressed in).
+
+### Mocked, like-for-like — 20 VUs × 20, double at **5 s ± 1.5 s**, 2 % 503 + 1 % 429 injected (`stylist_mocked_20vu_postgres_2workers_5s.json`)
+
+| Metric | SQLite / 1 worker | **PostgreSQL / 2 workers** | Double alone (simulated from its own parameters, 200k draws) |
+|---|---|---|---|
+| Requests / throughput | 660 in 151 s → 4.36 req/s | 660 in **139 s → 4.75 req/s** | — |
+| 5xx / 4xx | 0 / 0 | **0 / 0** | — |
+| Provenance | 400/400 Granite | **400/400** Granite, 0 fallbacks | — |
+| `recommend` p50 / p95 / p99 | 6.35 / 9.26 / 12.40 s | **5.96 / 8.25 / 9.52 s** (max 12.98 s) | 5.05 / 6.44 / ≈ 11.0 s |
+| Verdict vs. 6.5 / 8.0 | MISSED | **MISSED** (p95 8.25 > 6.5; p99 9.52 > 8.0) | the targets are below the double's own p95 + 0.1 s and far below its p99 |
+
+Reading, stated plainly:
+* The pre-defined targets were written as *mean model latency + 1.5 s / + 3 s*.
+  With ±1.5 s jitter and 3 % retried calls the double **by itself** has p95 ≈
+  6.44 s and p99 ≈ 11 s, so an application overhead of more than ~0.06 s fails
+  p95 and p99 cannot pass at all. **The targets are not relaxed here**; the
+  owner must decide whether to restate them against the model's *measured
+  percentiles* (e.g. p95 ≤ model-p95 + 1.5 s, p99 counted with retries as
+  `2 × latency + 2 s`). This document already flagged the retry omission.
+* What the application adds at 20 concurrent users, 2 workers: ≈ **0.9 s at
+  p50** and ≈ **1.8 s at p95** (measured minus double-alone). The 0.9 s-model
+  run above puts the same overhead at ≈ 0.3 s / 0.8 s; i.e. overhead grows
+  with the number of requests simultaneously in flight per worker (≈ 10 here).
+  Candidates, unverified: synchronous SQLAlchemy work inside the `async`
+  recommendation handler blocking the event loop while other requests await
+  the model, and CPU contention on a 2-vCPU host that also runs the double,
+  PostgreSQL and the load driver. **Next action (Engineering):** profile one
+  worker under 10 concurrent recommendations; if the event loop is the cause,
+  move the DB/prompt phase to a threadpool or raise the worker count; re-run.
+* Correctness, isolation and provenance under load: clean in every run.
+* Side observation: registration throttling was reached after 4 → 9 → 14 → 19
+  users instead of every 5 — the per-process (`memory://`) limiter with two
+  workers lets roughly double the configured rate through. Expected and
+  documented; set `REDIS_URL` for global limits in multi-worker deployments.
+
+### Live — 2 VUs × 4 requests on the same PostgreSQL / 2-worker rig (`stylist_live_probe_postgres_2workers.json`)
+
+| Metric | Value |
+|---|---|
+| Requests | 8 recommendations (+ items, 2 saves, 2 lists) |
+| Errors | **0** (0×4xx, 0×5xx), 0 fallbacks, 0 rejected references |
+| Provenance | **8/8** `ibm/granite-4-h-small`, `ai_generated=true` (server log: `POST https://eu-de.ml.cloud.ibm.com/ml/v1/text/chat` → 200, `wardrobe_outfit_saved … source=watsonx`) |
+| `recommend` | p50 **3.51 s** · p95 **6.10 s** (n = 8; bounded probe, not a load test) |
+| Verdict | **PASS** against the master-prompt targets (p95 ≤ 6.5 s, p99 ≤ 8 s) — *for this sample size*; the live cap of 12 requests is deliberate |
+
+### Found while building the rig (fixed in this pass)
+On a **fresh PostgreSQL** database the API never finished starting: the
+lifespan held the catalogue-probe session open while `seed_database()` ran
+`DROP TABLE` on a second connection — a self-deadlock PostgreSQL cannot detect
+(the holder is idle, not waiting). Fixed in `backend/app/main.py`; regression
+test `backend/tests/test_startup_seed_no_open_session.py`. Non-production
+only (production never seeds), but it would have blocked any Postgres-backed
+staging on first boot.
+
 ## Status and recommendation
 * Correctness under load: **VERIFIED (mocked)** — no 5xx, no mislabelled
   provenance, no id leakage, retries work, saves persist.
-* Latency targets: **PARTIALLY VERIFIED** — live single-user latency is what
-  the model costs (~5.5 s); concurrency tails were measured on a rig that does
-  not resemble production (Postgres, ≥2 workers, Redis limiter storage).
-* **Before release sign-off:** re-run `stylist_load.py --mode mocked --vus 20`
-  against a Postgres-backed staging API with ≥ 2 workers, and set the p99
-  target to `2 × latency + 2 s` *explicitly* if retries are to be included in
-  it (this document records that the original target did not account for them).
+* Latency targets: **PARTIAL.** On the production-like rig (PostgreSQL,
+  2 workers) the 0.9 s-model run passes its derived targets and the live
+  bounded probe passes (p95 6.10 s ≤ 6.5 s), but the like-for-like 5 s-model
+  run still misses 6.5 / 8.0 (p95 8.25 / p99 9.52). Targets were **not**
+  relaxed; see the reading above for why they cannot be met as written with a
+  jittered, fault-injecting double, and for the measured application overhead
+  that *is* ours to reduce (≈ 0.9 s p50 / 1.8 s p95 at 20 concurrent).
+* Still outstanding (**NOT RUN**): the same run against the real staging
+  deployment (Neon + Vercel function runtime) — blocked by the Neon quota lock
+  and the Vercel 402. Vercel's Python function is single-process per
+  invocation, so worker-count behaviour there is a platform property; re-run
+  the live probe and a short mocked soak once staging exists.
+* Retry accounting: unchanged recommendation — if retries are to be inside
+  the p99 budget, state the target as `2 × latency + 2 s` explicitly.

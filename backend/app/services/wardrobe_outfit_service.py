@@ -24,6 +24,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
+from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError
 from backend.app.core.logging import logger
 from backend.app.models.wardrobe import WardrobeItem, WardrobeOutfit, WardrobeOutfitItem
@@ -37,6 +38,22 @@ from backend.app.services.storage_service import storage_public_url
 from backend.app.services.wardrobe_stylist_service import CATEGORY_TO_ROLE, CORE_ROLES
 
 MAX_SAVED_PER_USER = 200
+
+
+def allowed_watsonx_model_ids() -> set[str]:
+    """Model identifiers a saved look may claim when ``source == "watsonx"``.
+
+    Provenance is otherwise stored verbatim from the client (FR-14), which
+    means a crafted request could label a look ``source=watsonx`` with a
+    foreign ``model_id`` (found 2026-10-26: ``gpt-4o`` was persisted and would
+    have been badged as a Granite look). The only truthful values are the
+    identifiers this deployment is actually configured to call — the
+    reasoning model ID or, when routing through a watsonx Deployment, the
+    reasoning deployment ID. Centralised here so the allow-list follows the
+    configuration instead of being hard-coded.
+    """
+    ids = {settings.WATSONX_REASONING_MODEL_ID, settings.WATSONX_REASONING_DEPLOYMENT_ID}
+    return {str(i).strip() for i in ids if i and str(i).strip()}
 
 
 class WardrobeOutfitService:
@@ -69,6 +86,12 @@ class WardrobeOutfitService:
         if not valid_ids:
             raise ValidationDomainError(
                 "None of the pieces in this look are in your wardrobe any more, so it was not saved."
+            )
+
+        if req.source == "watsonx" and req.model_id and req.model_id.strip() not in allowed_watsonx_model_ids():
+            logger.warn("wardrobe_outfit_save_rejected_model_id", user_id=user_id)
+            raise ValidationDomainError(
+                "This look's model attribution does not match the configured watsonx model, so it was not saved."
             )
 
         count = self.db.query(WardrobeOutfit).filter(WardrobeOutfit.user_id == user_id).count()

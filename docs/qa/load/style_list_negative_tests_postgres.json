@@ -1,0 +1,113 @@
+{
+ "rig": "PostgreSQL 16 local, uvicorn 2 workers, mocked watsonx double",
+ "date": "2026-10-26",
+ "checks": [
+  {
+   "check": "setup: A adds item",
+   "status": "PASS",
+   "detail": "{\"id\":179,\"user_id\":34,\"title\":\"Navy Blazer\",\"category\":\"Outerwear\",\"subcategory\":\"Blazer\",\"color_name\":\"Navy\",\"color_he"
+  },
+  {
+   "check": "setup: A saves outfit",
+   "status": "PASS",
+   "detail": "{\"id\":83,\"title\":\"Test look\",\"occasion\":\"Business\",\"summary\":\"s\",\"items\":[{\"wardrobe_item_id\":179,\"role\":\"outerwear\",\"ca"
+  },
+  {
+   "check": "unauthenticated list -> 401",
+   "status": "PASS",
+   "detail": "401 (clean client; earlier 200 was a cookie-jar artefact of the test script: register sets a session cookie)"
+  },
+  {
+   "check": "unauthenticated save -> 401",
+   "status": "PASS",
+   "detail": "401 (clean client; cookie-authenticated POST without CSRF header -> 403 observed earlier, which is the CSRF guard working)"
+  },
+  {
+   "check": "tenant B reads A's outfit -> 404 (no existence leak)",
+   "status": "PASS",
+   "detail": "404"
+  },
+  {
+   "check": "tenant B deletes A's outfit -> 404",
+   "status": "PASS",
+   "detail": "404"
+  },
+  {
+   "check": "A's outfit intact after B's delete attempt",
+   "status": "PASS",
+   "detail": "200"
+  },
+  {
+   "check": "tenant B list is empty (isolation)",
+   "status": "PASS",
+   "detail": "200 n=0"
+  },
+  {
+   "check": "B saves outfit referencing A's item -> 4xx",
+   "status": "PASS",
+   "detail": "422 {\"error\":{\"code\":\"VALIDATION_ERROR\",\"message\":\"None of the pieces in this look are in your"
+  },
+  {
+   "check": "nonexistent wardrobe_item_id -> 4xx",
+   "status": "PASS",
+   "detail": "422 {\"error\":{\"code\":\"VALIDATION_ERROR\",\"message\":\"None of the pieces in this look are in your"
+  },
+  {
+   "check": "empty items -> 422",
+   "status": "PASS",
+   "detail": "422"
+  },
+  {
+   "check": "oversized title -> 422",
+   "status": "PASS",
+   "detail": "422"
+  },
+  {
+   "check": "foreign provider `source` -> 422",
+   "status": "PASS",
+   "detail": "422"
+  },
+  {
+   "check": "non-allowlisted model_id (gpt-4o) -> rejected or sanitised",
+   "status": "PASS",
+   "detail": "after fix: gpt-4o -> 422; configured ibm/granite-4-h-small -> 201",
+   "detail_before_fix": "201 {\"id\":84,\"title\":\"Test look\",\"occasion\":\"Business\",\"summary\":\"s\",\"items\":[{\"wardrobe_item_id\":179,\"role\":\"outerwear\",\"ca"
+  },
+  {
+   "check": "non-integer outfit id -> 422",
+   "status": "PASS",
+   "detail": "422"
+  },
+  {
+   "check": "unsupported language -> 422",
+   "status": "PASS",
+   "detail": "422 {\"detail\":[{\"type\":\"literal_error\",\"loc\":[\"body\",\"language\"],\"msg\":\"Input should"
+  },
+  {
+   "check": "empty wardrobe recommendation -> no 5xx",
+   "status": "PASS",
+   "detail": "422 {\"error\":{\"code\":\"VALIDATION_ERROR\",\"message\":\"Your wardrobe has no analysed items to style yet. Upl"
+  },
+  {
+   "check": "delete A's wardrobe item",
+   "status": "PASS",
+   "detail": "200"
+  },
+  {
+   "check": "outfit readable after item delete (FK cascade, no 5xx)",
+   "status": "PASS",
+   "detail": "200 items=0"
+  },
+  {
+   "check": "unauthenticated get-one -> 401",
+   "status": "PASS",
+   "detail": "401"
+  },
+  {
+   "check": "unauthenticated delete -> 401",
+   "status": "PASS",
+   "detail": "401"
+  }
+ ],
+ "note": "Checks executed before the model_id allow-list fix except where 'detail_before_fix' is present; those were re-run on the fixed code."
+}

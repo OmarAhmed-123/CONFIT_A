@@ -57,11 +57,18 @@ async def lifespan(app: FastAPI):
             # credentials like admin@confit.io / Password123!.
             from sqlalchemy.orm import Session as _Session
             from backend.app.models.catalog import Category
+            # Decide INSIDE the session, seed OUTSIDE it. seed_database()
+            # runs drop_all() on a second connection; on PostgreSQL that needs
+            # exclusive locks on FK-referenced tables (e.g. categories) which
+            # this probe session still holds idle-in-transaction — a
+            # self-deadlock that hangs startup forever (verified 2026-10-26 on
+            # PostgreSQL 16 with 1 and 2 uvicorn workers; invisible on SQLite).
             with _Session(engine) as _s:
-                if _s.query(Category).count() == 0:
-                    from backend.app.seed_data import seed_database
-                    seed_database(target_engine=engine)
-                    logger.info("Database was empty — seeded the default catalogue")
+                _needs_seed = _s.query(Category).count() == 0
+            if _needs_seed:
+                from backend.app.seed_data import seed_database
+                seed_database(target_engine=engine)
+                logger.info("Database was empty — seeded the default catalogue")
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
 

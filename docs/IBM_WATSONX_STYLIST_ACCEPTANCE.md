@@ -65,6 +65,18 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 | Live smoke | `PYTHONPATH=. python scripts/watsonx_smoke.py` | 4/4 PASS (IAM, reasoning, vision, stylist round-trip) |
 | Live journey | uvicorn :8000 + scripted client (register → upload ×4 → status → recommend → PATCH → recommend) | PASS, transcript in implementation summary |
 
+### 3.1 Re-validation 2026-10-26 (production-readiness pass)
+
+| Gate | Result |
+|---|---|
+| Backend focused (`-k "watsonx or stylist or outfit or alembic or migration"`) | 510 passed, 2 skipped |
+| Backend full suite | see `IBM_WATSONX_PRODUCTION_VERIFICATION_REPORT.md` §0.6 |
+| Frontend `npm run verify` | 157 files / 2,361 tests, tsc, i18n gate, build — green |
+| Alembic chain on PostgreSQL 16 (up → 0046 → up) + FK/index inspection | PASS |
+| 20-VU mocked load on PostgreSQL / 2 workers | PASS (p95 1.69 s, p99 2.01 s, 0 errors, 400/400 Granite-labelled) |
+| Live bounded probe (8 Granite calls) on the same rig | PASS (8/8 `ibm/granite-4-h-small`, p95 6.10 s) |
+| Negative battery over HTTP on PostgreSQL (21 checks) | 20 PASS + 1 defect found (forgeable `model_id`) → fixed, see §4 item 6 |
+
 ## 4. Defects found and fixed along the way
 
 1. **Upload size check ran after the content-safety model call.** With the
@@ -81,6 +93,17 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 4. **Arabic UI received English prose** — added `language` to the request
    contract; the prompt asks for Arabic prose while keeping JSON keys,
    category names and ids English.
+5. **(2026-10-26 re-validation) API hung forever on a fresh PostgreSQL
+   database** — the lifespan held the catalogue-probe session open while
+   `seed_database()` ran `drop_all()` on a second connection (lock wait that
+   PostgreSQL cannot flag as a deadlock). Probe now closes before seeding.
+   Regression test: `backend/tests/test_startup_seed_no_open_session.py`.
+   Production unaffected (never seeds); any Postgres staging first boot was.
+6. **(2026-10-26 re-validation) A saved look could claim any `model_id`
+   under `source=watsonx`** (`gpt-4o` was persisted on the Postgres rig and
+   would have been badged as Granite). `WardrobeOutfitService.save` now
+   accepts only the configured reasoning model / deployment id (422
+   otherwise). Test: `test_watsonx_look_cannot_claim_a_foreign_model_id`.
 
 ## 5. Not verified / known limitations (read this)
 

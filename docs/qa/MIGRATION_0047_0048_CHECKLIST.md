@@ -20,20 +20,44 @@ loses provenance labels only.
 | Chain parses, single head, `test_flow_e` pins head = 0048 | `backend/tests/test_flow_e_purchase_to_wardrobe.py` | PASS |
 | Schema gate lists new tables; ORM ↔ required-objects parity | `backend/app/core/schema_gate.py`, `test_schema_drift_gate.py` | PASS |
 | empty → head → `0046` → head on **sqlite** | `alembic -c backend/alembic.ini upgrade head / downgrade / upgrade` (local) | PASS (`alembic_version = 0048_wardrobe_outfits`, both tables present) |
-| empty → head → base → head on **PostgreSQL 17** + gate verdict | CI job `postgres migration chain + schema gate` (`backend/scripts/check_migration_chain_postgres.py`) | PASS on PR #387 for 0047; **re-runs on push of 0048** — check the run before applying anywhere |
+| empty → head → base → head on **PostgreSQL 17** + gate verdict | CI job `postgres migration chain + schema gate` (`backend/scripts/check_migration_chain_postgres.py`) | **PASS — AUTOMATED on `f1a881d` (the push carrying 0048)**, GitHub check-run SUCCESS |
+| empty → head → `0046` → head on **PostgreSQL 16** (local, UTF8) + object inspection | re-validation pass 2026-10-26: `alembic upgrade head / downgrade 0046 / upgrade head`, then `pg_constraint` / `pg_indexes` / `information_schema.columns` | **PASS — VERIFIED**: single head `0048_wardrobe_outfits`; `wardrobe_items.analysis_source` + `analysis_description` present; `wardrobe_outfit_items` FKs `…_outfit_id_fkey` and `…_wardrobe_item_id_fkey` both `confdeltype = c` (ON DELETE CASCADE); indexes `ix_wardrobe_outfits_user_id`, `ix_wardrobe_outfit_items_outfit_id`, `ix_wardrobe_outfit_items_wardrobe_item_id` present |
+| FK cascade observed through the API on PostgreSQL | `docs/qa/load/style_list_negative_tests_postgres.json` ("outfit readable after item delete") | PASS — deleting a garment leaves the look readable with `items=[]`, no 5xx |
+| Grants to `confit_app_rw` | 0048 `GRANT` statements | **NOT RUN on Neon** (quota lock); the local rig has no such role, so the grants are exercised only by CI's chain job |
 | Behaviour on top of the schema | `test_wardrobe_saved_outfits.py` (7), `test_watsonx_stylist.py` (37) | PASS |
 
-## Database state actually observed (2026-10-26)
+## Database state actually observed (2026-10-26, re-probed in the re-validation pass the same day)
 
 | Environment | Host | Observation |
 |---|---|---|
-| staging `confit_fixverify` (owner + `confit_app_rw`) | Neon project endpoint (eu-central-1; host kept in the local env file) | **Connection refused by Neon: "Your account or project has exceeded the quota. Upgrade your plan to increase limits."** Revision could **not** be read. |
-| production `neondb` (owner + `confit_app_rw`) | same Neon project | **Same quota refusal.** Revision could **not** be read. |
+| staging `confit_fixverify` (owner + `confit_app_rw`) | Neon project endpoint (eu-central-1; host kept in the local env file) | **Connection refused by Neon: "Your account or project has exceeded the quota. Upgrade your plan to increase limits."** Revision could **not** be read. **Re-probed (read-only, both roles): still refused.** → **BLOCKED** |
+| production `neondb` (owner + `confit_app_rw`) | same Neon project | **Same quota refusal.** Revision could **not** be read. **Re-probed: still refused.** → **BLOCKED** |
+
+Recovery owner: the Neon account holder (billing). Action: upgrade the plan or
+delete/suspend unused branches/compute to drop under quota, then re-run step 0
+below. This cannot be performed from the repository or with the credentials
+available here (no Neon API key; the console is a billing action).
 
 Consequence: `alembic_version` for both environments is **NOT VERIFIED** this
 session; last known (session 1, before the quota lock) was that 0047 had **not**
 been applied anywhere. Nothing was applied. Production also serves HTTP 402
 `DEPLOYMENT_DISABLED` from Vercel, so no running app depends on the schema right now.
+
+## Startup note for PostgreSQL in non-production environments (found 2026-10-26)
+
+Before this pass, `backend/app/main.py` held the catalogue-probe session open
+while calling `seed_database()` on an **empty** catalogue. On PostgreSQL that
+self-deadlocks (idle-in-transaction AccessShareLock on `categories` vs. the
+seeder's `DROP TABLE products`), so a fresh non-production Postgres database
+never finished starting — invisible on SQLite. Fixed (probe closed before
+seeding; regression test `backend/tests/test_startup_seed_no_open_session.py`).
+Production is unaffected (the dev seed path is skipped when
+`ENVIRONMENT=production`). Two residual, documented behaviours: (a) with
+several workers on an *empty* dev catalogue, every worker attempts the seed and
+all but one log a benign "Database initialization notice"; seed once with a
+single worker or pre-seed; (b) the seeder writes Arabic names, so the database
+must be `UTF8` (Neon is; a locally `initdb`'d cluster without a locale is
+`SQL_ASCII` and rejects the seed).
 
 ## Apply procedure (staging first; production only with explicit written authorisation)
 

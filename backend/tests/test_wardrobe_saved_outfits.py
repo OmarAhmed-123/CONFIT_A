@@ -183,3 +183,34 @@ def test_saved_outfits_require_auth_and_validate_shape(client):
     h = _register(client)
     res = client.post("/api/v1/wardrobe/outfits", json={"title": "x", "occasion": "Smart Casual", "items": [], "source": "watsonx", "ai_generated": True}, headers=h)
     assert res.status_code == 422
+
+
+def test_watsonx_look_cannot_claim_a_foreign_model_id(client, monkeypatch):
+    """Provenance integrity (NFR truthful provenance, found 2026-10-26 on the
+    PostgreSQL rig): a look labelled ``source=watsonx`` may only carry the
+    model identifier this deployment is configured to call. Anything else
+    (``gpt-4o``, a typo, a withdrawn Granite id) is rejected — never stored and
+    never badged as a Granite look."""
+    from backend.app.core.config import settings
+
+    h = _register(client)
+    closet = _closet(client, h)
+
+    res = client.post("/api/v1/wardrobe/outfits", json=_payload(closet, model_id="gpt-4o"), headers=h)
+    assert res.status_code == 422
+    assert "model attribution" in res.json()["error"]["message"]
+    assert client.get("/api/v1/wardrobe/outfits", headers=h).json() == []
+
+    # The configured reasoning model is accepted …
+    res = client.post("/api/v1/wardrobe/outfits", json=_payload(closet, model_id=settings.WATSONX_REASONING_MODEL_ID), headers=h)
+    assert res.status_code == 201
+
+    # … and so is the reasoning *deployment* id when DoD routing is configured,
+    # because the allow-list follows configuration rather than a hard-coded id.
+    monkeypatch.setattr(settings, "WATSONX_REASONING_DEPLOYMENT_ID", "dep-1234")
+    res = client.post("/api/v1/wardrobe/outfits", json=_payload(closet, model_id="dep-1234"), headers=h)
+    assert res.status_code == 201
+
+    # Fallback looks never carry a model id, whatever the client sends (unchanged behaviour).
+    res = client.post("/api/v1/wardrobe/outfits", json=_payload(closet, source="deterministic_fallback", ai_generated=False, model_id="gpt-4o"), headers=h)
+    assert res.status_code == 201 and res.json()["model_id"] is None

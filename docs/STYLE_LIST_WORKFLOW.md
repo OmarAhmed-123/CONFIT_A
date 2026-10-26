@@ -41,7 +41,11 @@ the first is verified to still work (existing tests `test_stylist_wardrobe_influ
   rejected and returned in `rejected_references`; a look with **zero** valid
   ids is refused (422), never saved empty; role derived from stored category;
   `ai_generated/model_id` forced false/null when `source != watsonx`;
-  201 only after commit.
+  **when `source == watsonx`, `model_id` must be the configured reasoning model
+  (or reasoning deployment) id — any other value is refused (422), so a
+  client cannot label a look as a Granite answer from a model this deployment
+  never called** (added 2026-10-26 after the PostgreSQL negative-test run
+  persisted `gpt-4o`); 201 only after commit.
 * Read-time rules: binned garments are omitted and counted in
   `dropped_item_count`; `is_complete` turns false when something was dropped;
   cross-user GET/DELETE → 404 (no existence oracle).
@@ -60,3 +64,6 @@ the first is verified to still work (existing tests `test_stylist_wardrobe_influ
 | Save → retrieve | `test_save_then_list_and_get_round_trip`, `test_other_user_cannot_read_or_delete_a_saved_look` | VERIFIED (unit) |
 | AI vs fallback labelling | `test_role_comes_from_stored_category_and_fallback_is_never_ai`; panel + saved-looks provenance tests | VERIFIED (unit) |
 | Live Granite recommendation | `scripts/watsonx_smoke.py` | VERIFIED LIVE (session 1, granite-4-h-small); re-run in P5 live probe |
+| Provenance cannot be forged at save time | `test_watsonx_look_cannot_claim_a_foreign_model_id` | PASS — VERIFIED (unit) |
+| Negative battery over HTTP on **PostgreSQL** (2 workers): unauthenticated 401 ×4, cross-tenant read/delete 404, tenant list isolation, foreign/unknown ids 422, empty items 422, oversized title 422, foreign `source` 422, non-integer id 422, unsupported language 422, empty wardrobe → 422 not 5xx, garment delete → look still readable (`items=[]`) | `docs/qa/load/style_list_negative_tests_postgres.json` (21 checks) | 20 PASS; the single FAIL (`model_id=gpt-4o` accepted) is the defect fixed above — re-run after the fix is recorded in the same file |
+| Existing conversational StyleList (chat) regression | `test_stylist_wardrobe_influence.py`, `test_stylist_*` in the full backend run | PASS — AUTOMATED (full suite, this pass) |

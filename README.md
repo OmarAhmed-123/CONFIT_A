@@ -229,6 +229,11 @@ PYTHONPATH=. python3 scripts/watsonx_smoke.py [path/to/garment.jpg]
 * Credentials never appear in logs (last-4 redaction), responses, or the
   frontend bundle. `GET /wardrobe/stylist/status` reports *whether* watsonx is
   configured and which model ids are in use — never the key or project id.
+* Saved looks keep their provenance, but a client cannot forge it: a look
+  posted with `source=watsonx` is only accepted when its `model_id` is the
+  configured reasoning model (or reasoning deployment) id; anything else is
+  rejected with 422. Fallback looks are always stored as `ai_generated=false`,
+  `model_id=null`.
 
 ### Troubleshooting
 
@@ -238,6 +243,9 @@ PYTHONPATH=. python3 scripts/watsonx_smoke.py [path/to/garment.jpg]
 | `502 PROVIDER_ERROR … watsonx_auth_failed` | IAM rejected the key (typo, deleted key) or the project is not in `WATSONX_URL`'s region / not associated with a Runtime |
 | `… watsonx_model_not_supported` | model id deprecated/removed in your region; run the smoke script and change the `*_MODEL_ID` |
 | `… watsonx_timeout` / `watsonx_rate_limited` | transient; the client already retries 429/5xx/timeouts with backoff — retry from the UI |
+| `422 … model attribution does not match the configured watsonx model` on `POST /wardrobe/outfits` | the `model_id` sent back differs from `WATSONX_REASONING_MODEL_ID` / `WATSONX_REASONING_DEPLOYMENT_ID` (e.g. the model was rotated between recommend and save, or the payload was altered) — regenerate the look |
+| API never binds its port on a **fresh PostgreSQL** database (non-production) | fixed 2026-10-26 (seed ran while the probe session was still open → lock wait); if you run several uvicorn workers against an *empty* dev database, seed once with one worker first; the database must be `UTF8` (the seed contains Arabic) |
+| Rate limits appear per-worker | without an external `REDIS_URL` the limiter uses `memory://` per process; point `REDIS_URL` at a shared store for multi-worker deployments |
 | Item stuck `failed` with `watsonx_vision_malformed_output` | model returned prose instead of JSON; press "Retry analysis" (temperature is 0, usually transient) |
 | Outfit badge says "Rule-based match" although keys are set | check `fallback_reason` in the response and the backend log line `wardrobe_stylist_model_degraded` |
 

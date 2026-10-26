@@ -132,6 +132,7 @@ class WardrobeStylistService:
             result = await client.chat(
                 model_id=settings.WATSONX_REASONING_MODEL_ID, messages=messages,
                 max_tokens=900, temperature=0.2, response_json=True,
+                deployment_id=settings.WATSONX_REASONING_DEPLOYMENT_ID or None,
             )
         except WatsonxError as exc:
             raise ProviderIntegrationError("watsonx", exc.code, retryable=exc.retryable) from exc

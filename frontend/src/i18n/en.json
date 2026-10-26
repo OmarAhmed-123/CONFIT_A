@@ -3407,6 +3407,25 @@
       "Footwear": "Footwear",
       "Accessories": "Accessories",
       "Dresses": "Dresses"
-    }
+    },
+    "save_look": "Save this look",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saved_detail": "Saved to your wardrobe looks (#{{id}}). Find it under Looks.",
+    "save_failed": "We couldn't save this look. Nothing was stored — please try again.",
+    "saved_looks_title": "Saved wardrobe looks",
+    "saved_looks_subtitle": "Looks you kept from the AI stylist, built only from pieces you own.",
+    "saved_looks_empty": "No saved wardrobe looks yet. Generate an outfit in the Stylist tab and choose “Save this look”.",
+    "saved_looks_error": "Your saved wardrobe looks couldn't be loaded right now.",
+    "saved_looks_incomplete": "Incomplete look",
+    "saved_looks_delete": "Delete look",
+    "saved_looks_deleted": "Look deleted.",
+    "saved_looks_delete_failed": "Couldn't delete this look. It is still saved.",
+    "saved_looks_made_by": "Made by {{model}}",
+    "saved_looks_made_by_rules": "Rule-based (no AI)",
+    "saved_looks_saved_on": "Saved {{date}}",
+    "saved_looks_dropped_one": "{{count}} piece from this look is no longer in your wardrobe.",
+    "saved_looks_dropped_other": "{{count}} pieces from this look are no longer in your wardrobe.",
+    "swap_out_item": "Swap out {{item}}"
   }
 }

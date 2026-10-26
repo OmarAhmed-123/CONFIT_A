@@ -120,6 +120,7 @@ class WatsonxVisionProvider:
         try:
             result = await self._client.chat(
                 model_id=self.model_id, messages=messages, max_tokens=500, temperature=0.0,
+                deployment_id=settings.WATSONX_VISION_DEPLOYMENT_ID or None,
             )
         except WatsonxError as exc:
             logger.warn("watsonx_vision_failed", code=exc.code, status=exc.status, model_id=self.model_id)

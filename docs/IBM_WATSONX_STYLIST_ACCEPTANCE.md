@@ -1,6 +1,11 @@
 # IBM watsonx.ai Granite Wardrobe Stylist — Acceptance Checklist & Honest Report
 
-Date: 2026-10-26 · Branch: working tree on `main` · Author: OmarAhmed-123
+Date: 2026-10-26 · Branch: `feat/watsonx-granite-stylist` (PR #387) · Author: OmarAhmed-123
+
+> **Second pass (production verification), same day:** see
+> `docs/IBM_WATSONX_PRODUCTION_VERIFICATION_REPORT.md` for the re-verified
+> baseline, the new save/revisit journey (FR-21 below), the Granite Vision
+> Deploy-on-Demand finding, database/a11y/load status and blockers.
 
 Legend — **VERIFIED**: executed in this session with the evidence named.
 **MOCKED**: behaviour proven by automated tests that stub the watsonx HTTP
@@ -31,6 +36,7 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 | FR-18 | Mock/fallback output is never labelled as Granite inference | VERIFIED | `source="deterministic_fallback"`, `ai_generated=false`, `fallback_reason`; UI badge "Rule-based match — not AI"; `test_fallback_is_labelled`; FE test `shows the not-AI badge for fallback` |
 | FR-19 | Professional editorial UI in the existing React/Tailwind framework, bilingual EN/AR, accessible | VERIFIED | `WardrobeStylistPanel.tsx`; `wardrobe_stylist` namespace in `en.json`/`ar.json` (`npm run i18n:check` 0 missing); axe 0 violations EN & AR (`wardrobeStylistPanel.test.tsx` 7/7); `motion-safe:` spinner gate (`statusIconRepass.test.tsx` 8/8) |
 | FR-20 | Documentation: README section, `.env.example` placeholders, audit, acceptance, troubleshooting | VERIFIED | `README.md` § "IBM watsonx.ai wardrobe stylist"; `backend/.env.example` §4b; root `.env.example`; `docs/IBM_WATSONX_STYLIST_AUDIT.md`; this file |
+| FR-21 | Save a recommended look and revisit it (ids re-validated against the caller's wardrobe at save time; roles from stored categories; provenance kept; binned garments omitted and counted; cross-user 404) | VERIFIED (unit) + LIVE (browser EN/AR, Orca EN) | `0048_wardrobe_outfits`; `wardrobe_outfit_service.py`; `test_wardrobe_saved_outfits.py` 7/7; `savedWardrobeLooks.test.tsx` 5/5; `docs/qa/stylist_a11y_report.json`, `stylist_orca_report.json` |
 
 ## 2. Scenario matrix
 

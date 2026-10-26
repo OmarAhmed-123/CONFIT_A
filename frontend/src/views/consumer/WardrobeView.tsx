@@ -36,6 +36,7 @@ import { formatMoney } from '../../i18n/format';
 import { X, Star } from 'lucide-react';
 import { TryOnButton } from '../../components/product/TryOnButton';
 import { WardrobeStylistPanel } from '../../components/wardrobe/WardrobeStylistPanel';
+import { SavedWardrobeLooks } from '../../components/wardrobe/SavedWardrobeLooks';
 
 /**
  * Placeholder for a manually added wardrobe item.
@@ -690,6 +691,12 @@ export const WardrobeView: React.FC = () => {
       {/* TAB 2: Saved Outfits + Wardrobe-First Styling (BRD §24) */}
       {activeTab === "looks" && (
         <div className="space-y-6">
+          {/* Looks the AI wardrobe stylist assembled from OWNED pieces and the
+              user chose to keep (0048). Separate from catalog looks below. */}
+          <SavedWardrobeLooks
+            isAuthenticated={isAuthenticated}
+            onOpenStylist={() => setActiveTab("stylist")}
+          />
           {/* Shop-your-wardrobe-first: build a look from owned pieces; only
               genuine gaps surface purchasable catalog items. */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">

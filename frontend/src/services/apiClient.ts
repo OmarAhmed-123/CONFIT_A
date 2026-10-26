@@ -395,6 +395,9 @@ export async function request<T>(
       );
     }
 
+    // 204 No Content (e.g. DELETE /wardrobe/outfits/{id}) has no body: a
+    // successful delete must never surface as a JSON parse failure.
+    if (res.status === 204) return undefined as T;
     return await res.json();
   } catch (err: any) {
     if (err instanceof ApiError) {

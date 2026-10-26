@@ -28,6 +28,7 @@ import { ApiError } from "../../../services/apiClient";
 
 const recommendOutfit = vi.fn();
 const getStylistStatus = vi.fn();
+const saveOutfit = vi.fn();
 vi.mock("../../../services/apiServices", async (importOriginal) => {
   const mod = await importOriginal<typeof import("../../../services/apiServices")>();
   return {
@@ -36,6 +37,7 @@ vi.mock("../../../services/apiServices", async (importOriginal) => {
       ...mod.wardrobeService,
       recommendOutfit: (...a: unknown[]) => recommendOutfit(...a),
       getStylistStatus: (...a: unknown[]) => getStylistStatus(...a),
+      saveOutfit: (...a: unknown[]) => saveOutfit(...a),
     },
   };
 });
@@ -103,6 +105,7 @@ beforeEach(async () => {
   await setAppLanguage("en");
   recommendOutfit.mockReset();
   getStylistStatus.mockReset();
+  saveOutfit.mockReset();
   getStylistStatus.mockResolvedValue({
     watsonx_configured: true, reasoning_model_id: "ibm/granite-4-h-small", vision_model_id: "x",
     vision_provider_mode: "auto", stylist_provider_mode: "auto", legacy_vision_configured: false,
@@ -165,7 +168,7 @@ describe("WardrobeStylistPanel", () => {
     expect(recommendOutfit.mock.calls[1][0].previous_item_ids).toEqual([1, 2]);
 
     await screen.findByTestId("stylist-result");
-    fireEvent.click(screen.getAllByRole("button", { name: en.wardrobe_stylist.swap_out })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Swap out Blue Plaid Shirt" }));
     fireEvent.click(screen.getByRole("button", { name: en.wardrobe_stylist.another }));
     await waitFor(() => expect(recommendOutfit).toHaveBeenCalledTimes(3));
     expect(recommendOutfit.mock.calls[2][0].excluded_item_ids).toEqual([1]);
@@ -217,5 +220,64 @@ describe("WardrobeStylistPanel", () => {
     await screen.findByTestId("stylist-result");
     expect(screen.getByTestId("stylist-source-badge").textContent).toContain("ibm/granite-4-h-small");
     expect((await axe(r2.container)).violations).toEqual([]);
+  });
+
+  describe("Save this look", () => {
+    async function generate(result: typeof modelResult) {
+      recommendOutfit.mockResolvedValue(result);
+      renderPanel();
+      fireEvent.click(screen.getByRole("button", { name: en.wardrobe_stylist.generate }));
+      await screen.findByTestId("stylist-result");
+    }
+
+    it("sends ids + provenance to POST /wardrobe/outfits and reports success only after a 201 with an id", async () => {
+      await generate(modelResult);
+      saveOutfit.mockResolvedValue({ id: 42, items: modelResult.items, rejected_references: [], dropped_item_count: 0 });
+      const btn = screen.getByTestId("stylist-save-look");
+      expect(btn).toHaveTextContent(en.wardrobe_stylist.save_look);
+      fireEvent.click(btn);
+      await waitFor(() => expect(saveOutfit).toHaveBeenCalledTimes(1));
+      const payload = saveOutfit.mock.calls[0][0];
+      expect(payload.items).toEqual([
+        { wardrobe_item_id: 1, reason: modelResult.items[0].reason },
+        { wardrobe_item_id: 2, reason: modelResult.items[1].reason },
+      ]);
+      expect(payload.source).toBe("watsonx");
+      expect(payload.ai_generated).toBe(true);
+      expect(payload.model_id).toBe(modelResult.model_id);
+      // No role/image/category travels — the server derives them from stored rows.
+      expect(Object.keys(payload.items[0])).toEqual(["wardrobe_item_id", "reason"]);
+      await waitFor(() => expect(screen.getByTestId("stylist-save-look")).toHaveAttribute("data-save-state", "saved"));
+      expect(screen.getByTestId("stylist-save-status")).toHaveTextContent("#42");
+      expect(screen.getByTestId("stylist-save-look")).toBeDisabled();
+    });
+
+    it("never claims a save that failed, and re-enables the button", async () => {
+      await generate(modelResult);
+      saveOutfit.mockRejectedValue(new ApiError("boom", "HTTP_ERROR", 500, {}));
+      fireEvent.click(screen.getByTestId("stylist-save-look"));
+      await waitFor(() => expect(screen.getByTestId("stylist-save-look")).toHaveAttribute("data-save-state", "error"));
+      expect(screen.getByTestId("stylist-save-status")).toHaveTextContent(en.wardrobe_stylist.save_failed);
+      expect(screen.getByTestId("stylist-save-look")).not.toBeDisabled();
+      expect(screen.queryByText(/Saved to your wardrobe looks/)).toBeNull();
+    });
+
+    it("surfaces the server's 422 reason verbatim (e.g. nothing left to save)", async () => {
+      await generate(modelResult);
+      saveOutfit.mockRejectedValue(new ApiError("None of the pieces in this look are in your wardrobe any more, so it was not saved.", "VALIDATION_ERROR", 422, {}));
+      fireEvent.click(screen.getByTestId("stylist-save-look"));
+      await waitFor(() => expect(screen.getByTestId("stylist-save-status")).toHaveTextContent(/not saved/));
+    });
+
+    it("resets the saved state when another outfit is generated", async () => {
+      await generate(modelResult);
+      saveOutfit.mockResolvedValue({ id: 7, items: modelResult.items, rejected_references: [], dropped_item_count: 0 });
+      fireEvent.click(screen.getByTestId("stylist-save-look"));
+      await waitFor(() => expect(screen.getByTestId("stylist-save-look")).toHaveAttribute("data-save-state", "saved"));
+      recommendOutfit.mockResolvedValue({ ...modelResult, outfit_id: "wx_2" });
+      fireEvent.click(screen.getByRole("button", { name: en.wardrobe_stylist.another }));
+      await waitFor(() => expect(recommendOutfit).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.getByTestId("stylist-save-look")).toHaveAttribute("data-save-state", "idle"));
+    });
   });
 });

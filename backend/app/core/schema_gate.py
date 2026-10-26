@@ -118,6 +118,10 @@ REQUIRED_TABLES: tuple[str, ...] = (
     # 0021 — cross-run tail-truncation anchor for the audit chain. Without
     # it the integrity endpoint crashes, so absence is blocking drift.
     "audit_verification_runs",
+    # 0048 — saved wardrobe looks. The wardrobe stylist's "Save this look"
+    # path 500s on a database that was never migrated past 0047.
+    "wardrobe_outfits",
+    "wardrobe_outfit_items",
 )
 
 # Tables created by a migration only (no ORM model): a create_all database

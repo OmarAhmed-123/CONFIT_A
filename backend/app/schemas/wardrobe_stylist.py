@@ -100,3 +100,71 @@ class StylistStatus(BaseModel):
     ready_items: int
     categories_present: List[str]
     prompt_version: str
+
+
+# ───────────────────── saved wardrobe looks (0048) ─────────────────────
+class SavedOutfitItemIn(BaseModel):
+    wardrobe_item_id: int
+    reason: str = Field("", max_length=400)
+
+
+class SaveWardrobeOutfitRequest(BaseModel):
+    """What the client sends back from a recommendation to persist it.
+
+    Only ids + free text travel; everything that matters for truthfulness
+    (category → role, image, provenance) is re-derived or re-validated
+    server-side from the caller's own wardrobe rows at save time.
+    """
+
+    title: str = Field(min_length=2, max_length=160)
+    occasion: str = Field(min_length=2, max_length=60)
+    summary: str = Field("", max_length=1200)
+    items: List[SavedOutfitItemIn] = Field(min_length=1, max_length=12)
+    styling_notes: List[str] = Field(default_factory=list, max_length=8)
+    limitations: List[str] = Field(default_factory=list, max_length=8)
+    missing_categories: List[str] = Field(default_factory=list, max_length=6)
+    context: dict = Field(default_factory=dict)
+    source: Literal["watsonx", "deterministic_fallback"]
+    ai_generated: bool
+    model_id: Optional[str] = Field(None, max_length=160)
+    prompt_version: Optional[str] = Field(None, max_length=40)
+
+    @field_validator("styling_notes", "limitations", "missing_categories")
+    @classmethod
+    def _trim(cls, v: List[str]) -> List[str]:
+        return [x.strip()[:400] for x in v if isinstance(x, str) and x.strip()]
+
+
+class SavedOutfitItemOut(BaseModel):
+    wardrobe_item_id: int
+    role: ItemRole
+    category: str
+    title: str
+    subcategory: Optional[str] = None
+    color_name: str
+    color_hex: str
+    image_url: Optional[str] = None
+    reason: str
+    analysis_source: Optional[str] = None
+
+
+class SavedWardrobeOutfitOut(BaseModel):
+    id: int
+    title: str
+    occasion: str
+    summary: str
+    items: List[SavedOutfitItemOut]
+    styling_notes: List[str]
+    limitations: List[str]
+    missing_categories: List[str]
+    context: dict
+    is_complete: bool
+    source: str
+    ai_generated: bool
+    model_id: Optional[str] = None
+    prompt_version: Optional[str] = None
+    created_at: str
+    # Items that were part of the look when saved but whose garment has since
+    # been removed from the wardrobe (cascade). Reported, never hidden.
+    dropped_item_count: int = 0
+    rejected_references: List[int] = Field(default_factory=list)

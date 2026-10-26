@@ -592,3 +592,63 @@ def test_cross_user_items_are_not_styled(client, wx_env, monkeypatch):
     client.post("/api/v1/wardrobe/outfit-recommendation", headers=h1, json={"occasion": "Casual"})
     assert f'"wardrobe_item_id": {mine["id"]}' in seen["msg"]
     assert f'"wardrobe_item_id": {theirs["id"]}' not in seen["msg"]
+
+
+# ───────────── deploy-on-demand routing (Granite Vision is DoD-only) ─────────────
+class TestDeployOnDemandRouting:
+    """IBM serves granite-vision-3-3-2b / 4-1-4b only as dedicated deployments.
+    When a deployment id is configured the client must hit
+    ``/ml/v1/deployments/{id}/text/chat`` WITHOUT model_id/project_id in the
+    body, and provenance must come from the *response's* model_id."""
+
+    @pytest.mark.asyncio
+    async def test_deployment_endpoint_and_body_shape(self):
+        seen = {}
+
+        def handler(request: httpx.Request):
+            r = iam_ok(request)
+            if r:
+                return r
+            seen["path"] = request.url.path
+            seen["body"] = json.loads(request.content)
+            return httpx.Response(200, json=_chat_response("{}", model_id="ibm/granite-vision-3-3-2b"))
+
+        client = make_client(handler)
+        res = await client.chat(model_id="ibm/granite-vision-3-3-2b", messages=[{"role": "user", "content": "x"}],
+                                deployment_id="dep-123")
+        assert seen["path"] == "/ml/v1/deployments/dep-123/text/chat"
+        assert "model_id" not in seen["body"] and "project_id" not in seen["body"]
+        assert seen["body"]["messages"] == [{"role": "user", "content": "x"}]
+        assert res.model_id == "ibm/granite-vision-3-3-2b"
+
+    @pytest.mark.asyncio
+    async def test_provenance_follows_served_model_not_configured_label(self):
+        """If a deployment actually serves a different model than configured, the
+        served id wins — the UI must never claim Granite on a label alone."""
+        def handler(request: httpx.Request):
+            r = iam_ok(request)
+            if r:
+                return r
+            return httpx.Response(200, json=_chat_response("{}", model_id="meta-llama/llama-4-maverick-17b-128e-instruct-fp8"))
+
+        client = make_client(handler)
+        res = await client.chat(model_id="ibm/granite-vision-3-3-2b", messages=[{"role": "user", "content": "x"}],
+                                deployment_id="dep-999")
+        assert res.model_id == "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
+
+    @pytest.mark.asyncio
+    async def test_no_deployment_id_keeps_multitenant_contract(self):
+        seen = {}
+
+        def handler(request: httpx.Request):
+            r = iam_ok(request)
+            if r:
+                return r
+            seen["path"] = request.url.path
+            seen["body"] = json.loads(request.content)
+            return httpx.Response(200, json=_chat_response("{}"))
+
+        client = make_client(handler)
+        await client.chat(model_id="ibm/granite-4-h-small", messages=[{"role": "user", "content": "x"}])
+        assert seen["path"] == "/ml/v1/text/chat"
+        assert seen["body"]["model_id"] == "ibm/granite-4-h-small" and seen["body"]["project_id"] == "proj-1"

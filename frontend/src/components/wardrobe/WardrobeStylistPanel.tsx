@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   wardrobeService,
+  toSaveWardrobeOutfitRequest,
   type OutfitRecommendation,
   type OutfitRecommendationRequest,
   type StylistSeason,
@@ -40,6 +41,7 @@ const TIMES: StylistTimeOfDay[] = ["morning", "afternoon", "evening", "night"];
 const SEASONS: StylistSeason[] = ["spring", "summer", "autumn", "winter"];
 
 type Phase = "idle" | "loading" | "success" | "error";
+type SavePhase = "idle" | "saving" | "saved" | "error";
 
 interface Props {
   isAuthenticated: boolean;
@@ -47,6 +49,8 @@ interface Props {
   readyItemCount: number;
   onOpenUpload: () => void;
   onSignIn: () => void;
+  /** Called after a look was really persisted (201) so parents can refresh. */
+  onSaved?: (savedId: number) => void;
 }
 
 /**
@@ -63,9 +67,11 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
   readyItemCount,
   onOpenUpload,
   onSignIn,
+  onSaved,
 }) => {
   const { t, i18n } = useTranslation();
   const uid = useId();
+  const queryClient = useQueryClient();
 
   const [occasion, setOccasion] = useState<string>("Smart Casual");
   const [timeOfDay, setTimeOfDay] = useState<StylistTimeOfDay | "">("");
@@ -78,6 +84,9 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
   const [excludedIds, setExcludedIds] = useState<number[]>([]);
 
   const [phase, setPhase] = useState<Phase>("idle");
+  const [savePhase, setSavePhase] = useState<SavePhase>("idle");
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [result, setResult] = useState<OutfitRecommendation | null>(null);
   const [error, setError] = useState<{ message: string; code?: string; retryable: boolean } | null>(null);
 
@@ -120,6 +129,9 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
       try {
         const rec = await wardrobeService.recommendOutfit(buildPayload(previous));
         setResult(rec);
+        setSavePhase("idle");
+        setSavedId(null);
+        setSaveError(null);
         setPhase("success");
       } catch (e) {
         const api = e instanceof ApiError ? e : null;
@@ -146,6 +158,32 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
   useEffect(() => {
     if (phase === "success" && resultHeadingRef.current) resultHeadingRef.current.focus();
   }, [phase, result?.outfit_id]);
+
+  // "Save this look": only report success once the server answered 201 with
+  // an id. Rejected references (binned/foreign ids) are surfaced, not hidden.
+  const saveLook = useCallback(async () => {
+    if (!result || savePhase === "saving" || savePhase === "saved") return;
+    setSavePhase("saving");
+    setSaveError(null);
+    try {
+      const saved = await wardrobeService.saveOutfit(toSaveWardrobeOutfitRequest(result));
+      if (!saved || typeof saved.id !== "number") throw new ApiError(t("wardrobe_stylist.save_failed"), "SAVE_UNCONFIRMED", 0, {});
+      setSavedId(saved.id);
+      setSavePhase("saved");
+      void queryClient.invalidateQueries({ queryKey: ["wardrobe", "saved-wardrobe-looks"] });
+      onSaved?.(saved.id);
+    } catch (e) {
+      const api = e instanceof ApiError ? e : null;
+      setSaveError(
+        api?.status === 422 && api.message
+          ? api.message
+          : api?.status === 429
+            ? t("wardrobe_stylist.error_rate_limited")
+            : t("wardrobe_stylist.save_failed"),
+      );
+      setSavePhase("error");
+    }
+  }, [result, savePhase, queryClient, onSaved, t]);
 
   const excludeItem = (id: number) => {
     setExcludedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -516,6 +554,7 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
                       </span>
                       <button data-motion="filter"
                         type="button"
+                        aria-label={t("wardrobe_stylist.swap_out_item", { item: item.title })}
                         onClick={() => excludeItem(item.wardrobe_item_id)}
                         className="min-h-9 rounded-xl border border-slate-200 px-3 text-[11px] font-semibold text-brand-charcoal hover:bg-slate-50"
                       >
@@ -588,6 +627,20 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
               >
                 {t("wardrobe_stylist.another")}
               </button>
+              <button data-motion="progressive"
+                data-motion-state={savePhase === "saving" ? "pending" : savePhase === "saved" ? "done" : savePhase === "error" ? "failed" : undefined}
+                type="button"
+                onClick={() => void saveLook()}
+                disabled={savePhase === "saving" || savePhase === "saved" || result.items.length === 0}
+                aria-disabled={savePhase === "saving" || savePhase === "saved" || result.items.length === 0}
+                aria-busy={savePhase === "saving"}
+                aria-describedby={`${uid}-save-status`}
+                data-testid="stylist-save-look"
+                data-save-state={savePhase}
+                className="min-h-11 rounded-2xl border border-brand-charcoal px-5 py-2.5 text-xs font-bold text-brand-charcoal hover:bg-brand-charcoal hover:text-white disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
+              >
+                {t("wardrobe_stylist.save_look")}
+              </button>
               <p className="text-[11px] text-brand-muted">
                 {result.latency_seconds != null && result.ai_generated
                   ? t("wardrobe_stylist.footer_model", {
@@ -597,6 +650,15 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
                   : t("wardrobe_stylist.footer_fallback")}
               </p>
             </div>
+            <p id={`${uid}-save-status`} role="status" aria-live="polite" className="text-[11px] text-brand-muted" data-testid="stylist-save-status">
+              {savePhase === "saving"
+                ? t("wardrobe_stylist.saving")
+                : savePhase === "saved" && savedId != null
+                  ? t("wardrobe_stylist.saved_detail", { id: savedId })
+                  : savePhase === "error" && saveError
+                    ? saveError
+                    : ""}
+            </p>
           </article>
         )}
       </section>

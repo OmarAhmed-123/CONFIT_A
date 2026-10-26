@@ -157,13 +157,21 @@ user picks occasion · time of day · season · location · preferences
      ─► JSON validated: every wardrobe_item_id must exist in the caller's closet,
         no duplicates, roles derived from stored categories, images resolved
         from trusted rows ─► one outfit + a reason per garment
+"Save this look" ─► POST /api/v1/wardrobe/outfits (ids re-validated against the
+        caller's closet, roles from stored categories, provenance kept verbatim)
+     ─► My Looks → "Saved wardrobe looks" (GET /wardrobe/outfits; binned garments
+        are omitted and counted, never shown stale)
 ```
 
 Key modules: `backend/app/providers/watsonx/` (`client.py` IAM + chat,
 `prompts.py` versioned prompts, `vision.py`), `backend/app/services/
 wardrobe_stylist_service.py`, `backend/app/schemas/wardrobe_stylist.py`,
-`frontend/src/components/wardrobe/WardrobeStylistPanel.tsx`. Audit & gap
-analysis: `docs/IBM_WATSONX_STYLIST_AUDIT.md`.
+`frontend/src/components/wardrobe/WardrobeStylistPanel.tsx`,
+`SavedWardrobeLooks.tsx`, `backend/app/services/wardrobe_outfit_service.py`
+(migration `0048_wardrobe_outfits`). Audit & gap analysis:
+`docs/IBM_WATSONX_STYLIST_AUDIT.md`; journey: `docs/STYLE_LIST_WORKFLOW.md`;
+Granite Vision availability: `docs/GRANITE_VISION_AVAILABILITY_INVESTIGATION.md`;
+production verification: `docs/IBM_WATSONX_PRODUCTION_VERIFICATION_REPORT.md`.
 
 ### IBM Cloud setup
 
@@ -182,6 +190,7 @@ analysis: `docs/IBM_WATSONX_STYLIST_AUDIT.md`.
 | `WATSONX_URL` | yes | regional runtime, e.g. `https://eu-de.ml.cloud.ibm.com` or `https://us-south.ml.cloud.ibm.com` — must match the project's region |
 | `WATSONX_VISION_MODEL_ID` | no | default `meta-llama/llama-4-maverick-17b-128e-instruct-fp8` (see note) |
 | `WATSONX_REASONING_MODEL_ID` | no | default `ibm/granite-4-h-small` |
+| `WATSONX_VISION_DEPLOYMENT_ID` / `WATSONX_REASONING_DEPLOYMENT_ID` | no | Deploy-on-Demand deployment ids (Granite Vision is DoD-only — `docs/GRANITE_VISION_AVAILABILITY_INVESTIGATION.md`) |
 | `WARDROBE_VISION_PROVIDER` | no | `auto` (watsonx first, then Gemini/NVIDIA/Qwen) · `watsonx` · `legacy` |
 | `WARDROBE_STYLIST_PROVIDER` | no | `auto` (Granite, labelled rule-based fallback) · `watsonx` (503/501 instead of fallback) · `deterministic` |
 

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Form, Query, HTTPException, status, UploadFile, File, Request
+from fastapi import APIRouter, Depends, Form, Query, HTTPException, status, UploadFile, File, Request, Response
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.rate_limit import limiter
@@ -28,7 +28,10 @@ from backend.app.schemas.wardrobe_stylist import (
     OutfitRecommendation,
     OutfitRecommendationRequest,
     StylistStatus,
+    SavedWardrobeOutfitOut,
+    SaveWardrobeOutfitRequest,
 )
+from backend.app.services.wardrobe_outfit_service import WardrobeOutfitService
 from backend.app.services.wardrobe_stylist_service import WardrobeStylistService
 
 router = APIRouter(prefix="/wardrobe", tags=["Virtual Wardrobe & Smart Reuse"])
@@ -364,6 +367,39 @@ async def recommend_outfit_from_wardrobe(
     """
     service = WardrobeStylistService(db)
     return await service.recommend(user.id, payload)
+
+
+@router.post("/outfits", response_model=SavedWardrobeOutfitOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("60/hour")
+def save_wardrobe_outfit(
+    request: Request,
+    payload: SaveWardrobeOutfitRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Keep a recommended look. Item ids are re-validated against the caller's
+    wardrobe at save time (foreign/unknown/binned ids are dropped and reported
+    in `rejected_references`); roles come from stored categories; provenance
+    is stored verbatim. Responds 201 only after the row is committed."""
+    return WardrobeOutfitService(db).save(user.id, payload)
+
+
+@router.get("/outfits", response_model=List[SavedWardrobeOutfitOut])
+def list_wardrobe_outfits(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The caller's saved wardrobe looks, newest first. Garments binned since
+    saving are omitted and counted in `dropped_item_count`."""
+    return WardrobeOutfitService(db).list(user.id)
+
+
+@router.get("/outfits/{outfit_id}", response_model=SavedWardrobeOutfitOut)
+def get_wardrobe_outfit(outfit_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return WardrobeOutfitService(db).get(user.id, outfit_id)
+
+
+@router.delete("/outfits/{outfit_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_wardrobe_outfit(outfit_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    WardrobeOutfitService(db).delete(user.id, outfit_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/stylist/status", response_model=StylistStatus)

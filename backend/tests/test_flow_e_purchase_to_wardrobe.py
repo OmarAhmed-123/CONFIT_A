@@ -679,7 +679,10 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # -> 0047 (wardrobe analysis_source). The AI stylist must be able to say
     # WHICH model tagged a wardrobe piece (or that a human did); two nullable,
     # additive columns, no backfill.
-    assert expected_head_revision() == "0047_wardrobe_analysis_source"
+    # -> 0048 (wardrobe outfits). A look assembled from the user's own closet
+    # can be saved; items reference wardrobe_items by id with ON DELETE CASCADE.
+    assert expected_head_revision() == "0048_wardrobe_outfits"
+    assert chain["0048_wardrobe_outfits"] == "0047_wardrobe_analysis_source"
     assert chain["0047_wardrobe_analysis_source"] == "0046_user_wishlist_items"
     assert chain["0046_user_wishlist_items"] == "0045_brand_verified_domains"
     assert chain["0045_brand_verified_domains"] == "0044_product_price_provenance"

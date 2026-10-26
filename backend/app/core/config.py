@@ -395,6 +395,9 @@ class Settings(BaseSettings):
     # runtime instance of ITS region (verified 2026-10-26: this operator's
     # runtime + project are in eu-de). Keep configurable.
     WATSONX_URL: str = "https://us-south.ml.cloud.ibm.com"
+    # IBM Cloud IAM token endpoint. Only ever changed to point the client at a
+    # local test double (load tests / CI); production must keep the default.
+    WATSONX_IAM_URL: str = "https://iam.cloud.ibm.com/identity/token"
     # Model ids verified against GET /ml/v1/foundation_model_specs on
     # 2026-10-26. The tutorial's `ibm/granite-vision-3-2-2b` is REMOVED (live
     # call → 404 model_not_supported) and no granite-vision-* model is served
@@ -405,6 +408,13 @@ class Settings(BaseSettings):
     # never labels a non-Granite result as Granite.
     WATSONX_VISION_MODEL_ID: str = "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
     WATSONX_REASONING_MODEL_ID: str = "ibm/granite-4-h-small"
+    # Deploy-on-demand targets (optional). IBM offers the Granite Vision family
+    # (granite-vision-3-3-2b / 4-1-4b) only as dedicated hourly deployments,
+    # not in the pay-per-token catalog. Set the deployment id (and, for honest
+    # labelling, the matching *_MODEL_ID) to route through
+    # /ml/v1/deployments/{id}/text/chat without any code change.
+    WATSONX_VISION_DEPLOYMENT_ID: Optional[str] = None
+    WATSONX_REASONING_DEPLOYMENT_ID: Optional[str] = None
     WATSONX_API_VERSION: str = "2024-10-08"
     WATSONX_TIMEOUT_SECONDS: float = 45.0
     WATSONX_MAX_RETRIES: int = 2

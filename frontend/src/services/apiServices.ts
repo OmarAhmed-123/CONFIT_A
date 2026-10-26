@@ -1106,6 +1106,76 @@ export interface OutfitRecommendation {
   context: Record<string, unknown>;
 }
 
+/** Saved wardrobe look (persisted by POST /wardrobe/outfits — migration 0048). */
+export interface SavedWardrobeOutfitItem {
+  wardrobe_item_id: number;
+  role: RecommendedWardrobeItem["role"];
+  category: string;
+  title: string;
+  subcategory?: string | null;
+  color_name: string;
+  color_hex: string;
+  image_url?: string | null;
+  reason: string;
+  analysis_source?: string | null;
+}
+
+export interface SavedWardrobeOutfit {
+  id: number;
+  title: string;
+  occasion: string;
+  summary: string;
+  items: SavedWardrobeOutfitItem[];
+  styling_notes: string[];
+  limitations: string[];
+  missing_categories: string[];
+  context: Record<string, unknown>;
+  is_complete: boolean;
+  source: "watsonx" | "deterministic_fallback" | string;
+  ai_generated: boolean;
+  model_id?: string | null;
+  prompt_version?: string | null;
+  created_at: string;
+  /** Garments binned since the look was saved (hidden, never shown stale). */
+  dropped_item_count: number;
+  /** Ids the server refused at save time (not yours / unknown / binned). */
+  rejected_references: number[];
+}
+
+export interface SaveWardrobeOutfitRequest {
+  title: string;
+  occasion: string;
+  summary: string;
+  items: { wardrobe_item_id: number; reason: string }[];
+  styling_notes: string[];
+  limitations: string[];
+  missing_categories: string[];
+  context: Record<string, unknown>;
+  source: "watsonx" | "deterministic_fallback";
+  ai_generated: boolean;
+  model_id?: string | null;
+  prompt_version?: string | null;
+}
+
+/** Build the save payload from a recommendation: ids + text only; the server
+ *  re-validates ownership, derives roles and keeps provenance truthful. */
+export function toSaveWardrobeOutfitRequest(rec: OutfitRecommendation): SaveWardrobeOutfitRequest {
+  return {
+    title: rec.title,
+    occasion: rec.occasion,
+    summary: rec.summary,
+    items: rec.items.map((i) => ({ wardrobe_item_id: i.wardrobe_item_id, reason: i.reason })),
+    styling_notes: rec.styling_notes,
+    limitations: rec.limitations,
+    missing_categories: rec.missing_categories,
+    context: rec.context ?? {},
+    source: rec.source,
+    ai_generated: rec.ai_generated,
+    model_id: rec.model_id ?? null,
+    prompt_version: rec.prompt_version ?? null,
+  };
+}
+
 export interface StylistStatus {
   watsonx_configured: boolean;
   watsonx_url?: string | null;
@@ -1247,6 +1317,20 @@ export const wardrobeService = {
     }),
 
   getStylistStatus: () => request<StylistStatus>(`/wardrobe/stylist/status`),
+
+  /** Persist a recommended look (201 only after the server committed it). */
+  saveOutfit: (payload: SaveWardrobeOutfitRequest) =>
+    request<SavedWardrobeOutfit>(`/wardrobe/outfits`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  listSavedOutfits: () => request<SavedWardrobeOutfit[]>(`/wardrobe/outfits`),
+
+  getSavedOutfit: (id: number) => request<SavedWardrobeOutfit>(`/wardrobe/outfits/${id}`),
+
+  deleteSavedOutfit: (id: number) =>
+    request<void>(`/wardrobe/outfits/${id}`, { method: "DELETE" }),
 
   checkDuplicate: (payload: {
     product_id: number;
@@ -1819,7 +1903,7 @@ const adminAnalyticsContract = z
     tryon_adoption_rate: z.number().nullable(),
     stylist_conversion_ratio: z.number().nullable(),
     platform_avg_return_rate: z.number().nullable(),
-    revenue_attribution: z.record(z.number().nullable()),
+    revenue_attribution: z.record(z.string(), z.number().nullable()),
     top_performing_brands: z.array(z.object({ brand: z.string() }).passthrough()),
     time_range: z
       .object({

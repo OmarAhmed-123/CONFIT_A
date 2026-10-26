@@ -157,7 +157,7 @@ class WatsonxClient:
             try:
                 async with self._http() as client:
                     resp = await client.post(
-                        IAM_TOKEN_URL,
+                        getattr(settings, "WATSONX_IAM_URL", None) or IAM_TOKEN_URL,
                         data={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": self._api_key},
                         headers={"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"},
                     )
@@ -189,30 +189,46 @@ class WatsonxClient:
         max_tokens: int = 600,
         temperature: float = 0.0,
         response_json: bool = False,
+        deployment_id: Optional[str] = None,
     ) -> WatsonxChatResult:
         """``ModelInference.chat`` equivalent. Raises a ``WatsonxError`` subclass
-        on failure; transient classes are retried up to ``max_retries`` times."""
+        on failure; transient classes are retried up to ``max_retries`` times.
+
+        ``deployment_id`` targets a *deploy-on-demand* model (dedicated
+        hardware, hourly billing) via ``/ml/v1/deployments/{id}/text/chat``.
+        IBM serves the Granite Vision family (``granite-vision-3-3-2b``,
+        ``granite-vision-4-1-4b``) **only** this way as of 2026-10 — they are
+        not in the pay-per-token multitenant catalog of any region (verified
+        live: 404 ``model_not_supported`` in eu-de). For a deployment call the
+        REST contract omits ``model_id``/``project_id``; the served model id
+        is still read back from the response so provenance stays truthful.
+        """
         self._require_configured()
         body: Dict[str, Any] = {
-            "model_id": model_id,
-            "project_id": self._project_id,
             "messages": messages,
             "max_tokens": int(max_tokens),
             "temperature": float(temperature),
         }
+        if deployment_id:
+            endpoint = f"{self._url}/ml/v1/deployments/{deployment_id}/text/chat?version={self._api_version}"
+            _label = model_id or f"deployment:{deployment_id}"
+        else:
+            body["model_id"] = model_id
+            body["project_id"] = self._project_id
+            endpoint = f"{self._url}/ml/v1/text/chat?version={self._api_version}"
+            _label = model_id
         if response_json:
             # Supported by the chat API for JSON-mode capable models; harmless
             # (ignored) otherwise. Output is still validated by the caller.
             body["response_format"] = {"type": "json_object"}
 
-        endpoint = f"{self._url}/ml/v1/text/chat?version={self._api_version}"
         attempt = 0
         last_exc: Optional[WatsonxError] = None
         while attempt <= self._max_retries:
             attempt += 1
             started = time.time()
             try:
-                return await self._chat_once(endpoint, body, started)
+                return await self._chat_once(endpoint, body, started, _label)
             except WatsonxAuthError as exc:
                 # One forced token refresh covers an expired cached token;
                 # a second 401 is a real credential problem.
@@ -231,7 +247,7 @@ class WatsonxClient:
         assert last_exc is not None
         raise last_exc
 
-    async def _chat_once(self, endpoint: str, body: Dict[str, Any], started: float) -> WatsonxChatResult:
+    async def _chat_once(self, endpoint: str, body: Dict[str, Any], started: float, label: str = "") -> WatsonxChatResult:
         token = await self._bearer_token()
         try:
             async with self._http() as client:
@@ -241,10 +257,10 @@ class WatsonxClient:
                     headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
                 )
         except httpx.TimeoutException as exc:
-            logger.warn("watsonx_timeout", model_id=body["model_id"], timeout=self._timeout)
+            logger.warn("watsonx_timeout", model_id=(body.get("model_id") or label), timeout=self._timeout)
             raise WatsonxTimeoutError("watsonx.ai request timed out") from exc
         except httpx.HTTPError as exc:
-            logger.warn("watsonx_unreachable", model_id=body["model_id"], error=type(exc).__name__)
+            logger.warn("watsonx_unreachable", model_id=(body.get("model_id") or label), error=type(exc).__name__)
             raise WatsonxTransportError("watsonx.ai unreachable") from exc
 
         status = resp.status_code
@@ -253,7 +269,7 @@ class WatsonxClient:
         if status == 404:
             detail = _error_detail(resp)
             if "model_not_supported" in detail or "model" in detail.lower():
-                logger.error("watsonx_model_not_supported", model_id=body["model_id"], detail=detail[:200])
+                logger.error("watsonx_model_not_supported", model_id=(body.get("model_id") or label), detail=detail[:200])
                 raise WatsonxModelUnsupportedError(
                     f"Model '{body['model_id']}' is not available on this watsonx.ai region "
                     "(deprecated, removed, or not enabled for the project)",
@@ -285,10 +301,10 @@ class WatsonxClient:
             if isinstance(w, dict):
                 warnings.append({"id": w.get("id"), "message": str(w.get("message", ""))[:200]})
                 if w.get("id") in ("deprecation_warning", "withdrawn_warning"):
-                    logger.warn("watsonx_model_lifecycle_warning", model_id=body["model_id"], warning=w.get("id"))
+                    logger.warn("watsonx_model_lifecycle_warning", model_id=(body.get("model_id") or label), warning=w.get("id"))
         return WatsonxChatResult(
             content=content,
-            model_id=str(data.get("model_id") or body["model_id"]),
+            model_id=str(data.get("model_id") or (body.get("model_id") or label)),
             usage=data.get("usage") or {},
             warnings=warnings,
             latency_seconds=round(time.time() - started, 3),

@@ -1,0 +1,627 @@
+{
+  "generated_at": "2026-10-26T13:14:13.915Z",
+  "browser": "chromium-headless-shell",
+  "app": "http://127.0.0.1:4173",
+  "locales": [
+    {
+      "lang": "en",
+      "user": "<synthetic test account>",
+      "states": {
+        "form": {
+          "axe": {
+            "label": "en-form",
+            "violations": [],
+            "passes": 32,
+            "incomplete": 2
+          },
+          "tabOrder": [
+            {
+              "tag": "DIV",
+              "role": "group",
+              "name": "Style stories carousel",
+              "testid": null,
+              "tabindex": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Previous",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Go to Tailored Power",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Go to Evening Silk",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Go to Minimal Capsule",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Go to Street Utility",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Go to Resort Linen",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Next",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "A",
+              "role": null,
+              "name": "Open Tailored Power",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Next",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "DIV",
+              "role": "group",
+              "name": "Visual collection gallery",
+              "testid": null,
+              "tabindex": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "My Closet",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "AI Stylist",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "My Looks",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Gap Analysis",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Mood Boards",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "+ Upload piece",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SELECT",
+              "role": null,
+              "name": "CasualSmart CasualWork & BusinessBusiness FormalFormalCocktailEveningActive",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SELECT",
+              "role": null,
+              "name": "AnyMorningAfternoonEveningNight",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SELECT",
+              "role": null,
+              "name": "AnySpringSummerAutumnWinter",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "INPUT",
+              "role": null,
+              "name": "",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SUMMARY",
+              "role": null,
+              "name": "Preferences, comfort & exclusions",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Build my outfit",
+              "testid": null,
+              "tabindex": null
+            }
+          ],
+          "ariaSnapshot": "- main:\n  - text: Your Atelier Wardrobe Styling Stack\n  - heading \"Reuse owned pieces through premium outfit formulas\" [level=2]\n  - paragraph: Saved garments become styled rotations instead of a static closet grid, encouraging realistic reuse and smarter recommendations.\n  - group \"Style stories carousel\":\n    - img \"Tailored Power\"\n    - text: Tailored Power Structured tailoring for work, dinners, and polished day-to-night moments.\n    - img \"Evening Silk\"\n    - text: Evening Silk Occasion dressing with fluid gowns, satin finishes, and gold accents.\n    - img \"Minimal Capsule\"\n    - text: Minimal Capsule Quiet luxury essentials built for repeat wear and easy outfit pairing.\n    - img \"Street Utility\"\n    - text: Street Utility Relaxed layers, sharp proportions, and practical weekend styling.\n    - img \"Resort Linen\"\n    - text: Resort Linen Breathable neutrals and travel-friendly summer silhouettes.\n  - button \"Previous\"\n  - text: 1 / 5\n  - status: Item 1 of 5\n  - button \"Go to Tailored Power\"\n  - button \"Go to Evening Silk\"\n  - button \"Go to Minimal Capsule\"\n  - button \"Go to Street Utility\"\n  - button \"Go to Resort Linen\"\n  - button \"Next\"\n  - link \"Open Tailored Power\":\n    - /url: /discover\n  - text: Circular closet capsules\n  - heading \"A rotating capsule view for your wardrobe stories\" [level=2]\n  - paragraph: The same component appears here as a wardrobe capsule browser, visually distinct from the stack above.\n  - region \"Visual collection gallery\":\n    - text: 1 / 6\n    - button \"Previous\" [disabled]\n    - button \"Next\"\n    - status: Item 1 of 6\n    - group \"Visual collection gallery\":\n      - group \"Item 1 of 6\":\n        - 'figure \"Workwear Fit Structured blazer + trouser balance Photo: Unsplash\"':\n          - img \"Tailored suit styling\"\n          - text: \"Workwear Fit Structured blazer + trouser balance Photo: Unsplash\"\n      - group \"Item 2 of 6\":\n        - 'figure \"Evening Texture Silk, satin, and event-ready polish Photo: Tamara Bellis\"':\n          - img \"Evening dress styling\"\n          - text: \"Evening Texture Silk, satin, and event-ready polish Photo: Tamara Bellis\"\n      - group \"Item 3 of 6\":\n        - 'figure \"Capsule Layering Modern neutrals for daily rotation Photo: Hunters Race\"':\n          - img \"Minimal fashion styling\"\n          - text: \"Capsule Layering Modern neutrals for daily rotation Photo: Hunters Race\"\n      - group \"Item 4 of 6\":\n        - 'figure \"Visual Search Mood Camera-led outfit inspiration matching Photo: Unsplash\"':\n          - img \"Fashion shopping and visual discovery\"\n          - text: \"Visual Search Mood Camera-led outfit inspiration matching Photo: Unsplash\"\n      - group \"Item 5 of 6\":\n        - 'figure \"Wardrobe Reuse Owned pieces styled into new looks Photo: Sarah Brown\"':\n          - img \"Organized clothing wardrobe\"\n          - text: \"Wardrobe Reuse Owned pieces styled into new looks Photo: Sarah Brown\"\n      - group \"Item 6 of 6\":\n        - 'figure \"Boutique Operations Catalog readiness and retail execution Photo: Clark Street Mercantile\"':\n          - img \"Premium retail boutique\"\n          - text: \"Boutique Operations Catalog readiness and retail execution Photo: Clark Street Mercantile\"\n  - heading \"Virtual Wardrobe & Smart Reuse\" [level=1]\n  - paragraph: Shop what you already own first and complete silhouettes smartly\n  - button \"My Closet\"\n  - button \"AI Stylist\"\n  - button \"My Looks\"\n  - button \"Gap Analysis\"\n  - button \"Mood Boards\"\n  - button \"+ Upload piece\"\n  - region \"Style me from my wardrobe\":\n    - heading \"Style me from my wardrobe\" [level=2]\n    - paragraph: Tell us where you're going. We'll build one outfit from pieces you already own and explain each choice.\n    - status: \"Stylist model: ibm/granite-4-h-small · 3 analysed pieces available.\"\n    - text: Occasion\n    - combobox \"Occasion\":\n      - option \"Casual\"\n      - option \"Smart Casual\" [selected]\n      - option \"Work & Business\"\n      - option \"Business Formal\"\n      - option \"Formal\"\n      - option \"Cocktail\"\n      - option \"Evening\"\n      - option \"Active\"\n    - text: Time of day\n    - combobox \"Time of day\":\n      - option \"Any\" [selected]\n      - option \"Morning\"\n      - option \"Afternoon\"\n      - option \"Evening\"\n      - option \"Night\"\n    - text: Season\n    - combobox \"Season\":\n      - option \"Any\" [selected]\n      - option \"Spring\"\n      - option \"Summer\"\n      - option \"Autumn\"\n      - option \"Winter\"\n    - text: Location\n    - textbox \"Location\":\n      - /placeholder: e.g. coffee shop, office, park\n    - group: Preferences, comfort & exclusions\n    - button \"Build my outfit\"\n    - paragraph: Only your item descriptions (never your photos or name) are sent to the styling model for this request. Nothing is stored by the model provider.\n  - region \"Outfit recommendation\":\n    - heading \"Outfit recommendation\" [level=2]\n    - paragraph: Ready when you are\n    - paragraph: Pick an occasion and we'll assemble one coherent look from your wardrobe, with the reasoning behind every piece."
+        },
+        "result": {
+          "axe": {
+            "label": "en-result",
+            "violations": [],
+            "passes": 33,
+            "incomplete": 2
+          },
+          "focusedAfterResult": {
+            "tag": "H3",
+            "role": null,
+            "name": "Smart Casual Smart Look",
+            "testid": null,
+            "tabindex": "-1"
+          },
+          "liveRegions": [
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "Item 1 of 5"
+            },
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "Item 1 of 6"
+            },
+            {
+              "role": "status",
+              "live": null,
+              "text": "Stylist model: ibm/granite-4-h-small · 3 analysed pieces available."
+            },
+            {
+              "role": null,
+              "live": "polite",
+              "text": "Outfit recommendationStyled by ibm/granite-4-h-smallSmart Casual Smart LookA refined yet relaxed ensemble pairing a crisp white Oxford shirt with navy chinos and brown loafers for a smart casual vibe."
+            }
+          ],
+          "source": "watsonx",
+          "badge": "Styled by ibm/granite-4-h-small",
+          "ariaSnapshot": "- article:\n  - text: Styled by ibm/granite-4-h-small\n  - heading \"Smart Casual Smart Look\" [level=3]\n  - paragraph: A refined yet relaxed ensemble pairing a crisp white Oxford shirt with navy chinos and brown loafers for a smart casual vibe.\n  - text: Complete outfit\n  - list \"Recommended pieces\":\n    - listitem:\n      - img \"White Oxford Shirt — White Tops — Photo unavailable\": Photo unavailable\n      - text: Top\n      - paragraph: White Oxford Shirt\n      - paragraph: Oxford Shirt · White · Tops\n      - paragraph: The white Oxford shirt adds a polished base layer suitable for smart casual settings.\n      - text: Tag source unknown\n      - button \"Swap out\"\n    - listitem:\n      - img \"Navy Chinos — Navy Bottoms — Photo unavailable\": Photo unavailable\n      - text: Bottom\n      - paragraph: Navy Chinos\n      - paragraph: Chinos · Navy · Bottoms\n      - paragraph: Navy chinos provide a versatile, smart-casual bottom that complements the shirt's crispness.\n      - text: Tag source unknown\n      - button \"Swap out\"\n    - listitem:\n      - img \"Brown Loafers — Brown Footwear — Photo unavailable\": Photo unavailable\n      - text: Footwear\n      - paragraph: Brown Loafers\n      - paragraph: Loafers · Brown · Footwear\n      - paragraph: Brown loafers bring warmth and a subtle contrast, completing the smart casual look with understated elegance.\n      - text: Tag source unknown\n      - button \"Swap out\"\n  - heading \"Styling notes\" [level=4]\n  - list:\n    - listitem: Roll up the shirt sleeves slightly for a laid-back feel while maintaining formality.\n    - listitem: Tuck the shirt in for a cleaner silhouette, or leave it out for a more relaxed smart casual vibe.\n  - button \"Another outfit\"\n  - button \"Save this look\"\n  - paragraph: Generated in 4.0s · prompt wx-stylist-1.0 · recommendations are suggestions, not guarantees of fit or dress-code compliance.\n  - status",
+          "tabOrder": [
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Swap out",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Swap out",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Swap out",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Another outfit",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "Save this look",
+              "testid": "stylist-save-look",
+              "tabindex": null
+            }
+          ]
+        },
+        "saved": {
+          "saveState": "saved",
+          "liveRegions": [
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "Item 1 of 5"
+            },
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "Item 1 of 6"
+            },
+            {
+              "role": "status",
+              "live": null,
+              "text": "Stylist model: ibm/granite-4-h-small · 3 analysed pieces available."
+            },
+            {
+              "role": null,
+              "live": "polite",
+              "text": "Outfit recommendationStyled by ibm/granite-4-h-smallSmart Casual Smart LookA refined yet relaxed ensemble pairing a crisp white Oxford shirt with navy chinos and brown loafers for a smart casual vibe."
+            },
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "Saved to your wardrobe looks (#3). Find it under Looks."
+            }
+          ],
+          "axe": {
+            "label": "en-saved",
+            "violations": [],
+            "passes": 33,
+            "incomplete": 2
+          }
+        },
+        "looks": {
+          "axe": {
+            "label": "en-looks",
+            "violations": [],
+            "passes": 31,
+            "incomplete": 2
+          },
+          "ariaSnapshot": "- region \"Saved wardrobe looks\":\n  - heading \"Saved wardrobe looks\" [level=3]\n  - paragraph: Looks you kept from the AI stylist, built only from pieces you own.\n  - status\n  - list \"Saved wardrobe looks\":\n    - listitem:\n      - heading \"Smart Casual Smart Look\" [level=4]\n      - paragraph: Smart Casual · Saved 26 Oct 2026\n      - text: Made by ibm/granite-4-h-small\n      - paragraph: A refined yet relaxed ensemble pairing a crisp white Oxford shirt with navy chinos and brown loafers for a smart casual vibe.\n      - list \"Smart Casual Smart Look\":\n        - listitem:\n          - img \"White Oxford Shirt — White — Image unavailable\": Image unavailable\n          - paragraph: White Oxford Shirt\n          - paragraph: top\n        - listitem:\n          - img \"Navy Chinos — Navy — Image unavailable\": Image unavailable\n          - paragraph: Navy Chinos\n          - paragraph: bottom\n        - listitem:\n          - img \"Brown Loafers — Brown — Image unavailable\": Image unavailable\n          - paragraph: Brown Loafers\n          - paragraph: footwear\n      - button \"Delete look\"",
+          "cards": 1,
+          "provenance": "Made by ibm/granite-4-h-small",
+          "dir": "ltr"
+        }
+      },
+      "pageErrors": []
+    },
+    {
+      "lang": "ar",
+      "user": "<synthetic test account>",
+      "states": {
+        "form": {
+          "axe": {
+            "label": "ar-form",
+            "violations": [],
+            "passes": 32,
+            "incomplete": 2
+          },
+          "tabOrder": [
+            {
+              "tag": "DIV",
+              "role": "group",
+              "name": "عرض دوّار لقصص التنسيق",
+              "testid": null,
+              "tabindex": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "السابق",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "الانتقال إلى أناقة رسمية",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "الانتقال إلى حرير المساء",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "الانتقال إلى كبسولة بسيطة",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "الانتقال إلى عملية الشارع",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "الانتقال إلى كتان المنتجعات",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "التالي",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "A",
+              "role": null,
+              "name": "فتح أناقة رسمية",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "التالي",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "DIV",
+              "role": "group",
+              "name": "معرض بصري للتشكيلات",
+              "testid": null,
+              "tabindex": "0"
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "قطع خزانتي",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "المصمّم الذكي",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "إطلالاتي المحفوظة",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "تحليل نواقص الخزانة",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "لوحات الإلهام",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "+ رفع قطعة",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SELECT",
+              "role": null,
+              "name": "كاجوالكاجوال أنيقعمل وأعمالرسمي للأعمالرسميكوكتيلسهرةرياضي",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SELECT",
+              "role": null,
+              "name": "أيّ وقتصباحًاظهرًامساءًليلًا",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SELECT",
+              "role": null,
+              "name": "أيّ وقتالربيعالصيفالخريفالشتاء",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "INPUT",
+              "role": null,
+              "name": "",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "SUMMARY",
+              "role": null,
+              "name": "التفضيلات والراحة والاستثناءات",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "ابنِ إطلالتي",
+              "testid": null,
+              "tabindex": null
+            }
+          ],
+          "ariaSnapshot": "- main:\n  - text: الأتيلييه الخاص بك منظومة تنسيق الخزانة\n  - heading \"أعد استخدام قطعك ضمن تركيبات إطلالات جاهزة\" [level=2]\n  - paragraph: تتحول القطع المحفوظة إلى تنسيقات جاهزة بدلاً من شبكة خزانة جامدة، بما يشجع على إعادة استخدام واقعية وتوصيات أذكى.\n  - group \"عرض دوّار لقصص التنسيق\":\n    - img \"أناقة رسمية\"\n    - text: أناقة رسمية قصّات مُحكمة للعمل والعشاء وإطلالات متقنة من النهار إلى المساء.\n    - img \"حرير المساء\"\n    - text: حرير المساء أزياء مناسبات بفساتين انسيابية ولمسات ساتان وتفاصيل ذهبية.\n    - img \"كبسولة بسيطة\"\n    - text: كبسولة بسيطة أساسيات فخامة هادئة مصممة للارتداء المتكرر والتنسيق السهل.\n    - img \"عملية الشارع\"\n    - text: عملية الشارع طبقات مريحة ونِسب حادة وتنسيق عملي لعطلة نهاية الأسبوع.\n    - img \"كتان المنتجعات\"\n    - text: كتان المنتجعات درجات محايدة تسمح بالتهوية وقصّات صيفية مناسبة للسفر.\n  - button \"السابق\"\n  - text: 1 / 5\n  - status: العنصر 1 من 5\n  - button \"الانتقال إلى أناقة رسمية\"\n  - button \"الانتقال إلى حرير المساء\"\n  - button \"الانتقال إلى كبسولة بسيطة\"\n  - button \"الانتقال إلى عملية الشارع\"\n  - button \"الانتقال إلى كتان المنتجعات\"\n  - button \"التالي\"\n  - link \"فتح أناقة رسمية\":\n    - /url: /discover\n  - text: كبسولات الخزانة الدائرية\n  - heading \"عرض دوّار لكبسولات خزانتك\" [level=2]\n  - paragraph: يظهر المكوّن نفسه هنا كمتصفح كبسولات للخزانة، بمظهر مميز بصرياً عن المجموعة أعلاه.\n  - region \"معرض بصري للتشكيلات\":\n    - text: 1 / 6\n    - button \"السابق\" [disabled]\n    - button \"التالي\"\n    - status: العنصر 1 من 6\n    - group \"معرض بصري للتشكيلات\":\n      - group \"العنصر 1 من 6\":\n        - 'figure \"إطلالة العمل توازن بليزر مُحكم مع بنطال تصوير: Unsplash\"':\n          - img \"تنسيق بدلة رسمية\"\n          - text: \"إطلالة العمل توازن بليزر مُحكم مع بنطال تصوير: Unsplash\"\n      - group \"العنصر 2 من 6\":\n        - 'figure \"ملمس المساء حرير وساتان ولمعان جاهز للمناسبات تصوير: Tamara Bellis\"':\n          - img \"تنسيق فستان سهرة\"\n          - text: \"ملمس المساء حرير وساتان ولمعان جاهز للمناسبات تصوير: Tamara Bellis\"\n      - group \"العنصر 3 من 6\":\n        - 'figure \"طبقات الكبسولة درجات محايدة عصرية للتداول اليومي تصوير: Hunters Race\"':\n          - img \"تنسيق أزياء بسيط\"\n          - text: \"طبقات الكبسولة درجات محايدة عصرية للتداول اليومي تصوير: Hunters Race\"\n      - group \"العنصر 4 من 6\":\n        - 'figure \"مزاج البحث البصري مطابقة إلهام الإطلالات عبر الكاميرا تصوير: Unsplash\"':\n          - img \"تسوّق أزياء واكتشاف بصري\"\n          - text: \"مزاج البحث البصري مطابقة إلهام الإطلالات عبر الكاميرا تصوير: Unsplash\"\n      - group \"العنصر 5 من 6\":\n        - 'figure \"إعادة استخدام الخزانة قطع مملوكة تُنسَّق في إطلالات جديدة تصوير: Sarah Brown\"':\n          - img \"خزانة ملابس منظمة\"\n          - text: \"إعادة استخدام الخزانة قطع مملوكة تُنسَّق في إطلالات جديدة تصوير: Sarah Brown\"\n      - group \"العنصر 6 من 6\":\n        - 'figure \"عمليات البوتيك جاهزية الكتالوج والتنفيذ في المتجر تصوير: Clark Street Mercantile\"':\n          - img \"بوتيك تجزئة راقٍ\"\n          - text: \"عمليات البوتيك جاهزية الكتالوج والتنفيذ في المتجر تصوير: Clark Street Mercantile\"\n  - heading \"الخزانة الذكية وإعادة الاستثمار\" [level=1]\n  - paragraph: استثمر ما تملكه أولاً وأكمل نواقص إطلالاتك بذكاء\n  - button \"قطع خزانتي\"\n  - button \"المصمّم الذكي\"\n  - button \"إطلالاتي المحفوظة\"\n  - button \"تحليل نواقص الخزانة\"\n  - button \"لوحات الإلهام\"\n  - button \"+ رفع قطعة\"\n  - region \"نسّق لي إطلالة من خزانتي\":\n    - heading \"نسّق لي إطلالة من خزانتي\" [level=2]\n    - paragraph: أخبرنا إلى أين أنت ذاهب. سنبني إطلالة واحدة من القطع التي تملكها بالفعل ونشرح سبب اختيار كل قطعة.\n    - status: \"نموذج التنسيق: ibm/granite-4-h-small · 3 قطعة محلّلة متاحة.\"\n    - text: المناسبة\n    - combobox \"المناسبة\":\n      - option \"كاجوال\"\n      - option \"كاجوال أنيق\" [selected]\n      - option \"عمل وأعمال\"\n      - option \"رسمي للأعمال\"\n      - option \"رسمي\"\n      - option \"كوكتيل\"\n      - option \"سهرة\"\n      - option \"رياضي\"\n    - text: وقت اليوم\n    - combobox \"وقت اليوم\":\n      - option \"أيّ وقت\" [selected]\n      - option \"صباحًا\"\n      - option \"ظهرًا\"\n      - option \"مساءً\"\n      - option \"ليلًا\"\n    - text: الفصل\n    - combobox \"الفصل\":\n      - option \"أيّ وقت\" [selected]\n      - option \"الربيع\"\n      - option \"الصيف\"\n      - option \"الخريف\"\n      - option \"الشتاء\"\n    - text: المكان\n    - textbox \"المكان\":\n      - /placeholder: \"مثال: مقهى، مكتب، حديقة\"\n    - group: التفضيلات والراحة والاستثناءات\n    - button \"ابنِ إطلالتي\"\n    - paragraph: تُرسَل أوصاف قطعك فقط (وليس صورك أو اسمك) إلى نموذج التنسيق لهذا الطلب. لا يخزّن مزوّد النموذج أي شيء.\n  - region \"توصية الإطلالة\":\n    - heading \"توصية الإطلالة\" [level=2]\n    - paragraph: جاهزون متى أردت\n    - paragraph: اختر مناسبة وسنجمع إطلالة متناسقة واحدة من خزانتك مع سبب اختيار كل قطعة."
+        },
+        "result": {
+          "axe": {
+            "label": "ar-result",
+            "violations": [],
+            "passes": 33,
+            "incomplete": 2
+          },
+          "focusedAfterResult": {
+            "tag": "H3",
+            "role": null,
+            "name": "لباس سمارت كازوال مع براون لوفرز",
+            "testid": null,
+            "tabindex": "-1"
+          },
+          "liveRegions": [
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "العنصر 1 من 5"
+            },
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "العنصر 1 من 6"
+            },
+            {
+              "role": "status",
+              "live": null,
+              "text": "نموذج التنسيق: ibm/granite-4-h-small · 3 قطعة محلّلة متاحة."
+            },
+            {
+              "role": null,
+              "live": "polite",
+              "text": "توصية الإطلالةنسّقه ibm/granite-4-h-smallلباس سمارت كازوال مع براون لوفرزالقميص الأبيض الأكسفوردي مع الشينوس الأزرق الداكن واللوفرز البني يخلق مظهرًا راقيًا ومريحًا مناسبًا للمناسبات شبه الرسمية.إطلال"
+            }
+          ],
+          "source": "watsonx",
+          "badge": "نسّقه ibm/granite-4-h-small",
+          "ariaSnapshot": "- article:\n  - text: نسّقه ibm/granite-4-h-small\n  - heading \"لباس سمارت كازوال مع براون لوفرز\" [level=3]\n  - paragraph: القميص الأبيض الأكسفوردي مع الشينوس الأزرق الداكن واللوفرز البني يخلق مظهرًا راقيًا ومريحًا مناسبًا للمناسبات شبه الرسمية.\n  - text: إطلالة مكتملة\n  - list \"القطع الموصى بها\":\n    - listitem:\n      - img \"White Oxford Shirt — White Tops — الصورة غير متاحة\": الصورة غير متاحة\n      - text: قطعة علوية\n      - paragraph: White Oxford Shirt\n      - paragraph: Oxford Shirt · White · Tops\n      - paragraph: القميص الأبيض النقي يضيف لمسة راقية ويتناسب مع أي لون بنطلون.\n      - text: مصدر الوسم غير معروف\n      - button \"استبدل\"\n    - listitem:\n      - img \"Navy Chinos — Navy Bottoms — الصورة غير متاحة\": الصورة غير متاحة\n      - text: قطعة سفلية\n      - paragraph: Navy Chinos\n      - paragraph: Chinos · Navy · Bottoms\n      - paragraph: الشينوس الأزرق الداكن يوفر مظهرًا راقيًا ومريحًا يلائم المناسبات شبه الرسمية.\n      - text: مصدر الوسم غير معروف\n      - button \"استبدل\"\n    - listitem:\n      - img \"Brown Loafers — Brown Footwear — الصورة غير متاحة\": الصورة غير متاحة\n      - text: حذاء\n      - paragraph: Brown Loafers\n      - paragraph: Loafers · Brown · Footwear\n      - paragraph: اللوفرز البني يضيف لمسة دافئة ويتناسب مع القميص الأبيض والشينوس الأزرق الداكن.\n      - text: مصدر الوسم غير معروف\n      - button \"استبدل\"\n  - heading \"ملاحظات التنسيق\" [level=4]\n  - list:\n    - listitem: اختر قميصًا بدون كم للحصول على مظهر أكثر راحة.\n    - listitem: أضف سترة جلدية بنية للمساء أو الطقس البارد.\n  - heading \"جدير بالملاحظة\" [level=4]\n  - list:\n    - listitem: لا تحتوي خزانتك على قطع خارجية لإكمال هذه الإطلالة — ولم نخترع شيئًا بدلًا منها.\n    - listitem: لا توجد ملابس رسمية أخرى في الخزانة.\n    - listitem: لا توجد ملابس رياضية في الخزانة.\n    - listitem: \"افتراض: الطقس معتدل لأن اللوفرز مناسبة لجميع الفصول.\"\n  - button \"+ رفع قطعة\"\n  - button \"إطلالة أخرى\"\n  - button \"احفظ هذه الإطلالة\"\n  - paragraph: أُنشئت خلال 7.7 ث · الموجّه wx-stylist-1.0 · التوصيات اقتراحات وليست ضمانًا للمقاس أو لقواعد اللباس.\n  - status",
+          "tabOrder": [
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "استبدل",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "استبدل",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "استبدل",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "+ رفع قطعة",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "إطلالة أخرى",
+              "testid": null,
+              "tabindex": null
+            },
+            {
+              "tag": "BUTTON",
+              "role": null,
+              "name": "احفظ هذه الإطلالة",
+              "testid": "stylist-save-look",
+              "tabindex": null
+            }
+          ]
+        },
+        "saved": {
+          "saveState": "saved",
+          "liveRegions": [
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "العنصر 1 من 5"
+            },
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "العنصر 1 من 6"
+            },
+            {
+              "role": "status",
+              "live": null,
+              "text": "نموذج التنسيق: ibm/granite-4-h-small · 3 قطعة محلّلة متاحة."
+            },
+            {
+              "role": null,
+              "live": "polite",
+              "text": "توصية الإطلالةنسّقه ibm/granite-4-h-smallلباس سمارت كازوال مع براون لوفرزالقميص الأبيض الأكسفوردي مع الشينوس الأزرق الداكن واللوفرز البني يخلق مظهرًا راقيًا ومريحًا مناسبًا للمناسبات شبه الرسمية.إطلال"
+            },
+            {
+              "role": "status",
+              "live": "polite",
+              "text": "حُفظت ضمن إطلالات خزانتك (رقم 4). ستجدها في تبويب الإطلالات."
+            }
+          ],
+          "axe": {
+            "label": "ar-saved",
+            "violations": [],
+            "passes": 33,
+            "incomplete": 2
+          }
+        },
+        "looks": {
+          "axe": {
+            "label": "ar-looks",
+            "violations": [],
+            "passes": 31,
+            "incomplete": 2
+          },
+          "ariaSnapshot": "- region \"إطلالات الخزانة المحفوظة\":\n  - heading \"إطلالات الخزانة المحفوظة\" [level=3]\n  - paragraph: إطلالات احتفظت بها من المصمّم الذكي، مكوّنة فقط من قطع تملكها.\n  - status\n  - list \"إطلالات الخزانة المحفوظة\":\n    - listitem:\n      - heading \"لباس سمارت كازوال مع براون لوفرز\" [level=4]\n      - paragraph: Smart Casual · حُفظت في ٢٦ أكتوبر ٢٠٢٦\n      - text: من إعداد ibm/granite-4-h-small\n      - paragraph: القميص الأبيض الأكسفوردي مع الشينوس الأزرق الداكن واللوفرز البني يخلق مظهرًا راقيًا ومريحًا مناسبًا للمناسبات شبه الرسمية.\n      - list \"لباس سمارت كازوال مع براون لوفرز\":\n        - listitem:\n          - img \"White Oxford Shirt — White — Image unavailable\": Image unavailable\n          - paragraph: White Oxford Shirt\n          - paragraph: top\n        - listitem:\n          - img \"Navy Chinos — Navy — Image unavailable\": Image unavailable\n          - paragraph: Navy Chinos\n          - paragraph: bottom\n        - listitem:\n          - img \"Brown Loafers — Brown — Image unavailable\": Image unavailable\n          - paragraph: Brown Loafers\n          - paragraph: footwear\n      - button \"حذف الإطلالة\"",
+          "cards": 1,
+          "provenance": "من إعداد ibm/granite-4-h-small",
+          "dir": "rtl"
+        }
+      },
+      "pageErrors": []
+    }
+  ],
+  "method": "playwright-core + axe-core; real SPA + real API; keyboard-driven; ARIA snapshots = what AT receives. NOT a screen-reader session unless 'orca' section is present.",
+  "summary": {
+    "axe_violations_total": 0,
+    "locales_completed": 2
+  }
+}

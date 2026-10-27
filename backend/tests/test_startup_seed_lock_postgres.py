@@ -16,6 +16,7 @@ import time
 import pytest
 from sqlalchemy import create_engine, text
 
+from backend.app.core.postgres_url import normalise_postgres_url
 from backend.app.core.startup_lock import SEED_LOCK_KEY, seed_lock
 
 PG_URL = os.environ.get("CONFIT_CONCURRENCY_PG_URL", "")
@@ -25,8 +26,15 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _engine():
+    # CI passes a bare ``postgresql://`` DSN; SQLAlchemy 2 would pick psycopg v3
+    # for that, which is not installed. Same normalisation as the application.
+    url, connect_args = normalise_postgres_url(PG_URL)
+    return create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+
+
 def test_seed_lock_serialises_concurrent_holders_and_releases():
-    engine = create_engine(PG_URL, pool_pre_ping=True)
+    engine = _engine()
     order: list[str] = []
     inside = threading.Semaphore(1)
 
@@ -53,7 +61,7 @@ def test_seed_lock_serialises_concurrent_holders_and_releases():
 def test_seed_lock_connection_holds_no_table_locks():
     """The lock connection must never block a concurrent DROP/ALTER (the
     2026-10-26 self-deadlock class)."""
-    engine = create_engine(PG_URL, pool_pre_ping=True)
+    engine = _engine()
     with engine.begin() as c:
         c.execute(text("CREATE TABLE IF NOT EXISTS _seed_lock_probe (id int)"))
     with seed_lock(engine):

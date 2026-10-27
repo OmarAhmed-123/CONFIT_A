@@ -74,4 +74,4 @@ sentry-sdk[fastapi]==2.20.0
 # `confit-verify=<token>` TXT record. Without this pinned dependency the lookup
 # raises ImportError, which the verifier treats as a FAILED check — never a pass —
 # so ownership could not be established at all.
-dnspython==2.7.0
+dnspython==2.9.0  # 2026-10-27: CVE-2026-114605 (pip-audit gate); verifier tests re-run

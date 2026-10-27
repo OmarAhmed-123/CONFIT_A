@@ -73,6 +73,15 @@ fault + bounded retry ≈ 2 × model latency — visible already at 1 VU), `save
 1.55 → **0.03 s**, throughput 4.73 → 5.76 rps, 0 errors, idle-in-transaction 15 → **0**.
 Targets not relaxed. Live-Granite / staging rerun: NOT RUN (blockers unchanged).
 
+### 00.4b CI on the first push of this pass (`36a372a`) — two failures, both fixed in the follow-up commit
+
+| Job | Failure | Cause | Fix |
+|---|---|---|---|
+| backend → "Dependency security audit (pip-audit)" | `dnspython 2.7.0` — CVE-2026-114605, fix 2.9.0 | New advisory against an existing explicit pin (brand-domain TXT verifier); unrelated to this pass's code — it would fail on `ae202f6` too if re-run today | Pin bumped to 2.9.0 in `requirements.txt`, `backend/requirements.txt` and the byte-identical Vercel mirror `api/requirements.txt` (the manifest-drift test caught the mirror); `pip-audit` locally: "No known vulnerabilities found"; manifest tests 15/15 |
+| postgres migration chain → isolated-PostgreSQL step | `ModuleNotFoundError: psycopg` in the new `test_startup_seed_lock_postgres.py` | CI passes a bare `postgresql://` DSN, which SQLAlchemy 2 maps to psycopg v3; the test built its engine from the raw DSN instead of the app's `normalise_postgres_url` | Test now normalises like the MFA test and the application; 3/3 locally with the bare DSN form |
+
+Other jobs on `36a372a`: frontend, stylist drawer browser gate, production parity, gitleaks — **success**; release gate — failure (production 402, unchanged); Workers Builds — failure (external, unchanged).
+
 ### 00.5 Test results this pass (all executed 2026-10-27, local)
 
 | Suite | Result |

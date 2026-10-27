@@ -125,12 +125,13 @@ describe("WardrobeStylistPanel", () => {
     fireEvent.click(screen.getByText(en.wardrobe_stylist.more_prefs));
     fireEvent.change(screen.getByLabelText(en.wardrobe_stylist.style_prefs), { target: { value: "relaxed, layered,, " } });
     fireEvent.change(screen.getByLabelText(en.wardrobe_stylist.color_prefs), { target: { value: "navy، earth tones" } });
+    fireEvent.change(screen.getByLabelText(en.wardrobe_stylist.excluded_colors), { target: { value: "black, red " } });
     fireEvent.click(screen.getByRole("button", { name: en.wardrobe_stylist.generate }));
 
     await waitFor(() => expect(recommendOutfit).toHaveBeenCalledTimes(1));
     expect(recommendOutfit).toHaveBeenCalledWith({
       occasion: "Casual", time_of_day: "morning", season: "autumn", location: "park",
-      style_preferences: ["relaxed", "layered"], color_preferences: ["navy", "earth tones"],
+      style_preferences: ["relaxed", "layered"], color_preferences: ["navy", "earth tones"], excluded_colors: ["black", "red"],
       comfort_needs: undefined, exclusions: undefined, excluded_item_ids: [], previous_item_ids: [], language: "en",
     });
     const result = await screen.findByTestId("stylist-result");

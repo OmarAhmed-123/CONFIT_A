@@ -4,6 +4,89 @@ Date: 2026-10-26 · Branch: `feat/watsonx-granite-stylist` (PR #387) · Author: 
 Legend: **VERIFIED** (executed here, evidence named) · **MOCKED** (automated tests stubbing watsonx HTTP) · **LIVE** (real watsonx.ai, eu-de) · **PARTIALLY VERIFIED** · **NOT VERIFIED**.
 Release-checklist vocabulary used from §0 onward: **PASS — VERIFIED** (executed here, evidence named) · **PASS — AUTOMATED** (CI/suite green, not re-executed by hand) · **PARTIAL** · **BLOCKED** (external) · **FAIL** · **NOT RUN**.
 
+## 00. Fourth pass (2026-10-27, "Production Readiness, AI Accuracy, Performance, Accessibility, Release Validation")
+
+Baseline for this pass: `feat/watsonx-granite-stylist` @ `ae202f6` (== origin, PR #387 open,
+`mergeable_state: blocked`). Historical results from 2026-10-26 (§0, §A–§J) are kept as
+written; everything in §00 was re-executed on 2026-10-27 unless marked otherwise.
+
+### 00.1 Environment & external-dependency verification (all times UTC)
+
+| Time | Check | Endpoint / command | Result | Evidence source | Status | Action / owner / impact |
+|---|---|---|---|---|---|---|
+| 14:58 | Repo head | `git rev-parse HEAD` vs `origin/feat/watsonx-granite-stylist` | `ae202f6` both, tree clean | local git after re-clone | VERIFIED | — |
+| 14:58 | CI on PR head | GitHub Actions API, `head_sha=ae202f6` | backend, frontend, Postgres migration chain + schema gate, stylist drawer browser gate, production parity, gitleaks: **success**; release gate: **failure** (prod health 402); Cloudflare Workers Builds: **failure** (external app) | `GET /repos/OmarAhmed-123/CONFIT_A/actions/runs?head_sha=…` | VERIFIED | Release gate cannot pass while production is disabled — owner: repo owner (Vercel billing) |
+| 14:59 | Production | `GET https://confit-a.vercel.app/`, `/health`, `/api/v1/health` | **HTTP 402**, `x-vercel-error: DEPLOYMENT_DISABLED` (all three) | curl | VERIFIED | S1 blocker — Vercel team billing/pause; owner: account owner; impact: no production surface at all |
+| 15:00 | Neon prod (`neondb`) and staging (`confit_fixverify`), owner + app_rw roles | psycopg2 `SELECT 1` on all 4 URLs | connection refused with "Your account or project has exceeded the quota" | psycopg2 error text | VERIFIED (unreachable) | S1 blocker — Neon plan quota; owner: account owner; impact: 0047/0048 state in staging/prod **NOT VERIFIED**, no live-DB smoke possible |
+| 15:00 | watsonx.ai (eu-de) | IAM token exchange; `GET /ml/v1/foundation_model_specs` | HTTP 200 / HTTP 200, `ibm/granite-4-h-small` listed | curl with `.env.local` key (never printed) | VERIFIED | Live *inference* not re-run this pass (quota prudence); last live outfit 2026-10-26 (§0.1) |
+| 15:00 | Redis / shared rate-limit store | — | no `REDIS_URL` available | — | **BLOCKED — NOT VERIFIED** | Rate limits are per-worker (`memory://`); 40/h per user is therefore ≈40×workers. Owner: platform; impact: S4 |
+| 15:00 | Sandbox | `/home/user/CONFIT_A` restore | `.git`, `node_modules`, `.venv`, PostgreSQL lost between sessions again; re-cloned (`ae202f6`), `npm ci`, venv rebuilt, PostgreSQL 17.11 reinstalled, cluster re-initialised on :5433 | shell | VERIFIED | Local only; no impact on the repo |
+| 11:24 | `main` uptime monitor | GitHub Actions scheduled run | failing since production 402 | Actions API | VERIFIED | Same root cause as the 402 |
+
+**Not performed, by design:** no deploy, no merge, no new branch, no force-push; no live Granite spend.
+
+### 00.2 Stylist List lifecycle map & defects found (Phase 1)
+
+Lifecycle (unchanged files are referenced, not re-described): `WardrobeStylistPanel.tsx` →
+`apiServices.recommendOutfit` → `POST /api/v1/wardrobe/outfit-recommendation`
+(`wardrobe_controller.recommend_outfit_from_wardrobe`, JWT user, 40/h) →
+`WardrobeStylistService.recommend` → closet (caller's ready, un-binned rows only) →
+`prompts.build_stylist_user_message` → `WatsonxClient.chat` (granite-4-h-small, JSON mode, bounded
+retries) → `_validate_selection` (ids, duplicates, excluded ids, role from stored category) →
+`OutfitRecommendation` (provenance) → optional `POST /wardrobe/outfits` (0048, model-id allow-list).
+
+| # | Defect / gap (reproduced 2026-10-27) | Severity | Root cause | Fix in this pass |
+|---|---|---|---|---|
+| D1 | **Excluded colours were never enforced.** "no black" reached the model only as prose in `exclusions`; `_validate_selection` checked ids/roles only, so a model answer containing black pieces was returned verbatim. Reproduced with a mocked model that ignores the instruction. | S2 (AI accuracy / fidelity to the user's description) | No structured field, no post-validation | `excluded_colors: list[str]` (≤8) added to the request; `banned_color_families()` derives bans from the list **and** from negated colour words in `exclusions` (EN + AR); offending items are dropped in the model path **and** filtered from the fallback candidates; limitation names colour + count (EN/AR); prompt gains a "colours to avoid" line. UI: new *Colours to avoid* input (EN/AR strings, hint text, axe-clean). |
+| D2 | **Arabic colour words did not normalise.** `COLOR_FAMILIES` was English-only, so "أسود" never matched `Black` — preference scoring and D1 could not work for Arabic users. | S2 | Taxonomy gap | 17 families given MSA aliases (hamza / no-hamza / feminine forms) |
+| D3 | `normalize_color()` returns `Black` for any unknown word. Harmless for labelling, dangerous for a ban list (an unrecognised or injected string would have banned black). Found by the new injection test *during* this pass, before commit. | S2 (introduced-then-fixed) | Default family | `_known_color_family()` only maps strings containing a real alias; unrecognised entries produce an explicit limitation instead |
+| D4 | **Requested outfit count not supported.** The contract is one outfit per call; a `count` field was silently discarded (pydantic default `extra=ignore`), so a user asking for three outfits got one with no explanation. | S3 (documented gap) | Design | `extra="forbid"` → `count` returns 422 naming the field; documented as NOT IMPLEMENTED (alternatives via `previous_item_ids` / "Another outfit"). Multi-outfit generation is a product/prompt change that multiplies latency per request — not done here. |
+
+Tests added: `backend/tests/test_stylist_colour_constraints_eval.py` (23 cases: unit ban
+derivation EN/AR, model-path enforcement EN/AR, no-exclusion regression guard, fallback
+enforcement, position lost to a ban, `count` → 422, bounds, prompt-injection containment).
+Frontend: `wardrobeStylistPanel.test.tsx` extended (payload now includes `excluded_colors`),
+11/11 incl. axe EN + AR/RTL.
+
+### 00.3 PostgreSQL startup & migrations (Phase 2/§8, PostgreSQL 17.11, re-executed)
+
+| Scenario | Result | Evidence |
+|---|---|---|
+| Fresh DB → `alembic upgrade head` | PASS, head `0048_wardrobe_outfits` | shell |
+| `downgrade 0046` → `upgrade head` | PASS | shell |
+| Existing migrated DB, 2 workers, restart | PASS, both workers `verdict=ok` | rig log |
+| **Migrated-but-empty DB, 2 workers concurrently (non-production)** | **FAIL before** (3/3: false `verdict=drift` + "relation does not exist" on one worker) → **PASS after** advisory-lock fix (3/3: both `ok`, seeded once) | `/tmp/race_{before,after}_{1,2,3}.log`; `backend/app/core/startup_lock.py`; `test_startup_seed_lock_postgres.py` 3/3 |
+| Restart after partial init | Covered by the same lock: a second worker waits for the first to finish seeding; not separately fault-injected (NOT RUN as a kill-mid-seed test) | — |
+| DB unavailable at startup | Existing behaviour unchanged (lifespan logs "Database initialization notice", gate logs, app serves degraded health) — observed incidentally at 15:26 UTC, not re-run as a dedicated scenario | rig log |
+| MFA single-use invariants under concurrency | 3/3 PASS on PG 17 | pytest |
+| 0047/0048 state in Neon staging / production | **BLOCKED — NOT VERIFIED** (quota lock) | psycopg2 error |
+
+### 00.4 Performance (Phase 4) — summary; full detail in `docs/qa/LOAD_TEST_STYLIST.md` § "Fourth pass"
+
+Baseline reproduced today at 1/5/10/20 VU (same workload as 2026-10-26). Bottleneck
+isolated by measurement: the stylist request held its DB connection **idle in
+transaction** for the whole model await (15 pinned connections at 20 VU = one worker's
+pool), queueing every other request. Fix: release the connection before awaiting the
+model (`_release_db_connection`). 20 VU like-for-like: recommend p50 5.93 → **5.11 s**,
+p95 8.15 → **6.48 s (target 6.5 met)**, p99 11.56 → 11.50 s (**still > 8.0**: injected
+fault + bounded retry ≈ 2 × model latency — visible already at 1 VU), `save_outfit` p95
+1.55 → **0.03 s**, throughput 4.73 → 5.76 rps, 0 errors, idle-in-transaction 15 → **0**.
+Targets not relaxed. Live-Granite / staging rerun: NOT RUN (blockers unchanged).
+
+### 00.5 Test results this pass (all executed 2026-10-27, local)
+
+| Suite | Result |
+|---|---|
+| Backend full (3 sequential pytest processes, SQLite default) | **4,617 passed, 0 failed, 25 skipped** (4,591 + 26 new) |
+| New `test_stylist_colour_constraints_eval.py` | 24/24 (23 colour/contract + 1 connection-hygiene) |
+| Stylist-related regression set (`test_watsonx_stylist`, saved outfits, eval harness, colour tests) | 76 passed |
+| PostgreSQL-only: `test_mfa_concurrency_postgres.py` + `test_startup_seed_lock_postgres.py` + `test_startup_seed_no_open_session.py` | 3 + 3 + 2 passed (PG 17.11) |
+| Frontend (vitest) | **157 files / 2,361 passed**; `tsc --noEmit` clean |
+| Panel a11y (axe) EN + AR/RTL with the new control | 0 violations |
+| API security recheck on the Postgres/2-worker rig | unauth `GET/POST /wardrobe/outfits`, `GET /wardrobe/outfits/{id}`, `POST /outfit-recommendation` → **401**; malformed bearer → 401; cross-user save → 422 refused; forged `model_id` → refused; `count` → 422 naming the field; excluded-colour enforcement observed end-to-end (2 black pieces dropped, limitation shown) |
+| Alembic 0046 ⇄ 0048 on PG 17 | PASS |
+| Live Granite inference | NOT RUN this pass (IAM + catalogue HTTP 200 only; 17 multitenant models, 0 granite-vision, 15:57 UTC) |
+
 ## 0. Re-validation pass (2026-10-26, "Production Readiness & Deployment Recovery")
 
 Everything below in §A–§J was re-checked against the current repository, CI

@@ -123,12 +123,14 @@ jobs:
       # race passes there by construction). The suite drops and recreates the
       # schema, so it gets its OWN database; pointing it at confit_ci would wipe
       # the schema the steps above rely on.
-      - name: MFA single-use invariants under concurrency (isolated PostgreSQL)
+      # 2026-10-27: the multi-worker startup seed lock shares the throwaway DB
+      # (it only takes an advisory lock and creates/drops its own probe table).
+      - name: MFA single-use invariants + startup seed lock under concurrency (isolated PostgreSQL)
         env:
           CONFIT_CONCURRENCY_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_conc
         run: |
           PGPASSWORD="$CI_PG_PASSWORD" createdb -h localhost -U confit confit_conc
-          PYTHONPATH=. python3 -m pytest -q backend/tests/test_mfa_concurrency_postgres.py
+          PYTHONPATH=. python3 -m pytest -q backend/tests/test_mfa_concurrency_postgres.py backend/tests/test_startup_seed_lock_postgres.py
 
   # Guards against "works on the developer machine" regressions: the Vercel
   # function manifest, entrypoint, environment contract and forbidden

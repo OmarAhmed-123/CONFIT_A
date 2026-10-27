@@ -52,6 +52,8 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 | H | User corrects a category, re-requests with exclusions (`previous_item_ids`) | LIVE | PASS — corrected category drives role; excluded ids not reused |
 | I | Arabic locale + RTL rendering + screen-reader semantics | Vitest (jsdom, axe, `dir="rtl"`) + headless Chromium screenshot `docs/qa/watsonx_stylist_result_ar.png` | PASS — RTL chrome verified in a real browser render; request now carries `language: "ar"` so Granite writes prose in Arabic (model-authored text is `dir="auto"`); **no screen-reader pass** |
 | J | Provenance in UI (which model analysed each item; fallback badge) | Vitest + live API | PASS — card shows `analysis_source`; badge test |
+| K (2026-10-27) | Excluded colours: model returns a black top/shoes against "no black" (EN explicit list, EN negated free text, AR `بدون أسود`); fallback with banned colours; unknown/injected strings in the colour fields | MOCKED | PASS — offending items dropped server-side, limitation names colour + count, `is_complete` honest, prompt carries preferred and avoided colours, system prompt unchanged, unknown words never map to a ban. `test_stylist_colour_constraints_eval.py` 23/23. **Before this change the exclusion was prompt-only and a non-compliant model answer would have been shown as-is.** Live Granite compliance with the instruction: NOT RE-VERIFIED this pass (no live run) |
+| L (2026-10-27) | Requested outfit count ("three distinct outfits") | Contract review | **NOT IMPLEMENTED** — single outfit per request; `count` rejected with 422; alternatives via `previous_item_ids` |
 
 ## 3. Quality gates
 

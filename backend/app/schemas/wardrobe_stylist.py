@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 TimeOfDay = Literal["morning", "afternoon", "evening", "night"]
 Season = Literal["spring", "summer", "autumn", "winter"]
@@ -13,6 +13,11 @@ ItemRole = Literal["top", "bottom", "dress", "footwear", "outerwear", "accessory
 
 
 class OutfitRecommendationRequest(BaseModel):
+    # Unknown fields are rejected (422) rather than silently dropped so a
+    # client asking for e.g. ``count: 3`` learns that the endpoint returns one
+    # outfit per call (use ``previous_item_ids`` for "another outfit").
+    model_config = ConfigDict(extra="forbid")
+
     occasion: str = Field("Smart Casual", min_length=2, max_length=60)
     time_of_day: Optional[TimeOfDay] = None
     season: Optional[Season] = None
@@ -21,6 +26,10 @@ class OutfitRecommendationRequest(BaseModel):
     dress_code: Optional[str] = Field(None, max_length=80)
     style_preferences: List[str] = Field(default_factory=list, max_length=8)
     color_preferences: List[str] = Field(default_factory=list, max_length=8)
+    # Colours the user does NOT want. Enforced server-side (model path and
+    # fallback), not merely passed to the model — see
+    # WardrobeStylistService.banned_color_families.
+    excluded_colors: List[str] = Field(default_factory=list, max_length=8)
     comfort_needs: Optional[str] = Field(None, max_length=200)
     exclusions: Optional[str] = Field(None, max_length=200)
     excluded_item_ids: List[int] = Field(default_factory=list, max_length=50)
@@ -30,7 +39,7 @@ class OutfitRecommendationRequest(BaseModel):
     # JSON keys, category names and ids stay English so validation is unchanged.
     language: Literal["en", "ar"] = "en"
 
-    @field_validator("style_preferences", "color_preferences")
+    @field_validator("style_preferences", "color_preferences", "excluded_colors")
     @classmethod
     def _clean_lists(cls, v: List[str]) -> List[str]:
         out = []

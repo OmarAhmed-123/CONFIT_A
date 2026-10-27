@@ -156,6 +156,75 @@ test `backend/tests/test_startup_seed_no_open_session.py`. Non-production
 only (production never seeds), but it would have blocked any Postgres-backed
 staging on first boot.
 
+## Fourth pass (2026-10-27) — baseline reproduced, bottleneck found, fixed, re-measured
+
+Rig: same harness and workload as 2026-10-26 (2 uvicorn workers, PostgreSQL —
+now **17.11** after the sandbox rebuild — watsonx double at **5 s ± 1.5 s,
+2 % 503 + 1 % 429 injected**, 20 recommendations per VU, every 5th saved,
+one list at the end). Reports: `docs/qa/load/stylist_mocked_{1,5,10,20}vu_postgres_2workers_5s_20261027.json`
+and `…_20vu_…_after_fix.json`. Historical numbers are quoted, not re-used.
+
+### Progressive baseline (before any change today)
+
+| VUs | recommend p50 / p95 / p99 (s) | save_outfit p95 (s) | list p95 (s) | req | rps | 5xx | pg conns max |
+|---|---|---|---|---|---|---|---|
+| 1 | 4.65 / 6.37 / **11.00** | 0.03 | 0.02 | 33 | 0.32 | 0 | 4 |
+| 5 | 5.04 / 6.45 / 11.50 | 0.03 | 0.02 | 165 | 1.51 | 0 | 7 |
+| 10 | 5.01 / 6.51 / 11.79 | 0.03 | 0.02 | 330 | 2.88 | 0 | 12 |
+| 20 | **5.93 / 8.15 / 11.56** | **1.55** | 0.21 | 660 | 4.73 | 0 | 20 |
+
+Reading. (1) p99 ≈ 11 s **already at 1 VU**: that is one injected fault +
+one bounded retry (≈ 2 × model latency), i.e. provider/retry arithmetic, not
+application overhead — the 8.0 s p99 target is unreachable with this double
+regardless of app efficiency (unchanged conclusion, now shown at every
+concurrency level). (2) From 10 → 20 VU the recommend p50 rose 0.9 s and the
+*fast, unrelated* `save_outfit` p95 rose from 0.03 s to 1.55 s while CPU was
+idle — the signature of requests queueing for a pooled resource.
+
+### Bottleneck isolated (measured, `/tmp/probe_contention.py`, 20 recommends in flight)
+
+| | before | after |
+|---|---|---|
+| `pg_stat_activity` while 20 recommends await the model | **15 × "idle in transaction"** + 5 idle | **0** idle in transaction, 7 idle |
+| `GET /wardrobe/outfits` concurrent with those 20 | p50 8 ms, **max 3.25 s** | p50 9 ms, max 22 ms |
+
+Root cause: the request-scoped SQLAlchemy session had already run the closet
+query, so it held its connection — in an open transaction — for the whole
+model await (5–12 s). Fifteen such requests = `pool_size 5 + max_overflow 10`
+of one worker; every other request on that worker then waited in the pool
+queue. Fix (`WardrobeStylistService._release_db_connection`, 1 method):
+detach the already-loaded rows and `rollback()` **before** awaiting the model.
+No pool-size change, no new dependency. Regression test:
+`test_recommend_releases_db_connection_before_model_call`.
+
+### 20 VU like-for-like, before → after the fix (same double, same seed data)
+
+| metric | before (today) | after | 2026-10-26 historical |
+|---|---|---|---|
+| recommend p50 | 5.931 s | **5.114 s** | 5.96 s |
+| recommend p95 | 8.152 s | **6.483 s** (target 6.5 — **met**) | 8.25 s |
+| recommend p99 | 11.557 s | 11.499 s (target 8.0 — **missed**, retry arithmetic) | 9.52 s |
+| recommend mean / max | 6.03 / 12.41 s | 5.23 / 12.69 s | — |
+| save_outfit p50 / p95 / max | 0.50 / 1.55 / 3.28 s | **0.02 / 0.03 / 0.04 s** | — |
+| list_outfits p95 | 0.211 s | 0.024 s | — |
+| requests / 5xx / 4xx | 660 / 0 / 0 | 660 / 0 / 0 | 660 / 0 / 0 |
+| throughput | 4.73 rps | **5.76 rps** | 4.75 rps |
+| wall | 139.7 s | 114.7 s | 139.0 s |
+| provenance | 400 × watsonx / granite-4-h-small | 400 × watsonx / granite-4-h-small | 400 |
+| PostgreSQL connections (total / idle-in-tx) | 20 / up to 15 | ≤ 10 / **0** (60 samples) | — |
+| app overhead above the double's 5 s median (p50) | ≈ 0.93 s | **≈ 0.11 s** | ≈ 0.9 s |
+
+Resources: the two worker processes total ≈ 350 MB RSS; `ps` lifetime CPU
+average 4.9 % — the workload is I/O-bound, CPU is not a factor on this rig
+(instantaneous peak CPU was not captured; the sampler's process match failed
+and this is noted rather than estimated).
+
+Targets were **not** relaxed. Status after the fix: p95 **PASS** (6.48 ≤ 6.5,
+narrow margin, one run), p99 **FAIL as written** — still recommended to
+state it as `2 × model latency + 2 s` if retries are meant to be inside it.
+Not run (unchanged blockers): the same workload against the real staging
+deployment (Neon quota lock, Vercel 402).
+
 ## Status and recommendation
 * Correctness under load: **VERIFIED (mocked)** — no 5xx, no mislabelled
   provenance, no id leakage, retries work, saves persist.

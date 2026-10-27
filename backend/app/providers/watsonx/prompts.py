@@ -97,6 +97,8 @@ def build_stylist_user_message(closet: List[Dict[str, Any]], context: Dict[str, 
         ctx_lines.append(f"- style preferences: {', '.join(context['style_preferences'])}")
     if context.get("color_preferences"):
         ctx_lines.append(f"- preferred colours: {', '.join(context['color_preferences'])}")
+    if context.get("excluded_colors"):
+        ctx_lines.append(f"- colours to avoid (do NOT use any piece in these colours): {', '.join(context['excluded_colors'])}")
     if context.get("comfort_needs"):
         ctx_lines.append(f"- comfort / practicality needs: {context['comfort_needs']}")
     if context.get("exclusions"):

@@ -78,3 +78,5 @@ problem, a **region** problem, or a **code defect**? And can it be integrated?
 | Availability question | **VERIFIED LIVE** (answered: Deploy-on-Demand only) |
 | Deploy-on-Demand routing | **MOCKED** (unit tests); **NOT VERIFIED LIVE** (no deployment exists) |
 | Default vision model (`llama-4-maverick`) | **VERIFIED LIVE** (session 1 smoke) |
+
+| Status re-confirmed 2026-10-27 | Granite Vision remains **inactive**: `WATSONX_VISION_MODEL_ID` default is `meta-llama/llama-4-maverick-17b-128e-instruct-fp8`; no `WATSONX_VISION_DEPLOYMENT_ID` is configured anywhere; the UI/API never claim Granite Vision (provenance shows the served model id). Activation conditions unchanged: a Deploy-on-Demand deployment in the eu-de project + the deployment id in configuration + a live smoke recorded here. Catalogue check 2026-10-27 15:00 UTC: `foundation_model_specs` HTTP 200, no multitenant `granite-vision` entry for this project. |

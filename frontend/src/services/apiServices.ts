@@ -1063,6 +1063,7 @@ export interface OutfitRecommendationRequest {
   dress_code?: string;
   style_preferences?: string[];
   color_preferences?: string[];
+  excluded_colors?: string[];
   comfort_needs?: string;
   exclusions?: string;
   excluded_item_ids?: number[];

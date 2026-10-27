@@ -55,6 +55,33 @@ COLOR_FAMILIES: Dict[str, List[str]] = {
     "Multi": ["multi", "multicolor", "multi-color", "colorful", "rainbow"],
 }
 
+# Arabic colour words (Modern Standard Arabic + common spellings without
+# hamza) so an Arabic-speaking user's preferences and exclusions normalise to
+# the same families as English ones. Added 2026-10-27: before this, "أسود"
+# never matched "Black", so neither preference scoring nor the server-side
+# colour exclusion could act on Arabic input.
+_ARABIC_COLOR_ALIASES: Dict[str, List[str]] = {
+    "Black": ["أسود", "اسود", "سوداء"],
+    "White": ["أبيض", "ابيض", "بيضاء"],
+    "Ivory": ["عاجي", "كريمي", "كريم"],
+    "Grey": ["رمادي", "رمادية"],
+    "Navy": ["كحلي", "كحلية", "أزرق داكن", "ازرق داكن", "أزرق غامق"],
+    "Blue": ["أزرق", "ازرق", "زرقاء", "سماوي"],
+    "Beige": ["بيج", "كاكي", "رملي"],
+    "Tan": ["جملي", "كراميل"],
+    "Brown": ["بني", "بنية"],
+    "Green": ["أخضر", "اخضر", "خضراء", "زيتي", "زيتوني"],
+    "Red": ["أحمر", "احمر", "حمراء", "عنابي", "نبيذي", "خمري"],
+    "Pink": ["وردي", "زهري", "فوشيا"],
+    "Purple": ["بنفسجي", "موف", "أرجواني", "ارجواني"],
+    "Yellow": ["أصفر", "اصفر", "ذهبي", "خردلي"],
+    "Orange": ["برتقالي", "مشمشي"],
+    "Silver": ["فضي"],
+    "Multi": ["ملون", "متعدد الألوان", "متعدد الالوان"],
+}
+for _fam, _words in _ARABIC_COLOR_ALIASES.items():
+    COLOR_FAMILIES.setdefault(_fam, []).extend(_words)
+
 # Loose hex palette for the canonical families (used when the model does not
 # return a hex, or returns an implausible one).
 COLOR_FAMILY_HEX = {

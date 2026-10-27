@@ -19,6 +19,7 @@ Flow (mirrors the tutorial's step 8, hardened):
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -70,8 +71,30 @@ class WardrobeStylistService:
             if (getattr(it, "processing_status", "ready") or "ready") == "ready"
         ]
 
+    def _release_db_connection(self, items: List[Any]) -> None:
+        """Give the pooled connection back BEFORE awaiting the model.
+
+        Measured 2026-10-27 (PostgreSQL 17, 2 uvicorn workers, 20 VU, 5 s model
+        double): the request session stayed "idle in transaction" for the whole
+        model call, pinning 15 connections (= pool_size 5 + max_overflow 10 of
+        one worker) so unrelated fast endpoints queued on the pool
+        (GET /wardrobe/outfits max 3.2 s vs 8 ms idle; save_outfit p95 1.55 s
+        at 20 VU vs 0.03 s at 10 VU). Everything this service needs from the
+        rows is already loaded as plain columns (no relationships are
+        touched), so the objects are detached first — rollback() would
+        otherwise expire them and the next attribute read would silently
+        re-open a connection.
+        """
+        try:
+            for it in items:
+                self.db.expunge(it)
+            self.db.rollback()
+        except Exception as exc:  # pragma: no cover - defensive, never break a request
+            logger.warn("wardrobe_stylist_release_connection_failed", error=str(exc)[:120])
+
     async def recommend(self, user_id: int, req: OutfitRecommendationRequest) -> OutfitRecommendation:
         items = self.closet_for_user(user_id)
+        self._release_db_connection(items)
         excluded = set(req.excluded_item_ids)
         usable = [it for it in items if it.id not in excluded]
         if not usable:
@@ -181,18 +204,84 @@ class WardrobeStylistService:
             context=context,
         )
 
+    # ── colour constraints (enforced, not just prompted) ─────────────
+    _NEGATION_WORDS = ("no", "not", "without", "avoid", "never", "except", "لا", "بدون", "بلا", "ليس", "تجنب", "ماعدا", "ما عدا")
+
+    @staticmethod
+    def _known_color_family(text: str) -> Optional[str]:
+        """normalize_color() falls back to "Black" for unknown words, which is
+        fine for labelling but dangerous for a ban list. Only map strings that
+        actually contain a known alias."""
+        v = taxonomy._norm(text)
+        if not v:
+            return None
+        fam = taxonomy.normalize_color(v)
+        if any(alias in v for alias in taxonomy.COLOR_FAMILIES.get(fam, [])):
+            return fam
+        return None
+
+    @classmethod
+    def banned_color_families(cls, req: OutfitRecommendationRequest) -> set:
+        """Colour families the answer must not contain.
+
+        Sources: the explicit ``excluded_colors`` list, plus colour words in
+        the free-text ``exclusions`` field when they follow a negation word
+        ("no black", "without white", "بدون أسود"). The free-text parse is
+        deliberately narrow so "white sneakers are fine" does not ban white.
+        Added 2026-10-27: until then exclusions reached the model as prose and
+        were never checked on the way back.
+        """
+        banned: set = set()
+        for c in req.excluded_colors:
+            fam = cls._known_color_family(c)
+            if fam:
+                banned.add(fam)
+        text = taxonomy._norm(req.exclusions or "")
+        if text:
+            words = re.split(r"[\s,;،/]+", text)
+            for i, w in enumerate(words):
+                if w in cls._NEGATION_WORDS:
+                    for nxt in words[i + 1 : i + 3]:
+                        fam = cls._known_color_family(nxt)
+                        if fam and any(nxt == alias or nxt in alias.split() for alias in taxonomy.COLOR_FAMILIES[fam]):
+                            banned.add(fam)
+        return banned
+
+    @classmethod
+    def unrecognised_excluded_colors(cls, req: OutfitRecommendationRequest) -> List[str]:
+        return [c for c in req.excluded_colors if cls._known_color_family(c) is None]
+
+    @classmethod
+    def _unrecognised_limitation(cls, req: OutfitRecommendationRequest) -> List[str]:
+        unknown = cls.unrecognised_excluded_colors(req)
+        if not unknown:
+            return []
+        shown = ", ".join(u[:30] for u in unknown[:3])
+        if req.language == "ar":
+            return [f"لم نتعرّف على «{shown}» كلون، لذا لم يُطبَّق استبعاد تلقائي له."]
+        return [f"'{shown}' was not recognised as a colour, so no automatic exclusion was applied for it."]
+
+    @staticmethod
+    def _color_limitation(dropped: int, banned: set, language: str) -> str:
+        names = ", ".join(sorted(banned))
+        if language == "ar":
+            return f"تم استبعاد {dropped} قطعة لأنها بلون طلبتَ تجنّبه ({names})."
+        return f"{dropped} piece(s) were left out because they are in a colour you asked to avoid ({names})."
+
     def _validate_selection(
         self, raw: Dict[str, Any], items: List[Any], req: OutfitRecommendationRequest
     ) -> Tuple[List[RecommendedItem], List[int], List[str]]:
         """The only place model-chosen ids become real items. Unknown ids,
-        duplicates, excluded ids and role/category mismatches are dropped and
-        reported (FR-09, Scenario G)."""
+        duplicates, excluded ids, banned colours and role/category mismatches
+        are dropped and reported (FR-09, Scenario G)."""
         by_id = {it.id: it for it in items}
         picked: List[RecommendedItem] = []
         rejected: List[int] = []
         limitations: List[str] = []
         seen_ids: set = set()
         seen_roles: set = set()
+        banned = self.banned_color_families(req)
+        colour_dropped = 0
         for entry in (raw.get("items") or [])[:8]:
             if not isinstance(entry, dict):
                 continue
@@ -205,6 +294,10 @@ class WardrobeStylistService:
                 rejected.append(item_id)
                 continue
             if item_id in seen_ids:
+                continue
+            if banned and taxonomy.normalize_color(it.color_name) in banned:
+                colour_dropped += 1
+                logger.info("wardrobe_stylist_banned_colour_dropped", item_id=item_id)
                 continue
             real_role = CATEGORY_TO_ROLE.get(taxonomy.normalize_category(it.category), "accessory")
             claimed = str(entry.get("role") or "").strip().lower()
@@ -232,6 +325,9 @@ class WardrobeStylistService:
             limitations.append(
                 f"{len(rejected)} suggested reference(s) did not match your wardrobe and were discarded."
             )
+        if colour_dropped:
+            limitations.append(self._color_limitation(colour_dropped, banned, req.language))
+        limitations.extend(self._unrecognised_limitation(req))
         for lim in self._str_list(raw.get("limitations"), 4, 240):
             if lim not in limitations:
                 limitations.append(lim)
@@ -245,6 +341,12 @@ class WardrobeStylistService:
         season = (req.season or "").lower()
         prefer_colors = {taxonomy.normalize_color(c) for c in req.color_preferences}
         previous = set(req.previous_item_ids)
+        banned = self.banned_color_families(req)
+        colour_dropped = 0
+        if banned:
+            kept = [it for it in items if taxonomy.normalize_color(it.color_name) not in banned]
+            colour_dropped = len(items) - len(kept)
+            items = kept
 
         def score(it: Any) -> float:
             s = 0.0
@@ -297,6 +399,9 @@ class WardrobeStylistService:
             "This outfit was assembled by CONFIT's rule-based matcher, not by the AI stylist "
             "(the language model was unavailable). Reasons are generic.",
         ] + [f"No {m.lower()} in your wardrobe to complete this look." for m in missing]
+        if colour_dropped:
+            limitations.append(self._color_limitation(colour_dropped, banned, req.language))
+        limitations.extend(self._unrecognised_limitation(req))
         return OutfitRecommendation(
             outfit_id=f"det_{uuid.uuid4().hex[:12]}",
             occasion=req.occasion,

@@ -79,6 +79,7 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
   const [location, setLocation] = useState("");
   const [styleText, setStyleText] = useState("");
   const [colorText, setColorText] = useState("");
+  const [excludedColorText, setExcludedColorText] = useState("");
   const [comfort, setComfort] = useState("");
   const [exclusions, setExclusions] = useState("");
   const [excludedIds, setExcludedIds] = useState<number[]>([]);
@@ -113,13 +114,14 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
       location: location.trim() || undefined,
       style_preferences: splitList(styleText),
       color_preferences: splitList(colorText),
+      excluded_colors: splitList(excludedColorText),
       comfort_needs: comfort.trim() || undefined,
       exclusions: exclusions.trim() || undefined,
       excluded_item_ids: excludedIds,
       previous_item_ids: previous ? previous.items.map((i) => i.wardrobe_item_id) : [],
       language: i18n.language?.startsWith("ar") ? "ar" : "en",
     }),
-    [occasion, timeOfDay, season, location, styleText, colorText, comfort, exclusions, excludedIds],
+    [occasion, timeOfDay, season, location, styleText, colorText, excludedColorText, comfort, exclusions, excludedIds],
   );
 
   const run = useCallback(
@@ -366,6 +368,23 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
                   placeholder={t("wardrobe_stylist.color_prefs_placeholder")}
                   className={fieldClass}
                 />
+              </div>
+              <div>
+                <label htmlFor={`${uid}-excluded-colors`} className={labelClass}>
+                  {t("wardrobe_stylist.excluded_colors")}
+                </label>
+                <input
+                  id={`${uid}-excluded-colors`}
+                  type="text"
+                  value={excludedColorText}
+                  onChange={(e) => setExcludedColorText(e.target.value)}
+                  placeholder={t("wardrobe_stylist.excluded_colors_placeholder")}
+                  aria-describedby={`${uid}-excluded-colors-hint`}
+                  className={fieldClass}
+                />
+                <p id={`${uid}-excluded-colors-hint`} className="mt-1 text-xs text-slate-500">
+                  {t("wardrobe_stylist.excluded_colors_hint")}
+                </p>
               </div>
               <div>
                 <label htmlFor={`${uid}-comfort`} className={labelClass}>

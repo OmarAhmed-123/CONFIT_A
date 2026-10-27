@@ -63,12 +63,22 @@ async def lifespan(app: FastAPI):
             # this probe session still holds idle-in-transaction — a
             # self-deadlock that hangs startup forever (verified 2026-10-26 on
             # PostgreSQL 16 with 1 and 2 uvicorn workers; invisible on SQLite).
-            with _Session(engine) as _s:
-                _needs_seed = _s.query(Category).count() == 0
-            if _needs_seed:
-                from backend.app.seed_data import seed_database
-                seed_database(target_engine=engine)
-                logger.info("Database was empty — seeded the default catalogue")
+            # Multi-worker startup on an EMPTY database (reproduced 3/3 on
+            # 2026-10-27, PostgreSQL 17, `--workers 2`): worker A's seeder
+            # drop_all()s while worker B is still probing, so B logs
+            # "relation does not exist" and its schema gate records a false
+            # `drift` verdict. Serialise the decide-and-seed step with a
+            # session-level advisory lock held on a dedicated AUTOCOMMIT
+            # connection (holds no table locks, so the drop_all() self-deadlock
+            # documented above cannot return). No-op on SQLite.
+            from backend.app.core.startup_lock import seed_lock
+            with seed_lock(engine):
+                with _Session(engine) as _s:
+                    _needs_seed = _s.query(Category).count() == 0
+                if _needs_seed:
+                    from backend.app.seed_data import seed_database
+                    seed_database(target_engine=engine)
+                    logger.info("Database was empty — seeded the default catalogue")
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
 

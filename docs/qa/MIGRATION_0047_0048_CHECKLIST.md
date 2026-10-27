@@ -59,6 +59,28 @@ single worker or pre-seed; (b) the seeder writes Arabic names, so the database
 must be `UTF8` (Neon is; a locally `initdb`'d cluster without a locale is
 `SQL_ASCII` and rejects the seed).
 
+### Update 2026-10-27 — residual behaviour (a) was not benign; fixed
+
+Reproduced on PostgreSQL 17.11 with `uvicorn --workers 2` against a database
+that was **fully migrated (0048) but empty**: in **3/3** starts, worker A's
+seeder `drop_all()`ed while worker B was probing, so B logged
+`relation "categories" does not exist` **and its schema gate recorded
+`verdict=drift, blocking=True`** (in development that is a log line; the
+same words in a staging log would send an operator chasing a migration
+problem that does not exist). Fix: `backend/app/core/startup_lock.py` — a
+PostgreSQL session advisory lock on a dedicated AUTOCOMMIT connection
+serialises the decide-and-seed step (no table locks, so the 2026-10-26
+deadlock class cannot return; no-op on SQLite). After the fix: 3/3 starts,
+both workers `verdict=ok`, seeded exactly once, zero notices. Tests:
+`backend/tests/test_startup_seed_lock_postgres.py` (runs in the CI
+isolated-PostgreSQL step). Production is unaffected either way (it never
+seeds); the per-environment 0047/0048 state in Neon staging/prod remains
+**NOT VERIFIED** (quota lock, re-checked 2026-10-27 15:00 UTC).
+
+Also re-run today on PostgreSQL 17.11: `alembic upgrade head` from empty,
+`downgrade 0046` → `upgrade head` → `current` = `0048_wardrobe_outfits (head)`;
+`wardrobe_outfits` columns present. PASS.
+
 ## Apply procedure (staging first; production only with explicit written authorisation)
 
 ```bash

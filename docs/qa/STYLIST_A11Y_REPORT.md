@@ -70,3 +70,14 @@ form enter/leave announcements, "Stylist model: ibm/granite-4-h-small · 3 analy
 Automated: **PASS** (0 violations, keyboard-complete, focus + live regions
 correct, EN/AR). Real AT: **PARTIALLY VERIFIED** (Orca, EN, Firefox) with one
 defect found and fixed. A human screen-reader review (incl. Arabic) remains outstanding.
+
+
+## Update 2026-10-27
+
+* New control in the panel: *Colours to avoid* (`excluded_colors`) — labelled
+  input with `aria-describedby` hint, EN + AR strings. `wardrobeStylistPanel.test.tsx`
+  axe pass re-run: **0 violations EN and AR/RTL** (11/11 tests).
+* Manual assistive-technology passes (NVDA, JAWS, VoiceOver, TalkBack) remain
+  **BLOCKED — NOT VERIFIED**: this environment has no Windows/macOS/iOS/Android
+  and no audio path; Orca (EN only) is the only real-AT evidence (unchanged).
+  Owner: QA with device access; impact: a11y gate stays PARTIAL.

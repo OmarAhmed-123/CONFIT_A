@@ -226,6 +226,11 @@ PYTHONPATH=. python3 scripts/watsonx_smoke.py [path/to/garment.jpg]
 * Missing wardrobe categories are reported in `missing_categories`; nothing is
   invented. Model references that do not match the caller's wardrobe are
   dropped and counted in `rejected_references`.
+* Colours the user asked to avoid (`excluded_colors`, or "no black" /
+  "بدون أسود" in the free-text *Avoid* field) are enforced by the server, not
+  just requested from the model: offending pieces are removed from the answer
+  and the limitation says so. One outfit is returned per call; ask for
+  "Another outfit" (`previous_item_ids`) for alternatives.
 * Credentials never appear in logs (last-4 redaction), responses, or the
   frontend bundle. `GET /wardrobe/stylist/status` reports *whether* watsonx is
   configured and which model ids are in use — never the key or project id.

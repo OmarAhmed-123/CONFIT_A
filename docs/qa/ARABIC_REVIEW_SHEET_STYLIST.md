@@ -29,3 +29,17 @@ register · reviewer feedback · approved). Open in Excel/Sheets (UTF-8 BOM).
 2. Apply edits in `frontend/src/i18n/ar.json` (same keys), run
    `npx vitest run src/i18n src/components/wardrobe`.
 3. Record the reviewer's name/date here and flip the status line above.
+
+
+## Update 2026-10-27
+
+Strings added (need the same native review as the rest — **not yet reviewed**):
+`wardrobe_stylist.excluded_colors` = «ألوان يجب تجنّبها», `…_placeholder` =
+«أسود، أحمر», `…_hint` = «تُستبعد القطع بهذه الألوان من الاقتراح نهائيًا، وليس مجرد تقليل أولويتها.».
+Server-side Arabic text added: limitation «تم استبعاد N قطعة لأنها بلون طلبتَ تجنّبه (…)» and
+«لم نتعرّف على «…» كلون، لذا لم يُطبَّق استبعاد تلقائي له.» — note the colour family names
+inside the parentheses are the taxonomy's English family labels (e.g. `Black`); localising
+family names is a follow-up. The taxonomy now understands Arabic colour words
+(أسود/أبيض/كحلي/…), which makes preferences and exclusions typed in Arabic effective for
+the first time. Native-speaker review: **BLOCKED — NOT VERIFIED** (no reviewer available
+in this environment); owner: product/localisation.

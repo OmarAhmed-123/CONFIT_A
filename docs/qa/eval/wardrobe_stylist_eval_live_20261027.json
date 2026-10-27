@@ -1,0 +1,5253 @@
+{
+ "summary": {
+  "generated_at": "2026-10-27T17:56:49+00:00",
+  "mode": "live",
+  "model_id_configured": "ibm/granite-4-h-small",
+  "served_model_ids": [
+   "ibm/granite-4-h-small"
+  ],
+  "prompt_version": "wx-stylist-1.0",
+  "dataset_version": "2026-10-27.1",
+  "scenarios": 16,
+  "total_runs": 22,
+  "scenarios_with_any_hard_failure": 0,
+  "hard_failure_counts": {},
+  "hard_constraint_violation_rate": 0.0,
+  "inventory_hallucination_rate": 0.0,
+  "model_failure_rate": 0.0,
+  "rubric_means_1to5": {
+   "constraint_compliance": 5,
+   "inventory_fidelity": 5,
+   "completeness": 5,
+   "seasonal_appropriateness": 4.87,
+   "colour_coordination": 4.5,
+   "pattern_discipline": 5,
+   "explanation_quality": 4.75,
+   "occasion_fit": 4.94
+  },
+  "latency_s": {
+   "p50": 3.25,
+   "max": 5.298,
+   "mean": 3.287
+  },
+  "model_call_attempts_total": 22,
+  "model_calls_total": 22,
+  "consistency": {
+   "S01_casual_park_morning_autumn": {
+    "runs": 3,
+    "item_sets": [
+     [
+      "Brown Leather Boots",
+      "Dark Wash Jeans",
+      "Olive Field Jacket",
+      "Plaid Flannel Shirt"
+     ],
+     [
+      "Brown Leather Boots",
+      "Olive Field Jacket",
+      "Plaid Flannel Shirt"
+     ],
+     [
+      "Brown Leather Boots",
+      "Olive Field Jacket",
+      "Plaid Flannel Shirt"
+     ]
+    ],
+    "mean_pairwise_jaccard": 0.833,
+    "hard_failures_per_run": [
+     [],
+     [
+      "H4_incomplete_when_completable"
+     ],
+     [
+      "H4_incomplete_when_completable"
+     ]
+    ]
+   },
+   "S03_interview_no_black": {
+    "runs": 3,
+    "item_sets": [
+     [
+      "Brown Derbies",
+      "Camel Coat",
+      "Navy Chinos",
+      "White Oxford Shirt"
+     ],
+     [
+      "Camel Coat",
+      "Navy Chinos",
+      "White Oxford Shirt"
+     ],
+     [
+      "Camel Coat",
+      "Navy Chinos",
+      "White Oxford Shirt"
+     ]
+    ],
+    "mean_pairwise_jaccard": 0.833,
+    "hard_failures_per_run": [
+     [],
+     [
+      "H4_incomplete_when_completable"
+     ],
+     [
+      "H4_incomplete_when_completable"
+     ]
+    ]
+   },
+   "S12_arabic_casual_weekend": {
+    "runs": 3,
+    "item_sets": [
+     [
+      "بنطلون كاكي",
+      "تيشيرت رمادي",
+      "حذاء رياضي أبيض"
+     ],
+     [
+      "بنطلون كاكي",
+      "تيشيرت رمادي",
+      "جاكيت جينز",
+      "حذاء رياضي أبيض"
+     ],
+     [
+      "بنطلون كاكي",
+      "تيشيرت رمادي",
+      "حذاء رياضي أبيض"
+     ]
+    ],
+    "mean_pairwise_jaccard": 0.833,
+    "hard_failures_per_run": [
+     [],
+     [],
+     []
+    ]
+   }
+  },
+  "reviewer_scores": "NOT COLLECTED — *_REVIEWER rubric rows are empty; see the quality report for how they are filled"
+ },
+ "results": [
+  {
+   "scenario_id": "S01_casual_park_morning_autumn",
+   "repeat": 0,
+   "request": {
+    "occasion": "Casual",
+    "time_of_day": "morning",
+    "season": "autumn",
+    "location": "park",
+    "style_preferences": [
+     "relaxed",
+     "layered"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en"
+   },
+   "wardrobe": {
+    "2": {
+     "title": "Plaid Flannel Shirt",
+     "category": "Tops",
+     "color": "Navy",
+     "pattern": "Plaid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/d77a5d001cc34e859ee47d904e915a31.jpg"
+    },
+    "3": {
+     "title": "White Cotton Tee",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/1af8b82234964ff9b145fb7dc86d3a6e.jpg"
+    },
+    "4": {
+     "title": "Khaki Chinos",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/d2f8a39563e346e68ebe6262dd5fd410.jpg"
+    },
+    "5": {
+     "title": "Dark Wash Jeans",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/07b73c443b594468bd5015dc8263cb81.jpg"
+    },
+    "6": {
+     "title": "Brown Leather Boots",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/08c03f8dff764e3ab2b64d2a9395ab6a.jpg"
+    },
+    "7": {
+     "title": "White Canvas Sneakers",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/0dbd2842fa88495da9a3bcdbf99641cd.jpg"
+    },
+    "8": {
+     "title": "Olive Field Jacket",
+     "category": "Outerwear",
+     "color": "Green",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/18187a57e30845909b2bc1c517d48aeb.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 5.298,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Layered Autumn Park Outfit\",\n  \"summary\": \"A relaxed, layered look that balances comfort and style for a casual morning stroll in the park.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 2,\n      \"role\": \"top\",\n      \"reason\": \"Plaid flannel adds autumnal warmth and a relaxed, layered texture.\"\n    },\n    {\n      \"wardrobe_item_id\": 5,\n      \"role\": \"bottom\",\n      \"reason\": \"Dark wash jeans provide a classic casual base that pairs with both boots and the jacket.\"\n    },\n    {\n      \"wardrobe_item_id\": 8,\n      \"role\": \"outerwear\",\n      \"reason\": \"Olive field jacket shields against cool morning air while complementing the earthy tones.\"\n    },\n    {\n      \"wardrobe_item_id\": 6,\n      \"role\": \"footwear\",\n      \"reason\": \"Brown leather boots are seasonally appropriate and ground the outfit with a polished casual edge.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Tuck the tee into the jeans for a cleaner silhouette, then layer the flannel loosely over it.\",\n    \"Wear the jacket open for a casual vibe, or zip it up if the morning is chillier.\"\n  ],\n  \"limitations\": [\n    \"Limited footwear options; the boots are the most seasonally suitable but may be warm for a very mild morning.\"\n  ],\n  \"missing_categories\": [],\n  \"assumptions\": [\n    \"The user prefers to keep the outfit casual and comfortable, suitable for a park setting.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 338,
+      "prompt_tokens": 1222,
+      "total_tokens": 1560
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 5.29
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_9d5d25b874bf",
+    "occasion": "Casual",
+    "title": "Layered Autumn Park Outfit",
+    "summary": "A relaxed, layered look that balances comfort and style for a casual morning stroll in the park.",
+    "items": [
+     {
+      "wardrobe_item_id": 2,
+      "role": "top",
+      "category": "Tops",
+      "title": "Plaid Flannel Shirt",
+      "subcategory": "Plaid Flannel Shirt",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/d77a5d001cc34e859ee47d904e915a31.jpg",
+      "reason": "Plaid flannel adds autumnal warmth and a relaxed, layered texture.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 5,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Dark Wash Jeans",
+      "subcategory": "Dark Wash Jeans",
+      "color_name": "Blue",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/07b73c443b594468bd5015dc8263cb81.jpg",
+      "reason": "Dark wash jeans provide a classic casual base that pairs with both boots and the jacket.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 8,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Olive Field Jacket",
+      "subcategory": "Olive Field Jacket",
+      "color_name": "Green",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/18187a57e30845909b2bc1c517d48aeb.jpg",
+      "reason": "Olive field jacket shields against cool morning air while complementing the earthy tones.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 6,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Brown Leather Boots",
+      "subcategory": "Brown Leather Boots",
+      "color_name": "Brown",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/08c03f8dff764e3ab2b64d2a9395ab6a.jpg",
+      "reason": "Brown leather boots are seasonally appropriate and ground the outfit with a polished casual edge.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Tuck the tee into the jeans for a cleaner silhouette, then layer the flannel loosely over it.",
+     "Wear the jacket open for a casual vibe, or zip it up if the morning is chillier."
+    ],
+    "limitations": [
+     "Limited footwear options; the boots are the most seasonally suitable but may be warm for a very mild morning."
+    ],
+    "missing_categories": [],
+    "assumptions": [
+     "The user prefers to keep the outfit casual and comfortable, suitable for a park setting."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 5.29,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "time_of_day": "morning",
+     "season": "autumn",
+     "location": "park",
+     "style_preferences": [
+      "relaxed",
+      "layered"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 2,
+     "role": "top",
+     "title": "Plaid Flannel Shirt",
+     "color": "Navy",
+     "reason": "Plaid flannel adds autumnal warmth and a relaxed, layered texture."
+    },
+    {
+     "id": 5,
+     "role": "bottom",
+     "title": "Dark Wash Jeans",
+     "color": "Blue",
+     "reason": "Dark wash jeans provide a classic casual base that pairs with both boots and the jacket."
+    },
+    {
+     "id": 8,
+     "role": "outerwear",
+     "title": "Olive Field Jacket",
+     "color": "Green",
+     "reason": "Olive field jacket shields against cool morning air while complementing the earthy tones."
+    },
+    {
+     "id": 6,
+     "role": "footwear",
+     "title": "Brown Leather Boots",
+     "color": "Brown",
+     "reason": "Brown leather boots are seasonally appropriate and ground the outfit with a polished casual edge."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 3,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S02_business_formal_meeting",
+   "repeat": 0,
+   "request": {
+    "occasion": "Business Formal",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "location": "client office",
+    "dress_code": "business formal",
+    "color_preferences": [
+     "navy",
+     "white"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en",
+    "avoid_occasion_only": [
+     "Casual",
+     "Active"
+    ]
+   },
+   "wardrobe": {
+    "9": {
+     "title": "White Poplin Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Business Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/bfc4e4e8b62348ccb47552bc17d64964.jpg"
+    },
+    "10": {
+     "title": "Light Blue Oxford",
+     "category": "Tops",
+     "color": "Blue",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/b117aaf480f8484382d99517dbbd6f2f.jpg"
+    },
+    "11": {
+     "title": "Graphic Band Tee",
+     "category": "Tops",
+     "color": "Black",
+     "pattern": "Graphic",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/25068ba5994745dab76d8ce405f5062b.jpg"
+    },
+    "12": {
+     "title": "Navy Wool Trousers",
+     "category": "Bottoms",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Business Formal",
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/170377029d1442539fbdf887441cf643.jpg"
+    },
+    "13": {
+     "title": "Grey Flannel Trousers",
+     "category": "Bottoms",
+     "color": "Grey",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/43a1e888cc154ce29ca41e7a6cd3fd13.jpg"
+    },
+    "14": {
+     "title": "Ripped Jeans",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/92bb0fa8e21b4b1cb8c7cfb0cc627a07.jpg"
+    },
+    "15": {
+     "title": "Black Cap-Toe Oxfords",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Business Formal",
+      "Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/546812df59c64b63b5cb94928dfccb74.jpg"
+    },
+    "16": {
+     "title": "Running Shoes",
+     "category": "Footwear",
+     "color": "Orange",
+     "pattern": "Solid",
+     "occasions": [
+      "Active"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/6cbf5230fbb24bb0b0f6f88ec3e8b448.jpg"
+    },
+    "17": {
+     "title": "Navy Blazer",
+     "category": "Outerwear",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Business Formal",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/23f18a28acc34121b72cc4c2412f87be.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.944,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Business Formal Navy Ensemble\",\n  \"summary\": \"A classic navy blazer paired with crisp white shirt and tailored navy trousers creates a polished business formal look suitable for an afternoon client meeting.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 17,\n      \"role\": \"outerwear\",\n      \"reason\": \"Navy blazer provides the required formal outer layer and matches the preferred navy colour.\"\n    },\n    {\n      \"wardrobe_item_id\": 9,\n      \"role\": \"top\",\n      \"reason\": \"White poplin shirt offers a clean, professional contrast to the navy and meets business formal standards.\"\n    },\n    {\n      \"wardrobe_item_id\": 12,\n      \"role\": \"bottom\",\n      \"reason\": \"Navy wool trousers match the blazer, creating a cohesive suit-like appearance ideal for the office.\"\n    },\n    {\n      \"wardrobe_item_id\": 15,\n      \"role\": \"footwear\",\n      \"reason\": \"Black cap-toe oxfords are formal, closed-toe shoes that complete the business dress code.\"\n    }\n  ],\n  \"limitations\": [\n    \"No suitable dress or skirt for a more feminine interpretation\",\n    \"No blazer in the wardrobe that is not navy\"\n  ],\n  \"missing_categories\": [\n    \"Dress\",\n    \"Skirt\"\n  ],\n  \"assumptions\": [\n    \"The client prefers a traditional suit silhouette\",\n    \"The office environment allows for navy as the primary colour\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 318,
+      "prompt_tokens": 1408,
+      "total_tokens": 1726
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.936
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_3908bb268520",
+    "occasion": "Business Formal",
+    "title": "Business Formal Navy Ensemble",
+    "summary": "A classic navy blazer paired with crisp white shirt and tailored navy trousers creates a polished business formal look suitable for an afternoon client meeting.",
+    "items": [
+     {
+      "wardrobe_item_id": 17,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Navy Blazer",
+      "subcategory": "Navy Blazer",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/23f18a28acc34121b72cc4c2412f87be.jpg",
+      "reason": "Navy blazer provides the required formal outer layer and matches the preferred navy colour.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 9,
+      "role": "top",
+      "category": "Tops",
+      "title": "White Poplin Shirt",
+      "subcategory": "White Poplin Shirt",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/bfc4e4e8b62348ccb47552bc17d64964.jpg",
+      "reason": "White poplin shirt offers a clean, professional contrast to the navy and meets business formal standards.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 12,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Navy Wool Trousers",
+      "subcategory": "Navy Wool Trousers",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/170377029d1442539fbdf887441cf643.jpg",
+      "reason": "Navy wool trousers match the blazer, creating a cohesive suit-like appearance ideal for the office.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 15,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Black Cap-Toe Oxfords",
+      "subcategory": "Black Cap-Toe Oxfords",
+      "color_name": "Black",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/546812df59c64b63b5cb94928dfccb74.jpg",
+      "reason": "Black cap-toe oxfords are formal, closed-toe shoes that complete the business dress code.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [],
+    "limitations": [
+     "No suitable dress or skirt for a more feminine interpretation",
+     "No blazer in the wardrobe that is not navy"
+    ],
+    "missing_categories": [
+     "Dresses"
+    ],
+    "assumptions": [
+     "The client prefers a traditional suit silhouette",
+     "The office environment allows for navy as the primary colour"
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.936,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Business Formal",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "location": "client office",
+     "dress_code": "business formal",
+     "color_preferences": [
+      "navy",
+      "white"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 17,
+     "role": "outerwear",
+     "title": "Navy Blazer",
+     "color": "Navy",
+     "reason": "Navy blazer provides the required formal outer layer and matches the preferred navy colour."
+    },
+    {
+     "id": 9,
+     "role": "top",
+     "title": "White Poplin Shirt",
+     "color": "White",
+     "reason": "White poplin shirt offers a clean, professional contrast to the navy and meets business formal standards."
+    },
+    {
+     "id": 12,
+     "role": "bottom",
+     "title": "Navy Wool Trousers",
+     "color": "Navy",
+     "reason": "Navy wool trousers match the blazer, creating a cohesive suit-like appearance ideal for the office."
+    },
+    {
+     "id": 15,
+     "role": "footwear",
+     "title": "Black Cap-Toe Oxfords",
+     "color": "Black",
+     "reason": "Black cap-toe oxfords are formal, closed-toe shoes that complete the business dress code."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S03_interview_no_black",
+   "repeat": 0,
+   "request": {
+    "occasion": "Work & Business",
+    "activity": "job interview",
+    "time_of_day": "morning",
+    "season": "autumn",
+    "excluded_colors": [
+     "black"
+    ],
+    "color_preferences": [
+     "navy",
+     "white",
+     "beige"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [
+     "Black"
+    ],
+    "language": "en"
+   },
+   "wardrobe": {
+    "18": {
+     "title": "Black Silk Blouse",
+     "category": "Tops",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/86c4c9ee6d954fee8b54188fc68707ba.jpg"
+    },
+    "19": {
+     "title": "White Oxford Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/4c72453bf72841fc8d7692decdede33a.jpg"
+    },
+    "20": {
+     "title": "Black Tailored Trousers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Business Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/8163e397666e4790b76b78a322649804.jpg"
+    },
+    "21": {
+     "title": "Navy Chinos",
+     "category": "Bottoms",
+     "color": "Navy Blue",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/17dc6189dad24bd19103652c3066f52e.jpg"
+    },
+    "22": {
+     "title": "Black Oxfords",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/c7d33dde8c2645e9846b42ac02ebb20d.jpg"
+    },
+    "23": {
+     "title": "Brown Derbies",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/004cf19372b347f7922c27dc481a8648.jpg"
+    },
+    "24": {
+     "title": "Camel Coat",
+     "category": "Outerwear",
+     "color": "Camel",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/387e963575104380973b860be73fe6c1.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.372,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Navy Chinos & White Oxford Shirt with Camel Coat\",\n  \"summary\": \"A professional, interview-ready look in navy, white and tan that avoids black while using your existing wardrobe.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 21,\n      \"role\": \"bottom\",\n      \"reason\": \"Navy chinos are smart yet comfortable for a business interview and match your preferred colour palette.\"\n    },\n    {\n      \"wardrobe_item_id\": 19,\n      \"role\": \"top\",\n      \"reason\": \"A crisp white Oxford shirt creates a clean, professional contrast with the navy chinos.\"\n    },\n    {\n      \"wardrobe_item_id\": 24,\n      \"role\": \"outerwear\",\n      \"reason\": \"The camel coat adds a polished layer suitable for autumn weather and complements the navy and white.\"\n    },\n    {\n      \"wardrobe_item_id\": 23,\n      \"role\": \"footwear\",\n      \"reason\": \"Brown derbies pair well with navy and tan, providing a smart finish without using black.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Tuck the shirt fully for a tidy silhouette; add a navy tie if you have one for extra formality.\",\n    \"Keep accessories minimal – a leather belt in brown or tan to match the shoes.\"\n  ],\n  \"limitations\": [\n    \"No black items are used as requested, but the wardrobe lacks a black blazer which could add another layer of formality.\"\n  ],\n  \"missing_categories\": [\n    \"Blazer\",\n    \"Accessories (belt, watch)\"\n  ],\n  \"assumptions\": [\n    \"The interview is in a typical office setting where a suit is not required but a polished business look is expected.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 373,
+      "prompt_tokens": 1260,
+      "total_tokens": 1633
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.362
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_8c7f797676ae",
+    "occasion": "Work & Business",
+    "title": "Navy Chinos & White Oxford Shirt with Camel Coat",
+    "summary": "A professional, interview-ready look in navy, white and tan that avoids black while using your existing wardrobe.",
+    "items": [
+     {
+      "wardrobe_item_id": 21,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Navy Chinos",
+      "subcategory": "Navy Chinos",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/17dc6189dad24bd19103652c3066f52e.jpg",
+      "reason": "Navy chinos are smart yet comfortable for a business interview and match your preferred colour palette.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 19,
+      "role": "top",
+      "category": "Tops",
+      "title": "White Oxford Shirt",
+      "subcategory": "White Oxford Shirt",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/4c72453bf72841fc8d7692decdede33a.jpg",
+      "reason": "A crisp white Oxford shirt creates a clean, professional contrast with the navy chinos.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 24,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Camel Coat",
+      "subcategory": "Camel Coat",
+      "color_name": "Tan",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/387e963575104380973b860be73fe6c1.jpg",
+      "reason": "The camel coat adds a polished layer suitable for autumn weather and complements the navy and white.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 23,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Brown Derbies",
+      "subcategory": "Brown Derbies",
+      "color_name": "Brown",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/004cf19372b347f7922c27dc481a8648.jpg",
+      "reason": "Brown derbies pair well with navy and tan, providing a smart finish without using black.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Tuck the shirt fully for a tidy silhouette; add a navy tie if you have one for extra formality.",
+     "Keep accessories minimal – a leather belt in brown or tan to match the shoes."
+    ],
+    "limitations": [
+     "No black items are used as requested, but the wardrobe lacks a black blazer which could add another layer of formality."
+    ],
+    "missing_categories": [
+     "Accessories"
+    ],
+    "assumptions": [
+     "The interview is in a typical office setting where a suit is not required but a polished business look is expected."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.362,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Work & Business",
+     "time_of_day": "morning",
+     "season": "autumn",
+     "activity": "job interview",
+     "color_preferences": [
+      "navy",
+      "white",
+      "beige"
+     ],
+     "excluded_colors": [
+      "black"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 21,
+     "role": "bottom",
+     "title": "Navy Chinos",
+     "color": "Navy",
+     "reason": "Navy chinos are smart yet comfortable for a business interview and match your preferred colour palette."
+    },
+    {
+     "id": 19,
+     "role": "top",
+     "title": "White Oxford Shirt",
+     "color": "White",
+     "reason": "A crisp white Oxford shirt creates a clean, professional contrast with the navy chinos."
+    },
+    {
+     "id": 24,
+     "role": "outerwear",
+     "title": "Camel Coat",
+     "color": "Tan",
+     "reason": "The camel coat adds a polished layer suitable for autumn weather and complements the navy and white."
+    },
+    {
+     "id": 23,
+     "role": "footwear",
+     "title": "Brown Derbies",
+     "color": "Brown",
+     "reason": "Brown derbies pair well with navy and tan, providing a smart finish without using black."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 3,
+    "pattern_discipline": 5,
+    "explanation_quality": 4,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S04_summer_evening_dinner",
+   "repeat": 0,
+   "request": {
+    "occasion": "Smart Casual",
+    "time_of_day": "evening",
+    "season": "summer",
+    "location": "rooftop restaurant, 31°C",
+    "comfort_needs": "it will be hot and humid",
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en",
+    "season_sensitive": true
+   },
+   "wardrobe": {
+    "25": {
+     "title": "Linen Camp Shirt",
+     "category": "Tops",
+     "color": "Ivory",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual",
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/143343e4b85c403fa01d7c4622c16ff1.jpg"
+    },
+    "26": {
+     "title": "Chunky Wool Turtleneck",
+     "category": "Tops",
+     "color": "Grey",
+     "pattern": "Textured",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/6c523b726c794d8c929078d52b3bb7fe.jpg"
+    },
+    "27": {
+     "title": "Tailored Linen Trousers",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/a319d17c65764ce5b9ec4d4a7000f616.jpg"
+    },
+    "28": {
+     "title": "Heavy Corduroy Trousers",
+     "category": "Bottoms",
+     "color": "Brown",
+     "pattern": "Textured",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/ee58ffb3e03949acb746e51386bdf071.jpg"
+    },
+    "29": {
+     "title": "Leather Loafers",
+     "category": "Footwear",
+     "color": "Tan",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e17dd6bb158b44d2b51d6588ff458593.jpg"
+    },
+    "30": {
+     "title": "Shearling Boots",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/85dfede341034033bbfaddf311c79cac.jpg"
+    },
+    "31": {
+     "title": "Down Parka",
+     "category": "Outerwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/ca2890b3bfdd4359976a3f98a09654c8.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.172,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Summer Smart Casual Rooftop Look\",\n  \"summary\": \"A light, breathable outfit that balances smart casual style with summer heat and humidity.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 27,\n      \"role\": \"bottom\",\n      \"reason\": \"Tailored linen trousers keep you cool while maintaining a refined silhouette for smart casual settings.\"\n    },\n    {\n      \"wardrobe_item_id\": 25,\n      \"role\": \"top\",\n      \"reason\": \"A linen camp shirt in ivory is airy, moisture-wicking, and pairs effortlessly with linen trousers for summer evenings.\"\n    },\n    {\n      \"wardrobe_item_id\": 29,\n      \"role\": \"footwear\",\n      \"reason\": \"Tan leather loafers are seasonless, polished enough for smart casual, and far more comfortable than boots in hot weather.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Roll up the shirt sleeves to the elbows for extra ventilation.\",\n    \"Add a lightweight woven belt in a neutral tone to define the waist without adding bulk.\"\n  ],\n  \"limitations\": [\n    \"No dedicated summer outerwear in the wardrobe; the look assumes no need for a jacket.\",\n    \"Footwear selection is limited to loafers; sandals or espadrilles would also work if available.\"\n  ],\n  \"missing_categories\": [\n    \"Outerwear\"\n  ],\n  \"assumptions\": [\n    \"The rooftop setting does not require a blazer or structured jacket.\",\n    \"The user prefers to stay cool rather than layer for warmth.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 330,
+      "prompt_tokens": 1243,
+      "total_tokens": 1573
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.164
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_36f04c055302",
+    "occasion": "Smart Casual",
+    "title": "Summer Smart Casual Rooftop Look",
+    "summary": "A light, breathable outfit that balances smart casual style with summer heat and humidity.",
+    "items": [
+     {
+      "wardrobe_item_id": 27,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Tailored Linen Trousers",
+      "subcategory": "Tailored Linen Trousers",
+      "color_name": "Beige",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/a319d17c65764ce5b9ec4d4a7000f616.jpg",
+      "reason": "Tailored linen trousers keep you cool while maintaining a refined silhouette for smart casual settings.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 25,
+      "role": "top",
+      "category": "Tops",
+      "title": "Linen Camp Shirt",
+      "subcategory": "Linen Camp Shirt",
+      "color_name": "Ivory",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/143343e4b85c403fa01d7c4622c16ff1.jpg",
+      "reason": "A linen camp shirt in ivory is airy, moisture-wicking, and pairs effortlessly with linen trousers for summer evenings.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 29,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Leather Loafers",
+      "subcategory": "Leather Loafers",
+      "color_name": "Tan",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/e17dd6bb158b44d2b51d6588ff458593.jpg",
+      "reason": "Tan leather loafers are seasonless, polished enough for smart casual, and far more comfortable than boots in hot weather.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Roll up the shirt sleeves to the elbows for extra ventilation.",
+     "Add a lightweight woven belt in a neutral tone to define the waist without adding bulk."
+    ],
+    "limitations": [
+     "No dedicated summer outerwear in the wardrobe; the look assumes no need for a jacket.",
+     "Footwear selection is limited to loafers; sandals or espadrilles would also work if available."
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "The rooftop setting does not require a blazer or structured jacket.",
+     "The user prefers to stay cool rather than layer for warmth."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.164,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Smart Casual",
+     "time_of_day": "evening",
+     "season": "summer",
+     "location": "rooftop restaurant, 31°C",
+     "comfort_needs": "it will be hot and humid",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 27,
+     "role": "bottom",
+     "title": "Tailored Linen Trousers",
+     "color": "Beige",
+     "reason": "Tailored linen trousers keep you cool while maintaining a refined silhouette for smart casual settings."
+    },
+    {
+     "id": 25,
+     "role": "top",
+     "title": "Linen Camp Shirt",
+     "color": "Ivory",
+     "reason": "A linen camp shirt in ivory is airy, moisture-wicking, and pairs effortlessly with linen trousers for summer evenings."
+    },
+    {
+     "id": 29,
+     "role": "footwear",
+     "title": "Leather Loafers",
+     "color": "Tan",
+     "reason": "Tan leather loafers are seasonless, polished enough for smart casual, and far more comfortable than boots in hot weather."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S05_winter_morning_commute",
+   "repeat": 0,
+   "request": {
+    "occasion": "Work & Business",
+    "time_of_day": "morning",
+    "season": "winter",
+    "location": "city commute by metro",
+    "comfort_needs": "walking 20 minutes outside",
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en",
+    "season_sensitive": true,
+    "outerwear_expected": true
+   },
+   "wardrobe": {
+    "32": {
+     "title": "Merino Crewneck",
+     "category": "Tops",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/63079133a7a44f2a9685eda7098eaa33.jpg"
+    },
+    "33": {
+     "title": "Short-Sleeve Linen Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/b7976d85c5654a8e97d90822f691eee4.jpg"
+    },
+    "34": {
+     "title": "Grey Wool Trousers",
+     "category": "Bottoms",
+     "color": "Grey",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/2f37a45c96d7446d8854afea218987c7.jpg"
+    },
+    "35": {
+     "title": "Linen Shorts",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/1ee15acab1d34ad08133d33456456632.jpg"
+    },
+    "36": {
+     "title": "Leather Chelsea Boots",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/f30be5cd552a4b17a9de08bb9a38446d.jpg"
+    },
+    "37": {
+     "title": "Espadrilles",
+     "category": "Footwear",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/d2ac8981866f42fcb0f04f599b2e8765.jpg"
+    },
+    "38": {
+     "title": "Charcoal Wool Overcoat",
+     "category": "Outerwear",
+     "color": "Charcoal",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/44274f1e11224acebb5780715af50cef.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.359,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Professional Winter Commute\",\n  \"summary\": \"A smart, warm business look suitable for a city metro commute in winter.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 38,\n      \"role\": \"outerwear\",\n      \"reason\": \"Charcoal wool overcoat provides insulation and a polished business silhouette.\"\n    },\n    {\n      \"wardrobe_item_id\": 34,\n      \"role\": \"bottoms\",\n      \"reason\": \"Grey wool trousers match the overcoat and are appropriate for work.\"\n    },\n    {\n      \"wardrobe_item_id\": 32,\n      \"role\": \"top\",\n      \"reason\": \"Navy merino crewneck adds a professional layer under the coat and stays warm.\"\n    },\n    {\n      \"wardrobe_item_id\": 36,\n      \"role\": \"footwear\",\n      \"reason\": \"Leather Chelsea boots are business-appropriate, warm, and practical for walking.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Tuck the crewneck into the trousers for a neat appearance.\",\n    \"Keep the overcoat buttoned for a streamlined look while commuting.\"\n  ],\n  \"limitations\": [\n    \"No suitable casual footwear for the season; the Chelsea boots are the best available option.\"\n  ],\n  \"missing_categories\": [\n    \"Footwear\"\n  ],\n  \"assumptions\": [\n    \"The user prefers a business-appropriate outfit for work.\",\n    \"The user wants warmth for a 20-minute walk in winter.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 321,
+      "prompt_tokens": 1235,
+      "total_tokens": 1556
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.349
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_a22492584dd7",
+    "occasion": "Work & Business",
+    "title": "Professional Winter Commute",
+    "summary": "A smart, warm business look suitable for a city metro commute in winter.",
+    "items": [
+     {
+      "wardrobe_item_id": 38,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Charcoal Wool Overcoat",
+      "subcategory": "Charcoal Wool Overcoat",
+      "color_name": "Grey",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/44274f1e11224acebb5780715af50cef.jpg",
+      "reason": "Charcoal wool overcoat provides insulation and a polished business silhouette.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 34,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Grey Wool Trousers",
+      "subcategory": "Grey Wool Trousers",
+      "color_name": "Grey",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/2f37a45c96d7446d8854afea218987c7.jpg",
+      "reason": "Grey wool trousers match the overcoat and are appropriate for work.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 32,
+      "role": "top",
+      "category": "Tops",
+      "title": "Merino Crewneck",
+      "subcategory": "Merino Crewneck",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/63079133a7a44f2a9685eda7098eaa33.jpg",
+      "reason": "Navy merino crewneck adds a professional layer under the coat and stays warm.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 36,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Leather Chelsea Boots",
+      "subcategory": "Leather Chelsea Boots",
+      "color_name": "Black",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/f30be5cd552a4b17a9de08bb9a38446d.jpg",
+      "reason": "Leather Chelsea boots are business-appropriate, warm, and practical for walking.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Tuck the crewneck into the trousers for a neat appearance.",
+     "Keep the overcoat buttoned for a streamlined look while commuting."
+    ],
+    "limitations": [
+     "No suitable casual footwear for the season; the Chelsea boots are the best available option."
+    ],
+    "missing_categories": [],
+    "assumptions": [
+     "The user prefers a business-appropriate outfit for work.",
+     "The user wants warmth for a 20-minute walk in winter."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.349,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Work & Business",
+     "time_of_day": "morning",
+     "season": "winter",
+     "location": "city commute by metro",
+     "comfort_needs": "walking 20 minutes outside",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 38,
+     "role": "outerwear",
+     "title": "Charcoal Wool Overcoat",
+     "color": "Grey",
+     "reason": "Charcoal wool overcoat provides insulation and a polished business silhouette."
+    },
+    {
+     "id": 34,
+     "role": "bottom",
+     "title": "Grey Wool Trousers",
+     "color": "Grey",
+     "reason": "Grey wool trousers match the overcoat and are appropriate for work."
+    },
+    {
+     "id": 32,
+     "role": "top",
+     "title": "Merino Crewneck",
+     "color": "Navy",
+     "reason": "Navy merino crewneck adds a professional layer under the coat and stays warm."
+    },
+    {
+     "id": 36,
+     "role": "footwear",
+     "title": "Leather Chelsea Boots",
+     "color": "Black",
+     "reason": "Leather Chelsea boots are business-appropriate, warm, and practical for walking."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 4,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S06_missing_footwear",
+   "repeat": 0,
+   "request": {
+    "occasion": "Smart Casual",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "language": "en"
+   },
+   "expect": {
+    "completable": false,
+    "banned_families": [],
+    "language": "en",
+    "missing_expected": [
+     "Footwear"
+    ]
+   },
+   "wardrobe": {
+    "39": {
+     "title": "Striped Oxford Shirt",
+     "category": "Tops",
+     "color": "Blue",
+     "pattern": "Striped",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e23e7a544a5e4ff9b723892bde113ef2.jpg"
+    },
+    "40": {
+     "title": "Stone Chinos",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/5811cff0ccd3490087f7374180fa2b90.jpg"
+    },
+    "41": {
+     "title": "Navy Unstructured Blazer",
+     "category": "Outerwear",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/1308b99756e845689264e9ae1c004586.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.629,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Navy Blazer, Stone Chinos & Blue Oxford Shirt\",\n  \"summary\": \"A smart‑casual spring look that balances navy outerwear, beige chinos and a blue striped shirt for a polished yet relaxed afternoon outfit.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 41,\n      \"role\": \"outerwear\",\n      \"reason\": \"The navy unstructured blazer adds structure and a touch of formality while staying comfortable for an afternoon event.\"\n    },\n    {\n      \"wardrobe_item_id\": 40,\n      \"role\": \"bottoms\",\n      \"reason\": \"Stone chinos provide a neutral, season‑appropriate base that pairs cleanly with both the navy blazer and blue shirt.\"\n    },\n    {\n      \"wardrobe_item_id\": 39,\n      \"role\": \"top\",\n      \"reason\": \"The blue striped Oxford shirt introduces a subtle pattern and a pop of colour that works well with the navy outerwear.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Roll up the blazer sleeves one notch for a relaxed spring vibe.\",\n    \"Keep the shirt untucked for a casual smart look.\"\n  ],\n  \"limitations\": [],\n  \"missing_categories\": [],\n  \"assumptions\": []\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 267,
+      "prompt_tokens": 895,
+      "total_tokens": 1162
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.621
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_28d092308ada",
+    "occasion": "Smart Casual",
+    "title": "Navy Blazer, Stone Chinos & Blue Oxford Shirt",
+    "summary": "A smart‑casual spring look that balances navy outerwear, beige chinos and a blue striped shirt for a polished yet relaxed afternoon outfit.",
+    "items": [
+     {
+      "wardrobe_item_id": 41,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Navy Unstructured Blazer",
+      "subcategory": "Navy Unstructured Blazer",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/1308b99756e845689264e9ae1c004586.jpg",
+      "reason": "The navy unstructured blazer adds structure and a touch of formality while staying comfortable for an afternoon event.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 40,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Stone Chinos",
+      "subcategory": "Stone Chinos",
+      "color_name": "Beige",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/5811cff0ccd3490087f7374180fa2b90.jpg",
+      "reason": "Stone chinos provide a neutral, season‑appropriate base that pairs cleanly with both the navy blazer and blue shirt.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 39,
+      "role": "top",
+      "category": "Tops",
+      "title": "Striped Oxford Shirt",
+      "subcategory": "Striped Oxford Shirt",
+      "color_name": "Blue",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/e23e7a544a5e4ff9b723892bde113ef2.jpg",
+      "reason": "The blue striped Oxford shirt introduces a subtle pattern and a pop of colour that works well with the navy outerwear.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Roll up the blazer sleeves one notch for a relaxed spring vibe.",
+     "Keep the shirt untucked for a casual smart look."
+    ],
+    "limitations": [
+     "No footwear in your wardrobe to complete this look."
+    ],
+    "missing_categories": [
+     "Footwear"
+    ],
+    "assumptions": [],
+    "is_complete": false,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.621,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Smart Casual",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 41,
+     "role": "outerwear",
+     "title": "Navy Unstructured Blazer",
+     "color": "Navy",
+     "reason": "The navy unstructured blazer adds structure and a touch of formality while staying comfortable for an afternoon event."
+    },
+    {
+     "id": 40,
+     "role": "bottom",
+     "title": "Stone Chinos",
+     "color": "Beige",
+     "reason": "Stone chinos provide a neutral, season‑appropriate base that pairs cleanly with both the navy blazer and blue shirt."
+    },
+    {
+     "id": 39,
+     "role": "top",
+     "title": "Striped Oxford Shirt",
+     "color": "Blue",
+     "reason": "The blue striped Oxford shirt introduces a subtle pattern and a pop of colour that works well with the navy outerwear."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S07_cocktail_dress_only",
+   "repeat": 0,
+   "request": {
+    "occasion": "Cocktail",
+    "time_of_day": "evening",
+    "season": "summer",
+    "location": "hotel terrace",
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en",
+    "dress_based": true
+   },
+   "wardrobe": {
+    "42": {
+     "title": "Emerald Satin Midi Dress",
+     "category": "Dresses",
+     "color": "Green",
+     "pattern": "Solid",
+     "occasions": [
+      "Cocktail",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/cb67629944244d559ddd823158163588.jpg"
+    },
+    "43": {
+     "title": "Black Strappy Heels",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Cocktail",
+      "Formal",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/bb549c392d7e4ce4a7d7218ae2c2ddb8.jpg"
+    },
+    "44": {
+     "title": "Gold Clutch",
+     "category": "Accessories",
+     "color": "Gold",
+     "pattern": "Solid",
+     "occasions": [
+      "Cocktail",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e7a313e19d154f8cb04d5d8654f03385.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.818,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Emerald Satin Cocktail Look\",\n  \"summary\": \"A sleek emerald satin midi dress paired with gold accents creates a sophisticated cocktail-ready ensemble perfect for a summer evening on a hotel terrace.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 42,\n      \"role\": \"dress\",\n      \"reason\": \"The emerald satin midi dress is a cocktail-appropriate silhouette that flatters in summer and pairs effortlessly with the gold clutch and heels.\"\n    },\n    {\n      \"wardrobe_item_id\": 44,\n      \"role\": \"accessory\",\n      \"reason\": \"The gold clutch adds a touch of glamour and matches the metallic tone of the strappy heels, completing the look with cohesive elegance.\"\n    },\n    {\n      \"wardrobe_item_id\": 43,\n      \"role\": \"footwear\",\n      \"reason\": \"Black strappy heels elongate the legs, provide evening-appropriate height, and contrast beautifully with the green dress for visual interest.\"\n    }\n  ],\n  \"styling_notes\": [\"Carry the clutch in your hand when first arriving, then rest it on your lap; the black heels keep the look polished yet comfortable for terrace surfaces.\"],\n  \"limitations\": [\"No top or outerwear items were needed for this outfit based on the occasion and season.\"],\n  \"missing_categories\": [],\n  \"assumptions\": [\"The hotel terrace is climate-controlled or warm enough for summer attire; no additional layers are required.\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 308,
+      "prompt_tokens": 918,
+      "total_tokens": 1226
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.81
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_9963d748c35d",
+    "occasion": "Cocktail",
+    "title": "Emerald Satin Cocktail Look",
+    "summary": "A sleek emerald satin midi dress paired with gold accents creates a sophisticated cocktail-ready ensemble perfect for a summer evening on a hotel terrace.",
+    "items": [
+     {
+      "wardrobe_item_id": 42,
+      "role": "dress",
+      "category": "Dresses",
+      "title": "Emerald Satin Midi Dress",
+      "subcategory": "Emerald Satin Midi Dress",
+      "color_name": "Green",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/cb67629944244d559ddd823158163588.jpg",
+      "reason": "The emerald satin midi dress is a cocktail-appropriate silhouette that flatters in summer and pairs effortlessly with the gold clutch and heels.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 44,
+      "role": "accessory",
+      "category": "Accessories",
+      "title": "Gold Clutch",
+      "subcategory": "Gold Clutch",
+      "color_name": "Yellow",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/e7a313e19d154f8cb04d5d8654f03385.jpg",
+      "reason": "The gold clutch adds a touch of glamour and matches the metallic tone of the strappy heels, completing the look with cohesive elegance.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 43,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Black Strappy Heels",
+      "subcategory": "Black Strappy Heels",
+      "color_name": "Black",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/bb549c392d7e4ce4a7d7218ae2c2ddb8.jpg",
+      "reason": "Black strappy heels elongate the legs, provide evening-appropriate height, and contrast beautifully with the green dress for visual interest.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Carry the clutch in your hand when first arriving, then rest it on your lap; the black heels keep the look polished yet comfortable for terrace surfaces."
+    ],
+    "limitations": [
+     "No top or outerwear items were needed for this outfit based on the occasion and season."
+    ],
+    "missing_categories": [],
+    "assumptions": [
+     "The hotel terrace is climate-controlled or warm enough for summer attire; no additional layers are required."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.81,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Cocktail",
+     "time_of_day": "evening",
+     "season": "summer",
+     "location": "hotel terrace",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 42,
+     "role": "dress",
+     "title": "Emerald Satin Midi Dress",
+     "color": "Green",
+     "reason": "The emerald satin midi dress is a cocktail-appropriate silhouette that flatters in summer and pairs effortlessly with the gold clutch and heels."
+    },
+    {
+     "id": 44,
+     "role": "accessory",
+     "title": "Gold Clutch",
+     "color": "Yellow",
+     "reason": "The gold clutch adds a touch of glamour and matches the metallic tone of the strappy heels, completing the look with cohesive elegance."
+    },
+    {
+     "id": 43,
+     "role": "footwear",
+     "title": "Black Strappy Heels",
+     "color": "Black",
+     "reason": "Black strappy heels elongate the legs, provide evening-appropriate height, and contrast beautifully with the green dress for visual interest."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 3,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S08_tiny_wardrobe_two_items",
+   "repeat": 0,
+   "request": {
+    "occasion": "Casual",
+    "language": "en"
+   },
+   "expect": {
+    "completable": false,
+    "banned_families": [],
+    "language": "en",
+    "missing_expected": [
+     "Footwear"
+    ]
+   },
+   "wardrobe": {
+    "45": {
+     "title": "Grey Hoodie",
+     "category": "Tops",
+     "color": "Grey",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/692991575bda4899a92d5f9e29258bf1.jpg"
+    },
+    "46": {
+     "title": "Black Joggers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge",
+      "Active"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/f436ac93bb1f41f68a570d6a5f66244b.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 1.878,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Casual Jogging Look\",\n  \"summary\": \"A relaxed, all-season outfit pairing black joggers with a grey hoodie for comfortable casual wear.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 46,\n      \"role\": \"Bottoms\",\n      \"reason\": \"Black joggers provide a comfortable, versatile base for casual outings and work well with the hoodie.\"\n    },\n    {\n      \"wardrobe_item_id\": 45,\n      \"role\": \"Tops\",\n      \"reason\": \"The grey hoodie adds a laid-back, cozy layer that complements the joggers and suits casual settings.\"\n    }\n  ],\n  \"limitations\": [\"No footwear specified; assume sneakers or casual shoes are available.\"],\n  \"missing_categories\": [\"Footwear\"],\n  \"assumptions\": [\"User has appropriate casual footwear in their wardrobe.\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 182,
+      "prompt_tokens": 805,
+      "total_tokens": 987
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 1.87
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_f010af247bd1",
+    "occasion": "Casual",
+    "title": "Casual Jogging Look",
+    "summary": "A relaxed, all-season outfit pairing black joggers with a grey hoodie for comfortable casual wear.",
+    "items": [
+     {
+      "wardrobe_item_id": 46,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Black Joggers",
+      "subcategory": "Black Joggers",
+      "color_name": "Black",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/f436ac93bb1f41f68a570d6a5f66244b.jpg",
+      "reason": "Black joggers provide a comfortable, versatile base for casual outings and work well with the hoodie.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 45,
+      "role": "top",
+      "category": "Tops",
+      "title": "Grey Hoodie",
+      "subcategory": "Grey Hoodie",
+      "color_name": "Grey",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/692991575bda4899a92d5f9e29258bf1.jpg",
+      "reason": "The grey hoodie adds a laid-back, cozy layer that complements the joggers and suits casual settings.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [],
+    "limitations": [
+     "No footwear specified; assume sneakers or casual shoes are available.",
+     "No footwear in your wardrobe to complete this look."
+    ],
+    "missing_categories": [
+     "Footwear"
+    ],
+    "assumptions": [
+     "User has appropriate casual footwear in their wardrobe."
+    ],
+    "is_complete": false,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 1.87,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 46,
+     "role": "bottom",
+     "title": "Black Joggers",
+     "color": "Black",
+     "reason": "Black joggers provide a comfortable, versatile base for casual outings and work well with the hoodie."
+    },
+    {
+     "id": 45,
+     "role": "top",
+     "title": "Grey Hoodie",
+     "color": "Grey",
+     "reason": "The grey hoodie adds a laid-back, cozy layer that complements the joggers and suits casual settings."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": null,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S09_large_wardrobe_24_items",
+   "repeat": 0,
+   "request": {
+    "occasion": "Smart Casual",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "location": "art gallery opening",
+    "style_preferences": [
+     "minimal",
+     "clean lines"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en"
+   },
+   "wardrobe": {
+    "47": {
+     "title": "White Oxford",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual",
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/312fdcd8103447b198baa2d30bdcdd9d.jpg"
+    },
+    "48": {
+     "title": "Black Mock Neck",
+     "category": "Tops",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual",
+      "Evening"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/74772c09541c49f2ac4dddbf1d933973.jpg"
+    },
+    "49": {
+     "title": "Sage Linen Shirt",
+     "category": "Tops",
+     "color": "Sage",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/9ff9ca9573ad4e3a928d4f22cc17798d.jpg"
+    },
+    "50": {
+     "title": "Striped Breton Top",
+     "category": "Tops",
+     "color": "Navy",
+     "pattern": "Striped",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/3c2b5e0ee12b4cb988754c375a1a7166.jpg"
+    },
+    "51": {
+     "title": "Floral Blouse",
+     "category": "Tops",
+     "color": "Pink",
+     "pattern": "Floral",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/7432af345bda43999a361ef29c4177f0.jpg"
+    },
+    "52": {
+     "title": "Band Tee",
+     "category": "Tops",
+     "color": "Black",
+     "pattern": "Graphic",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/cedd7e40f4c7423ea6a9b15204c747fb.jpg"
+    },
+    "53": {
+     "title": "Cream Cable Knit",
+     "category": "Tops",
+     "color": "Cream",
+     "pattern": "Textured",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/d22e8333d0354c29bfb14f47b1f95c90.jpg"
+    },
+    "54": {
+     "title": "Burgundy Silk Camisole",
+     "category": "Tops",
+     "color": "Burgundy",
+     "pattern": "Solid",
+     "occasions": [
+      "Evening",
+      "Cocktail"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/152a22d558424945899510a48db57468.jpg"
+    },
+    "55": {
+     "title": "Black Straight Trousers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual",
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/4cd34adac7c04376a6a9cbb66422f4f4.jpg"
+    },
+    "56": {
+     "title": "Ecru Wide-Leg Trousers",
+     "category": "Bottoms",
+     "color": "Ecru",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/9a55b80076b746619283ad568cd88e01.jpg"
+    },
+    "57": {
+     "title": "Light Wash Jeans",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/ce2cd154468d44b98e78cd09bd8bb822.jpg"
+    },
+    "58": {
+     "title": "Pleated Midi Skirt",
+     "category": "Bottoms",
+     "color": "Olive",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/aa304092bbaa4db088d2d139faff39aa.jpg"
+    },
+    "59": {
+     "title": "Tartan Mini Skirt",
+     "category": "Bottoms",
+     "color": "Red",
+     "pattern": "Plaid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/3b2e4371096e4ce9ab63664ce09101ea.jpg"
+    },
+    "60": {
+     "title": "Cycling Shorts",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Active"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/dce3f10ccc434bf4a59ae69b610f3e5d.jpg"
+    },
+    "61": {
+     "title": "Black Slip Dress",
+     "category": "Dresses",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Evening",
+      "Cocktail"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/b11c8800f32441028488b60b128ad773.jpg"
+    },
+    "62": {
+     "title": "White Leather Sneakers",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/dfbfb665a98945099551fa362a655fdd.jpg"
+    },
+    "63": {
+     "title": "Black Loafers",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual",
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/95374a7989ef4f598ebc4825ab4639d0.jpg"
+    },
+    "64": {
+     "title": "Tan Sandals",
+     "category": "Footwear",
+     "color": "Tan",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/0352df07256e4aafbabf582cd5a02524.jpg"
+    },
+    "65": {
+     "title": "Chelsea Boots",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/7773fc393fc64a3ab9708877be5b16e7.jpg"
+    },
+    "66": {
+     "title": "Trail Runners",
+     "category": "Footwear",
+     "color": "Orange",
+     "pattern": "Solid",
+     "occasions": [
+      "Active"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e16ae2cfd9604852a8a83994b18978fe.jpg"
+    },
+    "67": {
+     "title": "Camel Trench",
+     "category": "Outerwear",
+     "color": "Camel",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual",
+      "Work & Business"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/6dd97525ed9d4a56af95dbb3766b985a.jpg"
+    },
+    "68": {
+     "title": "Denim Jacket",
+     "category": "Outerwear",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/d8f9cf5d99d2456fb8a5e6b29fe434ed.jpg"
+    },
+    "69": {
+     "title": "Puffer Jacket",
+     "category": "Outerwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/7f921fa5c38942bab6a31d825802a04e.jpg"
+    },
+    "70": {
+     "title": "Silk Scarf",
+     "category": "Accessories",
+     "color": "Multi",
+     "pattern": "Paisley",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e346a2a050374c63a8403240f4084533.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.002,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Smart Casual Gallery Look\",\n  \"summary\": \"A refined yet relaxed ensemble blending a sage linen shirt, ecru wide-leg trousers, and black loafers for an art gallery opening.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 49,\n      \"role\": \"top\",\n      \"reason\": \"The sage linen shirt offers a clean, breathable smart‑casual top with subtle texture that matches the occasion's tone.\"\n    },\n    {\n      \"wardrobe_item_id\": 56,\n      \"role\": \"bottom\",\n      \"reason\": \"Ecru wide‑leg trousers provide a relaxed silhouette that's still polished, perfect for an afternoon gallery stroll.\"\n    },\n    {\n      \"wardrobe_item_id\": 63,\n      \"role\": \"footwear\",\n      \"reason\": \"Black loafers ground the outfit with smart‑casual elegance and work comfortably on gallery floors.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Add the silk scarf (wardrobe_item_id 70) draped loosely around the neck for a touch of color and seasonal warmth.\",\n    \"Keep accessories minimal to preserve the clean, minimal aesthetic.\"\n  ],\n  \"limitations\": [\n    \"No dedicated smart‑casual outerwear in the wardrobe; the trench (item 67) is too formal for this setting.\"\n  ],\n  \"missing_categories\": [\n    \"Outerwear\"\n  ],\n  \"assumptions\": [\n    \"The gallery opening does not require a coat; the climate is mild for spring.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 321,
+      "prompt_tokens": 2597,
+      "total_tokens": 2918
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.992
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_d0f6d5455b70",
+    "occasion": "Smart Casual",
+    "title": "Smart Casual Gallery Look",
+    "summary": "A refined yet relaxed ensemble blending a sage linen shirt, ecru wide-leg trousers, and black loafers for an art gallery opening.",
+    "items": [
+     {
+      "wardrobe_item_id": 49,
+      "role": "top",
+      "category": "Tops",
+      "title": "Sage Linen Shirt",
+      "subcategory": "Sage Linen Shirt",
+      "color_name": "Green",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/9ff9ca9573ad4e3a928d4f22cc17798d.jpg",
+      "reason": "The sage linen shirt offers a clean, breathable smart‑casual top with subtle texture that matches the occasion's tone.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 56,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Ecru Wide-Leg Trousers",
+      "subcategory": "Ecru Wide-Leg Trousers",
+      "color_name": "Ivory",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/9a55b80076b746619283ad568cd88e01.jpg",
+      "reason": "Ecru wide‑leg trousers provide a relaxed silhouette that's still polished, perfect for an afternoon gallery stroll.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 63,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Black Loafers",
+      "subcategory": "Black Loafers",
+      "color_name": "Black",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/95374a7989ef4f598ebc4825ab4639d0.jpg",
+      "reason": "Black loafers ground the outfit with smart‑casual elegance and work comfortably on gallery floors.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Add the silk scarf (wardrobe_item_id 70) draped loosely around the neck for a touch of color and seasonal warmth.",
+     "Keep accessories minimal to preserve the clean, minimal aesthetic."
+    ],
+    "limitations": [
+     "No dedicated smart‑casual outerwear in the wardrobe; the trench (item 67) is too formal for this setting."
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "The gallery opening does not require a coat; the climate is mild for spring."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.992,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Smart Casual",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "location": "art gallery opening",
+     "style_preferences": [
+      "minimal",
+      "clean lines"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 49,
+     "role": "top",
+     "title": "Sage Linen Shirt",
+     "color": "Green",
+     "reason": "The sage linen shirt offers a clean, breathable smart‑casual top with subtle texture that matches the occasion's tone."
+    },
+    {
+     "id": 56,
+     "role": "bottom",
+     "title": "Ecru Wide-Leg Trousers",
+     "color": "Ivory",
+     "reason": "Ecru wide‑leg trousers provide a relaxed silhouette that's still polished, perfect for an afternoon gallery stroll."
+    },
+    {
+     "id": 63,
+     "role": "footwear",
+     "title": "Black Loafers",
+     "color": "Black",
+     "reason": "Black loafers ground the outfit with smart‑casual elegance and work comfortably on gallery floors."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 3,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S10_conflicting_constraints_black_tie_no_dark",
+   "repeat": 0,
+   "request": {
+    "occasion": "Black Tie",
+    "time_of_day": "evening",
+    "season": "winter",
+    "dress_code": "black tie",
+    "excluded_colors": [
+     "black",
+     "navy",
+     "grey"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": false,
+    "banned_families": [
+     "Black",
+     "Navy",
+     "Grey"
+    ],
+    "language": "en",
+    "conflict_expected": true
+   },
+   "wardrobe": {
+    "71": {
+     "title": "Black Tuxedo Jacket",
+     "category": "Outerwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Black Tie",
+      "Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/6142a46126374b16a4b7f476a005a5df.jpg"
+    },
+    "72": {
+     "title": "White Dress Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Black Tie",
+      "Formal",
+      "Business Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/0ec6389b372b4036a60404e6582980af.jpg"
+    },
+    "73": {
+     "title": "Black Tuxedo Trousers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Black Tie",
+      "Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/1abc97cfb0a64d949bd227e6dc4184c1.jpg"
+    },
+    "74": {
+     "title": "Navy Dress Trousers",
+     "category": "Bottoms",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Formal",
+      "Business Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/4d5d7561dc6c49c081e0c3c9ade5d682.jpg"
+    },
+    "75": {
+     "title": "Black Patent Shoes",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Black Tie",
+      "Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/ef03c9fcd3234dd7ac6d9f720e077597.jpg"
+    },
+    "76": {
+     "title": "Grey Suede Loafers",
+     "category": "Footwear",
+     "color": "Grey",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/420c11bbf8494116844fefa5d59447e6.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.485,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Black Tie Ensemble\",\n  \"summary\": \"A classic black-tie look using the available tuxedo jacket, trousers, and shirt, paired with elegant footwear.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 75,\n      \"role\": \"Footwear\",\n      \"reason\": \"Black patent shoes are the only formal footwear available and match the black-tie dress code.\"\n    },\n    {\n      \"wardrobe_item_id\": 73,\n      \"role\": \"Bottoms\",\n      \"reason\": \"Navy dress trousers provide a formal bottom option, though not ideal for black tie.\"\n    },\n    {\n      \"wardrobe_item_id\": 72,\n      \"role\": \"Tops\",\n      \"reason\": \"White dress shirt offers a crisp, formal top that pairs well with a tuxedo jacket.\"\n    },\n    {\n      \"wardrobe_item_id\": 71,\n      \"role\": \"Outerwear\",\n      \"reason\": \"Black tuxedo jacket completes the formal look, adhering to the black-tie requirement.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Ensure the tuxedo jacket and trousers are well-pressed for a polished appearance.\",\n    \"Consider adding a black bow tie and cummerbund if available to enhance the formal look.\"\n  ],\n  \"limitations\": [\n    \"The navy trousers are not the ideal color for black tie, but no other formal bottoms are available.\",\n    \"Footwear options are limited; the black patent shoes are the closest match to the dress code.\"\n  ],\n  \"missing_categories\": [\n    \"Bow Tie\",\n    \"Cummerbund\",\n    \"Formal Accessories\"\n  ],\n  \"assumptions\": [\n    \"The user prefers to use existing wardrobe items rather than suggest new purchases.\",\n    \"The event requires strict adherence to black-tie etiquette despite limited wardrobe options.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 396,
+      "prompt_tokens": 1191,
+      "total_tokens": 1587
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.477
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_a5d1436800d1",
+    "occasion": "Black Tie",
+    "title": "Black Tie Ensemble",
+    "summary": "A classic black-tie look using the available tuxedo jacket, trousers, and shirt, paired with elegant footwear.",
+    "items": [
+     {
+      "wardrobe_item_id": 72,
+      "role": "top",
+      "category": "Tops",
+      "title": "White Dress Shirt",
+      "subcategory": "White Dress Shirt",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/0ec6389b372b4036a60404e6582980af.jpg",
+      "reason": "White dress shirt offers a crisp, formal top that pairs well with a tuxedo jacket.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Ensure the tuxedo jacket and trousers are well-pressed for a polished appearance.",
+     "Consider adding a black bow tie and cummerbund if available to enhance the formal look."
+    ],
+    "limitations": [
+     "3 piece(s) were left out because they are in a colour you asked to avoid (Black, Grey, Navy).",
+     "The navy trousers are not the ideal color for black tie, but no other formal bottoms are available.",
+     "Footwear options are limited; the black patent shoes are the closest match to the dress code."
+    ],
+    "missing_categories": [
+     "Accessories"
+    ],
+    "assumptions": [
+     "The user prefers to use existing wardrobe items rather than suggest new purchases.",
+     "The event requires strict adherence to black-tie etiquette despite limited wardrobe options."
+    ],
+    "is_complete": false,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.477,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Black Tie",
+     "time_of_day": "evening",
+     "season": "winter",
+     "dress_code": "black tie",
+     "excluded_colors": [
+      "black",
+      "navy",
+      "grey"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 72,
+     "role": "top",
+     "title": "White Dress Shirt",
+     "color": "White",
+     "reason": "White dress shirt offers a crisp, formal top that pairs well with a tuxedo jacket."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 4,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S11_ambiguous_item_descriptions",
+   "repeat": 0,
+   "request": {
+    "occasion": "Casual",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en"
+   },
+   "wardrobe": {
+    "77": {
+     "title": "the blue one",
+     "category": "Tops",
+     "color": "Blue",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/34237e215faa463a927ab7afdb97f85f.jpg"
+    },
+    "78": {
+     "title": "thing from grandma",
+     "category": "Tops",
+     "color": "Multi",
+     "pattern": "Floral",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/d419dc478a8a4ea9bb3da2f73e5c6e96.jpg"
+    },
+    "79": {
+     "title": "trousers (old)",
+     "category": "Bottoms",
+     "color": "Khaki",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/6cb4ae70c1de428ab0d3b35726e58743.jpg"
+    },
+    "80": {
+     "title": "shoes 2",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/73b3dd79936d4e7598097fff3981d564.jpg"
+    },
+    "81": {
+     "title": "???",
+     "category": "Accessories",
+     "color": "Silver",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/6a01b3e598ce4c5f8d4e78d653a97454.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.431,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Casual Spring Afternoon Look\",\n  \"summary\": \"A relaxed, comfortable outfit that mixes a floral blouse with beige trousers and white shoes for a spring afternoon.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 78,\n      \"role\": \"top\",\n      \"reason\": \"The floral print adds spring vibrancy and works for casual occasions.\"\n    },\n    {\n      \"wardrobe_item_id\": 79,\n      \"role\": \"bottom\",\n      \"reason\": \"Beige trousers provide a neutral base that balances the busy floral top.\"\n    },\n    {\n      \"wardrobe_item_id\": 80,\n      \"role\": \"footwear\",\n      \"reason\": \"White shoes keep the look fresh and light for an afternoon outing.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Add the silver accessory for a subtle metallic accent that complements the outfit.\"\n  ],\n  \"limitations\": [\n    \"No outerwear item available for potential cooler spring temperatures.\"\n  ],\n  \"missing_categories\": [\n    \"Outerwear\"\n  ],\n  \"assumptions\": [\n    \"The 'thing from grandma' top is a floral blouse suitable for spring.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 252,
+      "prompt_tokens": 1039,
+      "total_tokens": 1291
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.423
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_f9932243b17e",
+    "occasion": "Casual",
+    "title": "Casual Spring Afternoon Look",
+    "summary": "A relaxed, comfortable outfit that mixes a floral blouse with beige trousers and white shoes for a spring afternoon.",
+    "items": [
+     {
+      "wardrobe_item_id": 78,
+      "role": "top",
+      "category": "Tops",
+      "title": "thing from grandma",
+      "subcategory": "thing from grandma",
+      "color_name": "Multi",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/d419dc478a8a4ea9bb3da2f73e5c6e96.jpg",
+      "reason": "The floral print adds spring vibrancy and works for casual occasions.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 79,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "trousers (old)",
+      "subcategory": "trousers (old)",
+      "color_name": "Beige",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/6cb4ae70c1de428ab0d3b35726e58743.jpg",
+      "reason": "Beige trousers provide a neutral base that balances the busy floral top.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 80,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "shoes 2",
+      "subcategory": "shoes 2",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/73b3dd79936d4e7598097fff3981d564.jpg",
+      "reason": "White shoes keep the look fresh and light for an afternoon outing.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Add the silver accessory for a subtle metallic accent that complements the outfit."
+    ],
+    "limitations": [
+     "No outerwear item available for potential cooler spring temperatures."
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "The 'thing from grandma' top is a floral blouse suitable for spring."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.423,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 78,
+     "role": "top",
+     "title": "thing from grandma",
+     "color": "Multi",
+     "reason": "The floral print adds spring vibrancy and works for casual occasions."
+    },
+    {
+     "id": 79,
+     "role": "bottom",
+     "title": "trousers (old)",
+     "color": "Beige",
+     "reason": "Beige trousers provide a neutral base that balances the busy floral top."
+    },
+    {
+     "id": 80,
+     "role": "footwear",
+     "title": "shoes 2",
+     "color": "White",
+     "reason": "White shoes keep the look fresh and light for an afternoon outing."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S12_arabic_casual_weekend",
+   "repeat": 0,
+   "request": {
+    "occasion": "Casual",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "location": "نزهة في الحديقة مع العائلة",
+    "style_preferences": [
+     "مريح",
+     "بسيط"
+    ],
+    "language": "ar"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "ar"
+   },
+   "wardrobe": {
+    "82": {
+     "title": "قميص كتان أبيض",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/aaac4a230e2b472fa9869fd3c4ea9215.jpg"
+    },
+    "83": {
+     "title": "تيشيرت رمادي",
+     "category": "Tops",
+     "color": "Grey",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/79e687554bd9410b81ceda59f181b282.jpg"
+    },
+    "84": {
+     "title": "بنطلون جينز أزرق",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/86d0e9d4821a40feb264168ca77c624d.jpg"
+    },
+    "85": {
+     "title": "بنطلون كاكي",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/18f071f19925469494021f39831cccaf.jpg"
+    },
+    "86": {
+     "title": "حذاء رياضي أبيض",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/387739e1cdca412ba1e5dc4375f5cd95.jpg"
+    },
+    "87": {
+     "title": "جاكيت جينز",
+     "category": "Outerwear",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/e4ad4dc5a9834709bd4c8bea85954e3e.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.834,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"ملابس نزهة عائلية مريحة\",\n  \"summary\": \"تيشيرت رمادي مع بنطلون كاكي وحذاء رياضي أبيض يخلق مظهرًا بسيطًا ومريحًا مناسبًا للنزهة العائلية في الحديقة.\",\n  \"items\": [\n    {\"wardrobe_item_id\": 83, \"role\": \"top\", \"reason\": \"تيشيرت رمادي مريح يناسب الطقس المعتدل في الربيع.\"},\n    {\"wardrobe_item_id\": 85, \"role\": \"bottom\", \"reason\": \"بنطلون كاكي بسيط يتناسب مع التيشيرت ويوفر راحة للنزهة.\"},\n    {\"wardrobe_item_id\": 86, \"role\": \"footwear\", \"reason\": \"حذاء رياضي أبيض يضيف لمسة نظافة ويتناسب مع البنطلون والتيشيرت.\"}\n  ],\n  \"styling_notes\": [\"اختر قبعة شمسية إذا كان الطقس حارًا.\"],\n  \"limitations\": [\"لا توجد ملابس خارجية في الوردروب، لذا قد تكون ملابس خارجية إضافية مطلوبة إذا كان الطقس باردًا.\"],\n  \"missing_categories\": [\"Outerwear\"],\n  \"assumptions\": [\"الطقس معتدل ومشمس في الظهيرة في الربيع.\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 455,
+      "prompt_tokens": 1299,
+      "total_tokens": 1754
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.826
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_3ab34156d529",
+    "occasion": "Casual",
+    "title": "ملابس نزهة عائلية مريحة",
+    "summary": "تيشيرت رمادي مع بنطلون كاكي وحذاء رياضي أبيض يخلق مظهرًا بسيطًا ومريحًا مناسبًا للنزهة العائلية في الحديقة.",
+    "items": [
+     {
+      "wardrobe_item_id": 83,
+      "role": "top",
+      "category": "Tops",
+      "title": "تيشيرت رمادي",
+      "subcategory": "تيشيرت رمادي",
+      "color_name": "Grey",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/79e687554bd9410b81ceda59f181b282.jpg",
+      "reason": "تيشيرت رمادي مريح يناسب الطقس المعتدل في الربيع.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 85,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "بنطلون كاكي",
+      "subcategory": "بنطلون كاكي",
+      "color_name": "Beige",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/18f071f19925469494021f39831cccaf.jpg",
+      "reason": "بنطلون كاكي بسيط يتناسب مع التيشيرت ويوفر راحة للنزهة.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 86,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "حذاء رياضي أبيض",
+      "subcategory": "حذاء رياضي أبيض",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/387739e1cdca412ba1e5dc4375f5cd95.jpg",
+      "reason": "حذاء رياضي أبيض يضيف لمسة نظافة ويتناسب مع البنطلون والتيشيرت.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "اختر قبعة شمسية إذا كان الطقس حارًا."
+    ],
+    "limitations": [
+     "لا توجد ملابس خارجية في الوردروب، لذا قد تكون ملابس خارجية إضافية مطلوبة إذا كان الطقس باردًا."
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "الطقس معتدل ومشمس في الظهيرة في الربيع."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.826,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "location": "نزهة في الحديقة مع العائلة",
+     "style_preferences": [
+      "مريح",
+      "بسيط"
+     ],
+     "language": "ar"
+    }
+   },
+   "final_items": [
+    {
+     "id": 83,
+     "role": "top",
+     "title": "تيشيرت رمادي",
+     "color": "Grey",
+     "reason": "تيشيرت رمادي مريح يناسب الطقس المعتدل في الربيع."
+    },
+    {
+     "id": 85,
+     "role": "bottom",
+     "title": "بنطلون كاكي",
+     "color": "Beige",
+     "reason": "بنطلون كاكي بسيط يتناسب مع التيشيرت ويوفر راحة للنزهة."
+    },
+    {
+     "id": 86,
+     "role": "footwear",
+     "title": "حذاء رياضي أبيض",
+     "color": "White",
+     "reason": "حذاء رياضي أبيض يضيف لمسة نظافة ويتناسب مع البنطلون والتيشيرت."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S13_arabic_interview_no_black_free_text",
+   "repeat": 0,
+   "request": {
+    "occasion": "Work & Business",
+    "activity": "مقابلة عمل",
+    "time_of_day": "morning",
+    "season": "autumn",
+    "exclusions": "بدون أسود",
+    "language": "ar"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [
+     "Black"
+    ],
+    "language": "ar"
+   },
+   "wardrobe": {
+    "88": {
+     "title": "بلوزة سوداء",
+     "category": "Tops",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/11e1993e355d46ecbe9b51cfb6758295.jpg"
+    },
+    "89": {
+     "title": "قميص أبيض",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/7839a346d2664c239cc1b4386f53baf7.jpg"
+    },
+    "90": {
+     "title": "بنطلون أسود",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/69e372778939415ab168e7a3dd9615da.jpg"
+    },
+    "91": {
+     "title": "بنطلون كحلي",
+     "category": "Bottoms",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/28056b7e579e4788bcd1b0f228e87ed6.jpg"
+    },
+    "92": {
+     "title": "حذاء أسود",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/684b15caec21410c8995643bf0330d4a.jpg"
+    },
+    "93": {
+     "title": "حذاء بني",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/909d4c0e759a4d39acadfc900d63c364.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 4.248,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"ملابس عمل رسمية\",\n  \"summary\": \"قميص أبيض مع بنطلون كحلي وحذاء بني يشكلون مجموعة عمل رسمية مناسبة لمقابلة عمل صباحية في الخريف.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 89,\n      \"role\": \"top\",\n      \"reason\": \"القميص الأبيض نظيف ومحترف، يناسب بيئة العمل ويتناسب مع البنطلون الكحلي.\"\n    },\n    {\n      \"wardrobe_item_id\": 91,\n      \"role\": \"bottom\",\n      \"reason\": \"البنطلون الكحلي رسمي ومحايد، يتناسب مع القميص الأبيض ويضفي لمسة رسمية.\"\n    },\n    {\n      \"wardrobe_item_id\": 93,\n      \"role\": \"footwear\",\n      \"reason\": \"الحذاء البني يضيف لمسة حرارة خريفية ويتناسب مع البنطلون الكحلي دون أن يكون أسود.\"\n    }\n  ],\n  \"styling_notes\": [\"إضافة سترة جلدية بنية للحصول على طبقة إضافية من الحرارة إذا لزم الأمر.\"],\n  \"limitations\": [\"لا توجد أحذية بنية أخرى في الخزانة.\"],\n  \"missing_categories\": [\"Outerwear\"],\n  \"assumptions\": [\"المقابلة تتطلب ملابس رسمية وليس بدون تيشيرت أو بدلة رسمية.\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 493,
+      "prompt_tokens": 1251,
+      "total_tokens": 1744
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 4.24
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_759dd5cbbf00",
+    "occasion": "Work & Business",
+    "title": "ملابس عمل رسمية",
+    "summary": "قميص أبيض مع بنطلون كحلي وحذاء بني يشكلون مجموعة عمل رسمية مناسبة لمقابلة عمل صباحية في الخريف.",
+    "items": [
+     {
+      "wardrobe_item_id": 89,
+      "role": "top",
+      "category": "Tops",
+      "title": "قميص أبيض",
+      "subcategory": "قميص أبيض",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/7839a346d2664c239cc1b4386f53baf7.jpg",
+      "reason": "القميص الأبيض نظيف ومحترف، يناسب بيئة العمل ويتناسب مع البنطلون الكحلي.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 91,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "بنطلون كحلي",
+      "subcategory": "بنطلون كحلي",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/28056b7e579e4788bcd1b0f228e87ed6.jpg",
+      "reason": "البنطلون الكحلي رسمي ومحايد، يتناسب مع القميص الأبيض ويضفي لمسة رسمية.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 93,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "حذاء بني",
+      "subcategory": "حذاء بني",
+      "color_name": "Brown",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/909d4c0e759a4d39acadfc900d63c364.jpg",
+      "reason": "الحذاء البني يضيف لمسة حرارة خريفية ويتناسب مع البنطلون الكحلي دون أن يكون أسود.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "إضافة سترة جلدية بنية للحصول على طبقة إضافية من الحرارة إذا لزم الأمر."
+    ],
+    "limitations": [
+     "لا توجد أحذية بنية أخرى في الخزانة."
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "المقابلة تتطلب ملابس رسمية وليس بدون تيشيرت أو بدلة رسمية."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 4.24,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Work & Business",
+     "time_of_day": "morning",
+     "season": "autumn",
+     "activity": "مقابلة عمل",
+     "exclusions": "بدون أسود",
+     "language": "ar"
+    }
+   },
+   "final_items": [
+    {
+     "id": 89,
+     "role": "top",
+     "title": "قميص أبيض",
+     "color": "White",
+     "reason": "القميص الأبيض نظيف ومحترف، يناسب بيئة العمل ويتناسب مع البنطلون الكحلي."
+    },
+    {
+     "id": 91,
+     "role": "bottom",
+     "title": "بنطلون كحلي",
+     "color": "Navy",
+     "reason": "البنطلون الكحلي رسمي ومحايد، يتناسب مع القميص الأبيض ويضفي لمسة رسمية."
+    },
+    {
+     "id": 93,
+     "role": "footwear",
+     "title": "حذاء بني",
+     "color": "Brown",
+     "reason": "الحذاء البني يضيف لمسة حرارة خريفية ويتناسب مع البنطلون الكحلي دون أن يكون أسود."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 4,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S14_arabic_formal_evening_wedding",
+   "repeat": 0,
+   "request": {
+    "occasion": "Formal",
+    "time_of_day": "evening",
+    "season": "winter",
+    "location": "حفل زفاف في قاعة",
+    "dress_code": "رسمي",
+    "language": "ar"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "ar",
+    "dress_based": true
+   },
+   "wardrobe": {
+    "94": {
+     "title": "فستان سهرة كحلي",
+     "category": "Dresses",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Formal",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e1f012f2c8b34a9d9f8ac5ffc74078e8.jpg"
+    },
+    "95": {
+     "title": "فستان قطني صيفي",
+     "category": "Dresses",
+     "color": "Yellow",
+     "pattern": "Floral",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/3ca6fbde5e7842b196dcb42b56cf9a85.jpg"
+    },
+    "96": {
+     "title": "حذاء كعب فضي",
+     "category": "Footwear",
+     "color": "Silver",
+     "pattern": "Solid",
+     "occasions": [
+      "Formal",
+      "Evening",
+      "Cocktail"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/85514596c0cb4dc4974cf40cda581c53.jpg"
+    },
+    "97": {
+     "title": "صندل مسطح",
+     "category": "Footwear",
+     "color": "Tan",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/2ff69964a118410a8521caf524152111.jpg"
+    },
+    "98": {
+     "title": "شال صوف أسود",
+     "category": "Outerwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Formal",
+      "Evening"
+     ],
+     "seasonality": "Winter",
+     "image_url": "https://cdn.example.com/eval/d48925889fbd47519f426f40a138a039.jpg"
+    },
+    "99": {
+     "title": "حقيبة كلاتش ذهبية",
+     "category": "Accessories",
+     "color": "Gold",
+     "pattern": "Solid",
+     "occasions": [
+      "Formal",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/1f46f5af7d7c4ab189aed1bf46d3492c.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 4.394,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"فستان سهرة كحلي مع حقيبة كلاتش ذهبية وحذاء كعب فضي\",\n  \"summary\": \"فستان سهرة كحلي مع حقيبة كلاتش ذهبية وحذاء كعب فضي يشكلون مجموعة رسمية متناسقة لحفل زفاف في قاعة مغطى باللون الأسود.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 94,\n      \"role\": \"dress\",\n      \"reason\": \"فستان سهرة كحلي يناسب الرسمي والمساء ويتناسب مع حفل زفاف في قاعة.\"\n    },\n    {\n      \"wardrobe_item_id\": 99,\n      \"role\": \"accessory\",\n      \"reason\": \"حقيبة كلاتش ذهبية تضيف لمسة من الرقي والجمال إلى الفستان الكحلي.\"\n    },\n    {\n      \"wardrobe_item_id\": 96,\n      \"role\": \"footwear\",\n      \"reason\": \"حذاء كعب فضي يتناسب مع الفستان الكحلي ويضيف لمسة من البريق إلى المجموعة.\"\n    }\n  ],\n  \"styling_notes\": [\"اختر شال صوف أسود لإضافة طبقة دافئة إذا كان الطقس باردًا.\"],\n  \"limitations\": [\"لا توجد ملابس رسمية أخرى في الخزانة.\", \"الصندل المسطح غير مناسب للمناسبة.\"],\n  \"missing_categories\": [\"Outerwear\"],\n  \"assumptions\": [\"الفستان الكحلي مناسب للمناسبة بناءً على تصنيفه الرسمي.\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 521,
+      "prompt_tokens": 1284,
+      "total_tokens": 1805
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 4.386
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_f66d6cc4f3e1",
+    "occasion": "Formal",
+    "title": "فستان سهرة كحلي مع حقيبة كلاتش ذهبية وحذاء كعب فضي",
+    "summary": "فستان سهرة كحلي مع حقيبة كلاتش ذهبية وحذاء كعب فضي يشكلون مجموعة رسمية متناسقة لحفل زفاف في قاعة مغطى باللون الأسود.",
+    "items": [
+     {
+      "wardrobe_item_id": 94,
+      "role": "dress",
+      "category": "Dresses",
+      "title": "فستان سهرة كحلي",
+      "subcategory": "فستان سهرة كحلي",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/e1f012f2c8b34a9d9f8ac5ffc74078e8.jpg",
+      "reason": "فستان سهرة كحلي يناسب الرسمي والمساء ويتناسب مع حفل زفاف في قاعة.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 99,
+      "role": "accessory",
+      "category": "Accessories",
+      "title": "حقيبة كلاتش ذهبية",
+      "subcategory": "حقيبة كلاتش ذهبية",
+      "color_name": "Yellow",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/1f46f5af7d7c4ab189aed1bf46d3492c.jpg",
+      "reason": "حقيبة كلاتش ذهبية تضيف لمسة من الرقي والجمال إلى الفستان الكحلي.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 96,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "حذاء كعب فضي",
+      "subcategory": "حذاء كعب فضي",
+      "color_name": "Silver",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/85514596c0cb4dc4974cf40cda581c53.jpg",
+      "reason": "حذاء كعب فضي يتناسب مع الفستان الكحلي ويضيف لمسة من البريق إلى المجموعة.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "اختر شال صوف أسود لإضافة طبقة دافئة إذا كان الطقس باردًا."
+    ],
+    "limitations": [
+     "لا توجد ملابس رسمية أخرى في الخزانة.",
+     "الصندل المسطح غير مناسب للمناسبة."
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "الفستان الكحلي مناسب للمناسبة بناءً على تصنيفه الرسمي."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 4.386,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Formal",
+     "time_of_day": "evening",
+     "season": "winter",
+     "location": "حفل زفاف في قاعة",
+     "dress_code": "رسمي",
+     "language": "ar"
+    }
+   },
+   "final_items": [
+    {
+     "id": 94,
+     "role": "dress",
+     "title": "فستان سهرة كحلي",
+     "color": "Navy",
+     "reason": "فستان سهرة كحلي يناسب الرسمي والمساء ويتناسب مع حفل زفاف في قاعة."
+    },
+    {
+     "id": 99,
+     "role": "accessory",
+     "title": "حقيبة كلاتش ذهبية",
+     "color": "Yellow",
+     "reason": "حقيبة كلاتش ذهبية تضيف لمسة من الرقي والجمال إلى الفستان الكحلي."
+    },
+    {
+     "id": 96,
+     "role": "footwear",
+     "title": "حذاء كعب فضي",
+     "color": "Silver",
+     "reason": "حذاء كعب فضي يتناسب مع الفستان الكحلي ويضيف لمسة من البريق إلى المجموعة."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 3,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S15_pattern_heavy_wardrobe",
+   "repeat": 0,
+   "request": {
+    "occasion": "Smart Casual",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "location": "brunch",
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en",
+    "pattern_discipline": true
+   },
+   "wardrobe": {
+    "100": {
+     "title": "Plaid Shirt",
+     "category": "Tops",
+     "color": "Red",
+     "pattern": "Plaid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/b1aad68e90c74fbf9c2cea6923331977.jpg"
+    },
+    "101": {
+     "title": "Striped Shirt",
+     "category": "Tops",
+     "color": "Blue",
+     "pattern": "Striped",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/a3bd1e96c83f42c38931732a1568ce8a.jpg"
+    },
+    "102": {
+     "title": "Plain White Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/9ee61593eed34dc2a2e081555790449e.jpg"
+    },
+    "103": {
+     "title": "Houndstooth Trousers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Houndstooth",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/c200338b615b4b87b2841acde7381707.jpg"
+    },
+    "104": {
+     "title": "Floral Trousers",
+     "category": "Bottoms",
+     "color": "Multi",
+     "pattern": "Floral",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/c358fe424b434b2d9c595eb4413e43b5.jpg"
+    },
+    "105": {
+     "title": "Navy Chinos",
+     "category": "Bottoms",
+     "color": "Navy",
+     "pattern": "Solid",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/7e7ba2c553b44901983d8412e65f1c88.jpg"
+    },
+    "106": {
+     "title": "Leopard Loafers",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Animal Print",
+     "occasions": [
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/09095e8779c5433181f390243612cf9f.jpg"
+    },
+    "107": {
+     "title": "White Sneakers",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e8105275291840e0b701dd7ddf84e913.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.919,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Smart Casual Brunch Look\",\n  \"summary\": \"A refined yet relaxed ensemble blending a crisp white shirt with navy chinos and white sneakers for a polished yet approachable brunch vibe.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 102,\n      \"role\": \"top\",\n      \"reason\": \"A clean white shirt elevates the outfit, perfect for smart casual settings.\"\n    },\n    {\n      \"wardrobe_item_id\": 105,\n      \"role\": \"bottom\",\n      \"reason\": \"Navy chinos provide a smart yet understated bottom that pairs well with the shirt.\"\n    },\n    {\n      \"wardrobe_item_id\": 107,\n      \"role\": \"footwear\",\n      \"reason\": \"White sneakers add a casual touch while remaining appropriate for a daytime brunch.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Roll up the shirt sleeves slightly for a laid-back feel.\",\n    \"Keep accessories minimal to maintain focus on the shirt and trousers.\"\n  ],\n  \"limitations\": [\n    \"No dedicated smart casual outerwear in the wardrobe; consider a lightweight blazer if needed.\",\n    \"Limited color palette may feel monochromatic; a pop of color via a pocket square could enhance the look.\"\n  ],\n  \"missing_categories\": [\n    \"Outerwear\"\n  ],\n  \"assumptions\": [\n    \"The user prefers a balanced look that is neither overly formal nor too casual.\",\n    \"The brunch setting is outdoors or in a casual restaurant.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 318,
+      "prompt_tokens": 1301,
+      "total_tokens": 1619
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.911
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_5fd72f01ce3d",
+    "occasion": "Smart Casual",
+    "title": "Smart Casual Brunch Look",
+    "summary": "A refined yet relaxed ensemble blending a crisp white shirt with navy chinos and white sneakers for a polished yet approachable brunch vibe.",
+    "items": [
+     {
+      "wardrobe_item_id": 102,
+      "role": "top",
+      "category": "Tops",
+      "title": "Plain White Shirt",
+      "subcategory": "Plain White Shirt",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/9ee61593eed34dc2a2e081555790449e.jpg",
+      "reason": "A clean white shirt elevates the outfit, perfect for smart casual settings.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 105,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Navy Chinos",
+      "subcategory": "Navy Chinos",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/7e7ba2c553b44901983d8412e65f1c88.jpg",
+      "reason": "Navy chinos provide a smart yet understated bottom that pairs well with the shirt.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 107,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "White Sneakers",
+      "subcategory": "White Sneakers",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/e8105275291840e0b701dd7ddf84e913.jpg",
+      "reason": "White sneakers add a casual touch while remaining appropriate for a daytime brunch.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Roll up the shirt sleeves slightly for a laid-back feel.",
+     "Keep accessories minimal to maintain focus on the shirt and trousers."
+    ],
+    "limitations": [
+     "No dedicated smart casual outerwear in the wardrobe; consider a lightweight blazer if needed.",
+     "Limited color palette may feel monochromatic; a pop of color via a pocket square could enhance the look."
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "The user prefers a balanced look that is neither overly formal nor too casual.",
+     "The brunch setting is outdoors or in a casual restaurant."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.911,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Smart Casual",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "location": "brunch",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 102,
+     "role": "top",
+     "title": "Plain White Shirt",
+     "color": "White",
+     "reason": "A clean white shirt elevates the outfit, perfect for smart casual settings."
+    },
+    {
+     "id": 105,
+     "role": "bottom",
+     "title": "Navy Chinos",
+     "color": "Navy",
+     "reason": "Navy chinos provide a smart yet understated bottom that pairs well with the shirt."
+    },
+    {
+     "id": 107,
+     "role": "footwear",
+     "title": "White Sneakers",
+     "color": "White",
+     "reason": "White sneakers add a casual touch while remaining appropriate for a daytime brunch."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S16_unsatisfiable_gym_with_formal_wardrobe",
+   "repeat": 0,
+   "request": {
+    "occasion": "Active",
+    "activity": "gym workout",
+    "time_of_day": "evening",
+    "season": "summer",
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en",
+    "unsuitable_inventory": true
+   },
+   "wardrobe": {
+    "108": {
+     "title": "White Dress Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Business Formal",
+      "Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/1af87f61a4a447b78c2219c9b741d77d.jpg"
+    },
+    "109": {
+     "title": "Black Suit Trousers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Business Formal",
+      "Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/09b5c4f55e8740e5929c8e7b0555ded3.jpg"
+    },
+    "110": {
+     "title": "Black Oxfords",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Business Formal",
+      "Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/a613909337c144dfa358c71e5ae69d9f.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.494,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Gym-Ready Black & White Workout\",\n  \"summary\": \"A sleek, monochrome gym outfit that balances professionalism and comfort for an evening workout.\",\n  \"items\": [\n    {\"wardrobe_item_id\": 108, \"role\": \"top\", \"reason\": \"Breathable white shirt provides a clean base and wicks sweat.\"},\n    {\"wardrobe_item_id\": 109, \"role\": \"bottom\", \"reason\": \"Tailored black trousers offer a smart silhouette while allowing full movement.\"},\n    {\"wardrobe_item_id\": 110, \"role\": \"footwear\", \"reason\": \"Black oxfords are versatile; choose a low-profile, cushioned version for gym use.\"}\n  ],\n  \"styling_notes\": [\"Pair with moisture-wicking socks; add a lightweight, breathable jacket if the gym is air-conditioned.\"],\n  \"limitations\": [\"No dedicated gym shoes; oxfords are a compromise.\", \"Limited color palette restricts visual interest.\"],\n  \"missing_categories\": [\"Outerwear\", \"Accessories\"],\n  \"assumptions\": [\"User prefers a smart-casual look suitable for gym environments.\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 243,
+      "prompt_tokens": 907,
+      "total_tokens": 1150
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.481
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_552f8c04634d",
+    "occasion": "Active",
+    "title": "Gym-Ready Black & White Workout",
+    "summary": "A sleek, monochrome gym outfit that balances professionalism and comfort for an evening workout.",
+    "items": [
+     {
+      "wardrobe_item_id": 108,
+      "role": "top",
+      "category": "Tops",
+      "title": "White Dress Shirt",
+      "subcategory": "White Dress Shirt",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/1af87f61a4a447b78c2219c9b741d77d.jpg",
+      "reason": "Breathable white shirt provides a clean base and wicks sweat.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 109,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Black Suit Trousers",
+      "subcategory": "Black Suit Trousers",
+      "color_name": "Black",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/09b5c4f55e8740e5929c8e7b0555ded3.jpg",
+      "reason": "Tailored black trousers offer a smart silhouette while allowing full movement.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 110,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Black Oxfords",
+      "subcategory": "Black Oxfords",
+      "color_name": "Black",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/a613909337c144dfa358c71e5ae69d9f.jpg",
+      "reason": "Black oxfords are versatile; choose a low-profile, cushioned version for gym use.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Pair with moisture-wicking socks; add a lightweight, breathable jacket if the gym is air-conditioned."
+    ],
+    "limitations": [
+     "No dedicated gym shoes; oxfords are a compromise.",
+     "Limited color palette restricts visual interest."
+    ],
+    "missing_categories": [
+     "Outerwear",
+     "Accessories"
+    ],
+    "assumptions": [
+     "User prefers a smart-casual look suitable for gym environments."
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.481,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Active",
+     "time_of_day": "evening",
+     "season": "summer",
+     "activity": "gym workout",
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 108,
+     "role": "top",
+     "title": "White Dress Shirt",
+     "color": "White",
+     "reason": "Breathable white shirt provides a clean base and wicks sweat."
+    },
+    {
+     "id": 109,
+     "role": "bottom",
+     "title": "Black Suit Trousers",
+     "color": "Black",
+     "reason": "Tailored black trousers offer a smart silhouette while allowing full movement."
+    },
+    {
+     "id": 110,
+     "role": "footwear",
+     "title": "Black Oxfords",
+     "color": "Black",
+     "reason": "Black oxfords are versatile; choose a low-profile, cushioned version for gym use."
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 4,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S01_casual_park_morning_autumn",
+   "repeat": 1,
+   "request": {
+    "occasion": "Casual",
+    "time_of_day": "morning",
+    "season": "autumn",
+    "location": "park",
+    "style_preferences": [
+     "relaxed",
+     "layered"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en"
+   },
+   "wardrobe": {
+    "111": {
+     "title": "Plaid Flannel Shirt",
+     "category": "Tops",
+     "color": "Navy",
+     "pattern": "Plaid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/699fa37043704e4f9ac9ca84885ed793.jpg"
+    },
+    "112": {
+     "title": "White Cotton Tee",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/7faa10bec9884e7b97d0ed1f0e7fce2c.jpg"
+    },
+    "113": {
+     "title": "Khaki Chinos",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/f4e8003a8b824c128a04790dbd49c9d2.jpg"
+    },
+    "114": {
+     "title": "Dark Wash Jeans",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/b8c9b8248ccf426c909dd09444251b4a.jpg"
+    },
+    "115": {
+     "title": "Brown Leather Boots",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/83f3db0691a147618dc7a67958817945.jpg"
+    },
+    "116": {
+     "title": "White Canvas Sneakers",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/59e6e525f5f44a3ab1700a65bc880473.jpg"
+    },
+    "117": {
+     "title": "Olive Field Jacket",
+     "category": "Outerwear",
+     "color": "Green",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/9fc9d3dacc57406ba16b4105aa77c080.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.739,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Layered Autumn Park Outfit\",\n  \"summary\": \"A relaxed, layered look for a casual morning stroll in the park, combining warmth and comfort with autumn-appropriate pieces from your wardrobe.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 111,\n      \"role\": \"top\",\n      \"reason\": \"The plaid flannel shirt adds cozy autumn texture and works well layered over a tee for cooler mornings.\"\n    },\n    {\n      \"wardrobe_item_id\": 112,\n      \"role\": \"bottom\",\n      \"reason\": \"White cotton tee provides a clean base layer that keeps the outfit casual and comfortable.\"\n    },\n    {\n      \"wardrobe_item_id\": 117,\n      \"role\": \"outerwear\",\n      \"reason\": \"Olive field jacket offers light insulation and a versatile green hue that complements both the flannel and jeans.\"\n    },\n    {\n      \"wardrobe_item_id\": 115,\n      \"role\": \"footwear\",\n      \"reason\": \"Brown leather boots are seasonally appropriate, durable for park paths, and pair well with the relaxed aesthetic.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Tuck the tee into the jeans for a slightly more polished silhouette, or leave it untucked for extra casualness.\",\n    \"Wear the jacket open over the flannel for a laid-back vibe, or zip it up if the morning is chillier.\"\n  ],\n  \"limitations\": [\n    \"Limited outerwear options; the field jacket is the only autumn-appropriate piece available.\"\n  ],\n  \"missing_categories\": [\n    \"Accessories\"\n  ],\n  \"assumptions\": [\n    \"The user prefers to keep the outfit simple and focused on the provided wardrobe items.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 369,
+      "prompt_tokens": 1222,
+      "total_tokens": 1591
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.727
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_5ccb5b25b8d9",
+    "occasion": "Casual",
+    "title": "Layered Autumn Park Outfit",
+    "summary": "A relaxed, layered look for a casual morning stroll in the park, combining warmth and comfort with autumn-appropriate pieces from your wardrobe.",
+    "items": [
+     {
+      "wardrobe_item_id": 111,
+      "role": "top",
+      "category": "Tops",
+      "title": "Plaid Flannel Shirt",
+      "subcategory": "Plaid Flannel Shirt",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/699fa37043704e4f9ac9ca84885ed793.jpg",
+      "reason": "The plaid flannel shirt adds cozy autumn texture and works well layered over a tee for cooler mornings.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 117,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Olive Field Jacket",
+      "subcategory": "Olive Field Jacket",
+      "color_name": "Green",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/9fc9d3dacc57406ba16b4105aa77c080.jpg",
+      "reason": "Olive field jacket offers light insulation and a versatile green hue that complements both the flannel and jeans.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 115,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Brown Leather Boots",
+      "subcategory": "Brown Leather Boots",
+      "color_name": "Brown",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/83f3db0691a147618dc7a67958817945.jpg",
+      "reason": "Brown leather boots are seasonally appropriate, durable for park paths, and pair well with the relaxed aesthetic.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Tuck the tee into the jeans for a slightly more polished silhouette, or leave it untucked for extra casualness.",
+     "Wear the jacket open over the flannel for a laid-back vibe, or zip it up if the morning is chillier."
+    ],
+    "limitations": [
+     "Limited outerwear options; the field jacket is the only autumn-appropriate piece available."
+    ],
+    "missing_categories": [
+     "Accessories"
+    ],
+    "assumptions": [
+     "The user prefers to keep the outfit simple and focused on the provided wardrobe items."
+    ],
+    "is_complete": false,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.727,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "time_of_day": "morning",
+     "season": "autumn",
+     "location": "park",
+     "style_preferences": [
+      "relaxed",
+      "layered"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 111,
+     "role": "top",
+     "title": "Plaid Flannel Shirt",
+     "color": "Navy",
+     "reason": "The plaid flannel shirt adds cozy autumn texture and works well layered over a tee for cooler mornings."
+    },
+    {
+     "id": 117,
+     "role": "outerwear",
+     "title": "Olive Field Jacket",
+     "color": "Green",
+     "reason": "Olive field jacket offers light insulation and a versatile green hue that complements both the flannel and jeans."
+    },
+    {
+     "id": 115,
+     "role": "footwear",
+     "title": "Brown Leather Boots",
+     "color": "Brown",
+     "reason": "Brown leather boots are seasonally appropriate, durable for park paths, and pair well with the relaxed aesthetic."
+    }
+   ],
+   "hard_failures": [
+    "H4_incomplete_when_completable"
+   ],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 2,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S01_casual_park_morning_autumn",
+   "repeat": 2,
+   "request": {
+    "occasion": "Casual",
+    "time_of_day": "morning",
+    "season": "autumn",
+    "location": "park",
+    "style_preferences": [
+     "relaxed",
+     "layered"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "en"
+   },
+   "wardrobe": {
+    "118": {
+     "title": "Plaid Flannel Shirt",
+     "category": "Tops",
+     "color": "Navy",
+     "pattern": "Plaid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/4fbbca59295040da83aa771fa3155d59.jpg"
+    },
+    "119": {
+     "title": "White Cotton Tee",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/21225931c2114751b6350fe6a8d798b6.jpg"
+    },
+    "120": {
+     "title": "Khaki Chinos",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/b84684c522f94a4ab2a7ff775ef2eaa8.jpg"
+    },
+    "121": {
+     "title": "Dark Wash Jeans",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/be2f5897465b47e5be29f92cddf87ee3.jpg"
+    },
+    "122": {
+     "title": "Brown Leather Boots",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/0ecf7ef7ffbb44f48c38e01b4506f43a.jpg"
+    },
+    "123": {
+     "title": "White Canvas Sneakers",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Summer",
+     "image_url": "https://cdn.example.com/eval/943e4034e77a4aa1bc1f266c4053885f.jpg"
+    },
+    "124": {
+     "title": "Olive Field Jacket",
+     "category": "Outerwear",
+     "color": "Green",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/34d47c2543744b7aadec6aba3984b1f3.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.327,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Relaxed Autumn Park Outfit\",\n  \"summary\": \"A comfortable, layered look that blends casual style with autumn warmth, perfect for a morning stroll in the park.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 118,\n      \"role\": \"top\",\n      \"reason\": \"The plaid flannel adds seasonal texture and warmth, layering easily over a tee for casual comfort.\"\n    },\n    {\n      \"wardrobe_item_id\": 119,\n      \"role\": \"bottom\",\n      \"reason\": \"White cotton tee provides a clean base layer that balances the plaid's bold pattern while staying relaxed.\"\n    },\n    {\n      \"wardrobe_item_id\": 124,\n      \"role\": \"outerwear\",\n      \"reason\": \"Olive field jacket offers practical autumn protection and a cohesive green tone that ties the outfit together.\"\n    },\n    {\n      \"wardrobe_item_id\": 122,\n      \"role\": \"footwear\",\n      \"reason\": \"Brown leather boots match the jacket's earthy palette, providing sturdy autumn traction for park paths.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Tuck the tee into the jeans for a slightly more polished silhouette, or leave untucked for extra casual ease.\",\n    \"Wear the jacket open to showcase the layered tops, or button partially for cooler moments.\"\n  ],\n  \"limitations\": [\n    \"Limited outerwear options restrict full weather protection; the jacket is the warmest available.\",\n    \"Footwear choice leans toward style over full-season functionality.\"\n  ],\n  \"missing_categories\": [\n    \"Footwear\"\n  ],\n  \"assumptions\": [\n    \"The user prefers to keep the outfit casual and comfortable, prioritizing layering and seasonal appropriateness.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 372,
+      "prompt_tokens": 1222,
+      "total_tokens": 1594
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.311
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_31efd18d4e8f",
+    "occasion": "Casual",
+    "title": "Relaxed Autumn Park Outfit",
+    "summary": "A comfortable, layered look that blends casual style with autumn warmth, perfect for a morning stroll in the park.",
+    "items": [
+     {
+      "wardrobe_item_id": 118,
+      "role": "top",
+      "category": "Tops",
+      "title": "Plaid Flannel Shirt",
+      "subcategory": "Plaid Flannel Shirt",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/4fbbca59295040da83aa771fa3155d59.jpg",
+      "reason": "The plaid flannel adds seasonal texture and warmth, layering easily over a tee for casual comfort.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 124,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Olive Field Jacket",
+      "subcategory": "Olive Field Jacket",
+      "color_name": "Green",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/34d47c2543744b7aadec6aba3984b1f3.jpg",
+      "reason": "Olive field jacket offers practical autumn protection and a cohesive green tone that ties the outfit together.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 122,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "Brown Leather Boots",
+      "subcategory": "Brown Leather Boots",
+      "color_name": "Brown",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/0ecf7ef7ffbb44f48c38e01b4506f43a.jpg",
+      "reason": "Brown leather boots match the jacket's earthy palette, providing sturdy autumn traction for park paths.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Tuck the tee into the jeans for a slightly more polished silhouette, or leave untucked for extra casual ease.",
+     "Wear the jacket open to showcase the layered tops, or button partially for cooler moments."
+    ],
+    "limitations": [
+     "Limited outerwear options restrict full weather protection; the jacket is the warmest available.",
+     "Footwear choice leans toward style over full-season functionality."
+    ],
+    "missing_categories": [],
+    "assumptions": [
+     "The user prefers to keep the outfit casual and comfortable, prioritizing layering and seasonal appropriateness."
+    ],
+    "is_complete": false,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.311,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "time_of_day": "morning",
+     "season": "autumn",
+     "location": "park",
+     "style_preferences": [
+      "relaxed",
+      "layered"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 118,
+     "role": "top",
+     "title": "Plaid Flannel Shirt",
+     "color": "Navy",
+     "reason": "The plaid flannel adds seasonal texture and warmth, layering easily over a tee for casual comfort."
+    },
+    {
+     "id": 124,
+     "role": "outerwear",
+     "title": "Olive Field Jacket",
+     "color": "Green",
+     "reason": "Olive field jacket offers practical autumn protection and a cohesive green tone that ties the outfit together."
+    },
+    {
+     "id": 122,
+     "role": "footwear",
+     "title": "Brown Leather Boots",
+     "color": "Brown",
+     "reason": "Brown leather boots match the jacket's earthy palette, providing sturdy autumn traction for park paths."
+    }
+   ],
+   "hard_failures": [
+    "H4_incomplete_when_completable"
+   ],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 2,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S03_interview_no_black",
+   "repeat": 1,
+   "request": {
+    "occasion": "Work & Business",
+    "activity": "job interview",
+    "time_of_day": "morning",
+    "season": "autumn",
+    "excluded_colors": [
+     "black"
+    ],
+    "color_preferences": [
+     "navy",
+     "white",
+     "beige"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [
+     "Black"
+    ],
+    "language": "en"
+   },
+   "wardrobe": {
+    "125": {
+     "title": "Black Silk Blouse",
+     "category": "Tops",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/d67e24bc4a3342938695ede7cd326de2.jpg"
+    },
+    "126": {
+     "title": "White Oxford Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/bffe8f57af674d2ea82e7361dfe5059c.jpg"
+    },
+    "127": {
+     "title": "Black Tailored Trousers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Business Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/016b1a1ca17e49e7b95bf7832ca1035e.jpg"
+    },
+    "128": {
+     "title": "Navy Chinos",
+     "category": "Bottoms",
+     "color": "Navy Blue",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/1e0afbf2574943e5822a6782e75dd0a2.jpg"
+    },
+    "129": {
+     "title": "Black Oxfords",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/f191ae71d20e495c81763897502681e9.jpg"
+    },
+    "130": {
+     "title": "Brown Derbies",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/9cc7dd867ff84fce9c492182e281ef72.jpg"
+    },
+    "131": {
+     "title": "Camel Coat",
+     "category": "Outerwear",
+     "color": "Camel",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/522d7ffb3b17443da13c0911e05516c2.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.427,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Navy Chinos, White Oxford Shirt, Camel Coat\",\n  \"summary\": \"A professional, interview-ready look in your preferred navy, white and beige tones, with a smart camel coat for autumn warmth.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 128,\n      \"role\": \"bottom\",\n      \"reason\": \"Navy chinos match your colour preference, are business-appropriate and pair well with a white shirt.\"\n    },\n    {\n      \"wardrobe_item_id\": 126,\n      \"role\": \"top\",\n      \"reason\": \"White Oxford shirt provides crisp contrast to navy chinos, projecting confidence for an interview.\"\n    },\n    {\n      \"wardrobe_item_id\": 131,\n      \"role\": \"outerwear\",\n      \"reason\": \"Camel coat adds a polished layer, complements the navy and white palette, and is suitable for autumn business settings.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Tuck the shirt for a streamlined silhouette; keep accessories minimal to maintain focus on your qualifications.\"\n  ],\n  \"limitations\": [],\n  \"missing_categories\": [],\n  \"assumptions\": []\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 246,
+      "prompt_tokens": 1260,
+      "total_tokens": 1506
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.417
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_3fa45a9b9c91",
+    "occasion": "Work & Business",
+    "title": "Navy Chinos, White Oxford Shirt, Camel Coat",
+    "summary": "A professional, interview-ready look in your preferred navy, white and beige tones, with a smart camel coat for autumn warmth.",
+    "items": [
+     {
+      "wardrobe_item_id": 128,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Navy Chinos",
+      "subcategory": "Navy Chinos",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/1e0afbf2574943e5822a6782e75dd0a2.jpg",
+      "reason": "Navy chinos match your colour preference, are business-appropriate and pair well with a white shirt.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 126,
+      "role": "top",
+      "category": "Tops",
+      "title": "White Oxford Shirt",
+      "subcategory": "White Oxford Shirt",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/bffe8f57af674d2ea82e7361dfe5059c.jpg",
+      "reason": "White Oxford shirt provides crisp contrast to navy chinos, projecting confidence for an interview.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 131,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Camel Coat",
+      "subcategory": "Camel Coat",
+      "color_name": "Tan",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/522d7ffb3b17443da13c0911e05516c2.jpg",
+      "reason": "Camel coat adds a polished layer, complements the navy and white palette, and is suitable for autumn business settings.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Tuck the shirt for a streamlined silhouette; keep accessories minimal to maintain focus on your qualifications."
+    ],
+    "limitations": [],
+    "missing_categories": [],
+    "assumptions": [],
+    "is_complete": false,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.417,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Work & Business",
+     "time_of_day": "morning",
+     "season": "autumn",
+     "activity": "job interview",
+     "color_preferences": [
+      "navy",
+      "white",
+      "beige"
+     ],
+     "excluded_colors": [
+      "black"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 128,
+     "role": "bottom",
+     "title": "Navy Chinos",
+     "color": "Navy",
+     "reason": "Navy chinos match your colour preference, are business-appropriate and pair well with a white shirt."
+    },
+    {
+     "id": 126,
+     "role": "top",
+     "title": "White Oxford Shirt",
+     "color": "White",
+     "reason": "White Oxford shirt provides crisp contrast to navy chinos, projecting confidence for an interview."
+    },
+    {
+     "id": 131,
+     "role": "outerwear",
+     "title": "Camel Coat",
+     "color": "Tan",
+     "reason": "Camel coat adds a polished layer, complements the navy and white palette, and is suitable for autumn business settings."
+    }
+   ],
+   "hard_failures": [
+    "H4_incomplete_when_completable"
+   ],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 2,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S03_interview_no_black",
+   "repeat": 2,
+   "request": {
+    "occasion": "Work & Business",
+    "activity": "job interview",
+    "time_of_day": "morning",
+    "season": "autumn",
+    "excluded_colors": [
+     "black"
+    ],
+    "color_preferences": [
+     "navy",
+     "white",
+     "beige"
+    ],
+    "language": "en"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [
+     "Black"
+    ],
+    "language": "en"
+   },
+   "wardrobe": {
+    "132": {
+     "title": "Black Silk Blouse",
+     "category": "Tops",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Evening"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/102a54b87ccf4e708232d68e9801e64d.jpg"
+    },
+    "133": {
+     "title": "White Oxford Shirt",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/5790a33f782942c38b49a767b79126c3.jpg"
+    },
+    "134": {
+     "title": "Black Tailored Trousers",
+     "category": "Bottoms",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Business Formal"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/5ebba550dbfc407483332131d5a6d548.jpg"
+    },
+    "135": {
+     "title": "Navy Chinos",
+     "category": "Bottoms",
+     "color": "Navy Blue",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/3d3d64b298dc4c709974f3115d9a9ce5.jpg"
+    },
+    "136": {
+     "title": "Black Oxfords",
+     "category": "Footwear",
+     "color": "Black",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/89f250a14ff4422ba56b8daad1c439b4.jpg"
+    },
+    "137": {
+     "title": "Brown Derbies",
+     "category": "Footwear",
+     "color": "Brown",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/e0325b6299eb40388c8d2ba118380b8c.jpg"
+    },
+    "138": {
+     "title": "Camel Coat",
+     "category": "Outerwear",
+     "color": "Camel",
+     "pattern": "Solid",
+     "occasions": [
+      "Work & Business"
+     ],
+     "seasonality": "Autumn",
+     "image_url": "https://cdn.example.com/eval/7258467ae76e4f1396f1e94c44c386db.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 2.878,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"Navy Chinos, White Oxford Shirt, Camel Coat\",\n  \"summary\": \"A professional, interview-ready look in your preferred navy, white and beige tones, with a smart camel coat for autumn warmth.\",\n  \"items\": [\n    {\n      \"wardrobe_item_id\": 135,\n      \"role\": \"bottom\",\n      \"reason\": \"Navy chinos fit the occasion, avoid black, and pair cleanly with a white shirt.\"\n    },\n    {\n      \"wardrobe_item_id\": 133,\n      \"role\": \"top\",\n      \"reason\": \"White Oxford shirt adds crisp contrast, matches your colour preference and looks polished for a job interview.\"\n    },\n    {\n      \"wardrobe_item_id\": 138,\n      \"role\": \"outerwear\",\n      \"reason\": \"Camel coat introduces the third preferred colour, provides autumn-appropriate warmth, and elevates the business look.\"\n    }\n  ],\n  \"styling_notes\": [\n    \"Tuck the shirt for a streamlined silhouette; add a navy tie if you have one.\",\n    \"Polish the brown derbies for a finished professional appearance.\"\n  ],\n  \"limitations\": [\n    \"No black items were used as requested.\",\n    \"Footwear options are limited to brown derbies; black oxfords are excluded per colour restriction.\"\n  ],\n  \"missing_categories\": [\n    \"Footwear\"\n  ],\n  \"assumptions\": [\n    \"The interview is in a business setting where a coat is appropriate for autumn weather.\"\n  ]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 318,
+      "prompt_tokens": 1260,
+      "total_tokens": 1578
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 2.868
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_a6cb58da098c",
+    "occasion": "Work & Business",
+    "title": "Navy Chinos, White Oxford Shirt, Camel Coat",
+    "summary": "A professional, interview-ready look in your preferred navy, white and beige tones, with a smart camel coat for autumn warmth.",
+    "items": [
+     {
+      "wardrobe_item_id": 135,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "Navy Chinos",
+      "subcategory": "Navy Chinos",
+      "color_name": "Navy",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/3d3d64b298dc4c709974f3115d9a9ce5.jpg",
+      "reason": "Navy chinos fit the occasion, avoid black, and pair cleanly with a white shirt.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 133,
+      "role": "top",
+      "category": "Tops",
+      "title": "White Oxford Shirt",
+      "subcategory": "White Oxford Shirt",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/5790a33f782942c38b49a767b79126c3.jpg",
+      "reason": "White Oxford shirt adds crisp contrast, matches your colour preference and looks polished for a job interview.",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 138,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "Camel Coat",
+      "subcategory": "Camel Coat",
+      "color_name": "Tan",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/7258467ae76e4f1396f1e94c44c386db.jpg",
+      "reason": "Camel coat introduces the third preferred colour, provides autumn-appropriate warmth, and elevates the business look.",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "Tuck the shirt for a streamlined silhouette; add a navy tie if you have one.",
+     "Polish the brown derbies for a finished professional appearance."
+    ],
+    "limitations": [
+     "No black items were used as requested.",
+     "Footwear options are limited to brown derbies; black oxfords are excluded per colour restriction."
+    ],
+    "missing_categories": [
+     "Footwear"
+    ],
+    "assumptions": [
+     "The interview is in a business setting where a coat is appropriate for autumn weather."
+    ],
+    "is_complete": false,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 2.868,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Work & Business",
+     "time_of_day": "morning",
+     "season": "autumn",
+     "activity": "job interview",
+     "color_preferences": [
+      "navy",
+      "white",
+      "beige"
+     ],
+     "excluded_colors": [
+      "black"
+     ],
+     "language": "en"
+    }
+   },
+   "final_items": [
+    {
+     "id": 135,
+     "role": "bottom",
+     "title": "Navy Chinos",
+     "color": "Navy",
+     "reason": "Navy chinos fit the occasion, avoid black, and pair cleanly with a white shirt."
+    },
+    {
+     "id": 133,
+     "role": "top",
+     "title": "White Oxford Shirt",
+     "color": "White",
+     "reason": "White Oxford shirt adds crisp contrast, matches your colour preference and looks polished for a job interview."
+    },
+    {
+     "id": 138,
+     "role": "outerwear",
+     "title": "Camel Coat",
+     "color": "Tan",
+     "reason": "Camel coat introduces the third preferred colour, provides autumn-appropriate warmth, and elevates the business look."
+    }
+   ],
+   "hard_failures": [
+    "H4_incomplete_when_completable"
+   ],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 2,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S12_arabic_casual_weekend",
+   "repeat": 1,
+   "request": {
+    "occasion": "Casual",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "location": "نزهة في الحديقة مع العائلة",
+    "style_preferences": [
+     "مريح",
+     "بسيط"
+    ],
+    "language": "ar"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "ar"
+   },
+   "wardrobe": {
+    "139": {
+     "title": "قميص كتان أبيض",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/8e1029093bea4a3bbfaeb6c2ef3dc68b.jpg"
+    },
+    "140": {
+     "title": "تيشيرت رمادي",
+     "category": "Tops",
+     "color": "Grey",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/4feaba35d0c74075a999eb32fa279d0c.jpg"
+    },
+    "141": {
+     "title": "بنطلون جينز أزرق",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/560a4474e7e94164841882cc0c514899.jpg"
+    },
+    "142": {
+     "title": "بنطلون كاكي",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/293f99644c104831b1aea1daa63787e6.jpg"
+    },
+    "143": {
+     "title": "حذاء رياضي أبيض",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/adaa0cb7211f4528a369da015a2f5a89.jpg"
+    },
+    "144": {
+     "title": "جاكيت جينز",
+     "category": "Outerwear",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/eb5a30a355f74c29808fdf0259855171.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.726,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"ملابس نزهة عائلية مريحة\",\n  \"summary\": \"تيشيرت رمادي مع بنطلون كاكي وجاكيت جينز أزرق مع حذاء رياضي أبيض لنزهة عائلية مريحة في الحديقة\",\n  \"items\": [\n    {\"wardrobe_item_id\": 140, \"role\": \"top\", \"reason\": \"تيشيرت رمادي مريح وبسيط مناسب للنزهة العائلية\"},\n    {\"wardrobe_item_id\": 142, \"role\": \"bottom\", \"reason\": \"بنطلون كاكي بسيط يتناسب مع التيشيرت الرمادي والجاكيت الجينز\"},\n    {\"wardrobe_item_id\": 144, \"role\": \"outerwear\", \"reason\": \"جاكيت جينز أزرق يضيف طبقة خفيفة مناسبة للطقس الربيعي\"},\n    {\"wardrobe_item_id\": 143, \"role\": \"footwear\", \"reason\": \"حذاء رياضي أبيض مريح ومتعدد الاستخدامات للمشي في الحديقة\"}\n  ],\n  \"styling_notes\": [\"اختر قبعة شمسية إذا كان الطقس حارًا\"],\n  \"limitations\": [\"لا توجد ملابس رسمية في الخزانة\"],\n  \"missing_categories\": [],\n  \"assumptions\": [\"الطقس معتدل في الربيع\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 442,
+      "prompt_tokens": 1299,
+      "total_tokens": 1741
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.715
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_f1e415231d2b",
+    "occasion": "Casual",
+    "title": "ملابس نزهة عائلية مريحة",
+    "summary": "تيشيرت رمادي مع بنطلون كاكي وجاكيت جينز أزرق مع حذاء رياضي أبيض لنزهة عائلية مريحة في الحديقة",
+    "items": [
+     {
+      "wardrobe_item_id": 140,
+      "role": "top",
+      "category": "Tops",
+      "title": "تيشيرت رمادي",
+      "subcategory": "تيشيرت رمادي",
+      "color_name": "Grey",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/4feaba35d0c74075a999eb32fa279d0c.jpg",
+      "reason": "تيشيرت رمادي مريح وبسيط مناسب للنزهة العائلية",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 142,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "بنطلون كاكي",
+      "subcategory": "بنطلون كاكي",
+      "color_name": "Beige",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/293f99644c104831b1aea1daa63787e6.jpg",
+      "reason": "بنطلون كاكي بسيط يتناسب مع التيشيرت الرمادي والجاكيت الجينز",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 144,
+      "role": "outerwear",
+      "category": "Outerwear",
+      "title": "جاكيت جينز",
+      "subcategory": "جاكيت جينز",
+      "color_name": "Blue",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/eb5a30a355f74c29808fdf0259855171.jpg",
+      "reason": "جاكيت جينز أزرق يضيف طبقة خفيفة مناسبة للطقس الربيعي",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 143,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "حذاء رياضي أبيض",
+      "subcategory": "حذاء رياضي أبيض",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/adaa0cb7211f4528a369da015a2f5a89.jpg",
+      "reason": "حذاء رياضي أبيض مريح ومتعدد الاستخدامات للمشي في الحديقة",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "اختر قبعة شمسية إذا كان الطقس حارًا"
+    ],
+    "limitations": [
+     "لا توجد ملابس رسمية في الخزانة"
+    ],
+    "missing_categories": [],
+    "assumptions": [
+     "الطقس معتدل في الربيع"
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.715,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "location": "نزهة في الحديقة مع العائلة",
+     "style_preferences": [
+      "مريح",
+      "بسيط"
+     ],
+     "language": "ar"
+    }
+   },
+   "final_items": [
+    {
+     "id": 140,
+     "role": "top",
+     "title": "تيشيرت رمادي",
+     "color": "Grey",
+     "reason": "تيشيرت رمادي مريح وبسيط مناسب للنزهة العائلية"
+    },
+    {
+     "id": 142,
+     "role": "bottom",
+     "title": "بنطلون كاكي",
+     "color": "Beige",
+     "reason": "بنطلون كاكي بسيط يتناسب مع التيشيرت الرمادي والجاكيت الجينز"
+    },
+    {
+     "id": 144,
+     "role": "outerwear",
+     "title": "جاكيت جينز",
+     "color": "Blue",
+     "reason": "جاكيت جينز أزرق يضيف طبقة خفيفة مناسبة للطقس الربيعي"
+    },
+    {
+     "id": 143,
+     "role": "footwear",
+     "title": "حذاء رياضي أبيض",
+     "color": "White",
+     "reason": "حذاء رياضي أبيض مريح ومتعدد الاستخدامات للمشي في الحديقة"
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 3,
+    "pattern_discipline": 5,
+    "explanation_quality": 4,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  },
+  {
+   "scenario_id": "S12_arabic_casual_weekend",
+   "repeat": 2,
+   "request": {
+    "occasion": "Casual",
+    "time_of_day": "afternoon",
+    "season": "spring",
+    "location": "نزهة في الحديقة مع العائلة",
+    "style_preferences": [
+     "مريح",
+     "بسيط"
+    ],
+    "language": "ar"
+   },
+   "expect": {
+    "completable": true,
+    "banned_families": [],
+    "language": "ar"
+   },
+   "wardrobe": {
+    "145": {
+     "title": "قميص كتان أبيض",
+     "category": "Tops",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/467fd93630494569aa4d7bb4221a9b45.jpg"
+    },
+    "146": {
+     "title": "تيشيرت رمادي",
+     "category": "Tops",
+     "color": "Grey",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Lounge"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/5b8d33fd4f584072a129ffb117ae8dc3.jpg"
+    },
+    "147": {
+     "title": "بنطلون جينز أزرق",
+     "category": "Bottoms",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/a0f70e462dcb4299954a38ae2584ec63.jpg"
+    },
+    "148": {
+     "title": "بنطلون كاكي",
+     "category": "Bottoms",
+     "color": "Beige",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual",
+      "Smart Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/ce6ef538ecf04fc69eb8f90f30716689.jpg"
+    },
+    "149": {
+     "title": "حذاء رياضي أبيض",
+     "category": "Footwear",
+     "color": "White",
+     "pattern": "Solid",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "All-Season",
+     "image_url": "https://cdn.example.com/eval/286666a033384d8b90d9c3c8c3845f46.jpg"
+    },
+    "150": {
+     "title": "جاكيت جينز",
+     "category": "Outerwear",
+     "color": "Blue",
+     "pattern": "Denim Wash",
+     "occasions": [
+      "Casual"
+     ],
+     "seasonality": "Spring",
+     "image_url": "https://cdn.example.com/eval/cacc4ae00340482784bbf5653904a18c.jpg"
+    }
+   },
+   "http_status": 200,
+   "latency_s": 3.942,
+   "model_calls": [
+    {
+     "attempts": 1,
+     "raw_content": "{\n  \"title\": \"لباس عائلي بسيط في الحديقة\",\n  \"summary\": \"تيشيرت رمادي مع بنطلون كاكي وحذاء رياضي أبيض لنزهة عائلية مريحة في الحديقة بالربيع\",\n  \"items\": [\n    {\"wardrobe_item_id\": 146, \"role\": \"top\", \"reason\": \"تيشيرت رمادي مريح يناسب النزهة العائلية والطقس الربيعي\"},\n    {\"wardrobe_item_id\": 148, \"role\": \"bottom\", \"reason\": \"بنطلون كاكي بسيط يتناسب مع التيشيرت ويوفر راحة للمشي في الحديقة\"},\n    {\"wardrobe_item_id\": 149, \"role\": \"footwear\", \"reason\": \"حذاء رياضي أبيض مريح ومناسب للمشي في الحديقة ويضيف لمسة نظافة\"}\n  ],\n  \"styling_notes\": [\"إضافة قبعة شمسية إذا كان الطقس حارًا\", \"استخدام حقيبة ظهر لحمل الأشياء الضرورية\"],\n  \"limitations\": [\"لا توجد ملابس خارجية في الخزانة، يمكن إضافة جاكيت جينز إذا كان الطقس باردًا\"],\n  \"missing_categories\": [\"Outerwear\"],\n  \"assumptions\": [\"الطقس معتدل ومشمس في الظهيرة\"]\n}",
+     "served_model_id": "ibm/granite-4-h-small",
+     "usage": {
+      "completion_tokens": 454,
+      "prompt_tokens": 1299,
+      "total_tokens": 1753
+     },
+     "finish_reason": "stop",
+     "ok": true,
+     "latency_s": 3.935
+    }
+   ],
+   "response": {
+    "outfit_id": "wx_b105b3c4b7d5",
+    "occasion": "Casual",
+    "title": "لباس عائلي بسيط في الحديقة",
+    "summary": "تيشيرت رمادي مع بنطلون كاكي وحذاء رياضي أبيض لنزهة عائلية مريحة في الحديقة بالربيع",
+    "items": [
+     {
+      "wardrobe_item_id": 146,
+      "role": "top",
+      "category": "Tops",
+      "title": "تيشيرت رمادي",
+      "subcategory": "تيشيرت رمادي",
+      "color_name": "Grey",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/5b8d33fd4f584072a129ffb117ae8dc3.jpg",
+      "reason": "تيشيرت رمادي مريح يناسب النزهة العائلية والطقس الربيعي",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 148,
+      "role": "bottom",
+      "category": "Bottoms",
+      "title": "بنطلون كاكي",
+      "subcategory": "بنطلون كاكي",
+      "color_name": "Beige",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/ce6ef538ecf04fc69eb8f90f30716689.jpg",
+      "reason": "بنطلون كاكي بسيط يتناسب مع التيشيرت ويوفر راحة للمشي في الحديقة",
+      "analysis_source": null,
+      "ai_confidence": null
+     },
+     {
+      "wardrobe_item_id": 149,
+      "role": "footwear",
+      "category": "Footwear",
+      "title": "حذاء رياضي أبيض",
+      "subcategory": "حذاء رياضي أبيض",
+      "color_name": "White",
+      "color_hex": "#777777",
+      "image_url": "https://cdn.example.com/eval/286666a033384d8b90d9c3c8c3845f46.jpg",
+      "reason": "حذاء رياضي أبيض مريح ومناسب للمشي في الحديقة ويضيف لمسة نظافة",
+      "analysis_source": null,
+      "ai_confidence": null
+     }
+    ],
+    "styling_notes": [
+     "إضافة قبعة شمسية إذا كان الطقس حارًا",
+     "استخدام حقيبة ظهر لحمل الأشياء الضرورية"
+    ],
+    "limitations": [
+     "لا توجد ملابس خارجية في الخزانة، يمكن إضافة جاكيت جينز إذا كان الطقس باردًا"
+    ],
+    "missing_categories": [
+     "Outerwear"
+    ],
+    "assumptions": [
+     "الطقس معتدل ومشمس في الظهيرة"
+    ],
+    "is_complete": true,
+    "source": "watsonx",
+    "ai_generated": true,
+    "model_id": "ibm/granite-4-h-small",
+    "prompt_version": "wx-stylist-1.0",
+    "fallback_reason": null,
+    "latency_seconds": 3.935,
+    "rejected_references": [],
+    "context": {
+     "occasion": "Casual",
+     "time_of_day": "afternoon",
+     "season": "spring",
+     "location": "نزهة في الحديقة مع العائلة",
+     "style_preferences": [
+      "مريح",
+      "بسيط"
+     ],
+     "language": "ar"
+    }
+   },
+   "final_items": [
+    {
+     "id": 146,
+     "role": "top",
+     "title": "تيشيرت رمادي",
+     "color": "Grey",
+     "reason": "تيشيرت رمادي مريح يناسب النزهة العائلية والطقس الربيعي"
+    },
+    {
+     "id": 148,
+     "role": "bottom",
+     "title": "بنطلون كاكي",
+     "color": "Beige",
+     "reason": "بنطلون كاكي بسيط يتناسب مع التيشيرت ويوفر راحة للمشي في الحديقة"
+    },
+    {
+     "id": 149,
+     "role": "footwear",
+     "title": "حذاء رياضي أبيض",
+     "color": "White",
+     "reason": "حذاء رياضي أبيض مريح ومناسب للمشي في الحديقة ويضيف لمسة نظافة"
+    }
+   ],
+   "hard_failures": [],
+   "rubric": {
+    "constraint_compliance": 5,
+    "inventory_fidelity": 5,
+    "completeness": 5,
+    "seasonal_appropriateness": 5,
+    "colour_coordination": 5,
+    "pattern_discipline": 5,
+    "explanation_quality": 5,
+    "occasion_fit": 5,
+    "garment_compatibility_REVIEWER": null,
+    "visual_coherence_REVIEWER": null,
+    "overall_usefulness_REVIEWER": null
+   }
+  }
+ ]
+}

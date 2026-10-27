@@ -49,6 +49,39 @@ ROLE_TO_CATEGORY = {v: k for k, v in CATEGORY_TO_ROLE.items()}
 CORE_ROLES = ("top", "bottom", "footwear")
 MAX_CLOSET_ITEMS = 60  # prompt-size guard; newest items first beyond this
 
+# Rule-based fallback copy. Added 2026-10-27 after the quality evaluation showed
+# the fallback answered Arabic requests in English (3/3 Arabic scenarios).
+_FALLBACK_TEXT = {
+    "en": {
+        "title": "{occasion} from your wardrobe",
+        "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. "
+                   "Configure watsonx.ai for a reasoned, context-specific recommendation.",
+        "fallback_notice": "This outfit was assembled by CONFIT's rule-based matcher, not by the AI stylist "
+                           "(the language model was unavailable). Reasons are generic.",
+        "missing": "No {category} in your wardrobe to complete this look.",
+        "no_occasion_match": "Nothing in your wardrobe is tagged for {occasion}; this is the closest match, not a fit.",
+        "r_tagged": "tagged for {occasion}", "r_season": "suits {season}", "r_favourite": "one of your favourites",
+        "r_neutral": "{color} pairs easily", "r_best_available": "{title}: best available {role} for this request.",
+    },
+    "ar": {
+        "title": "إطلالة {occasion} من خزانتك",
+        "summary": "قطع اختيرت وفق وسوم المناسبة والموسم والمفضّلات والألوان المحايدة. "
+                   "فعّل watsonx.ai للحصول على توصية مُعلَّلة ومناسبة للسياق.",
+        "fallback_notice": "جُمعت هذه الإطلالة بواسطة المُطابِق القاعدي في CONFIT وليس بواسطة المصمم الذكي "
+                           "(النموذج اللغوي غير متاح). الأسباب عامة.",
+        "missing": "لا يوجد {category} في خزانتك لإكمال هذه الإطلالة.",
+        "no_occasion_match": "لا توجد قطعة في خزانتك موسومة لمناسبة {occasion}؛ هذه أقرب مطابقة وليست ملائمة تمامًا.",
+        "r_tagged": "موسومة لمناسبة {occasion}", "r_season": "مناسبة لفصل {season}", "r_favourite": "من مفضّلاتك",
+        "r_neutral": "اللون {color} سهل التنسيق", "r_best_available": "{title}: أفضل {role} متاح لهذا الطلب.",
+    },
+}
+_CATEGORY_AR = {"Tops": "قطعة علوية", "Bottoms": "قطعة سفلية", "Dresses": "فستان", "Footwear": "حذاء",
+                "Outerwear": "قطعة خارجية", "Accessories": "إكسسوار"}
+_ROLE_AR = {"top": "قطعة علوية", "bottom": "قطعة سفلية", "dress": "فستان", "footwear": "حذاء",
+            "outerwear": "قطعة خارجية", "accessory": "إكسسوار"}
+_SEASON_AR = {"spring": "الربيع", "summer": "الصيف", "autumn": "الخريف", "winter": "الشتاء"}
+_COLOR_AR = {"Black": "الأسود", "White": "الأبيض", "Navy": "الكحلي", "Beige": "البيج", "Grey": "الرمادي", "Ivory": "العاجي"}
+
 
 def _loads(text: Optional[str]) -> List[Any]:
     try:
@@ -378,7 +411,9 @@ class WardrobeStylistService:
             roles_plan = ["dress", "footwear"]
         else:
             roles_plan = ["top", "bottom", "footwear"]
-        if season in ("autumn", "winter") or (req.time_of_day in ("evening", "night")):
+        # Evening alone is not a reason for a coat in summer (eval S04: a down
+        # parka was proposed for a 31 °C rooftop dinner).
+        if season in ("autumn", "winter") or (req.time_of_day in ("evening", "night") and season != "summer"):
             roles_plan.append("outerwear")
         for role in roles_plan:
             cands = by_role.get(role) or []
@@ -395,21 +430,30 @@ class WardrobeStylistService:
             ))
         present_roles = {p.role for p in picked}
         missing = self._missing_categories(items, present_roles)
-        limitations = [
-            "This outfit was assembled by CONFIT's rule-based matcher, not by the AI stylist "
-            "(the language model was unavailable). Reasons are generic.",
-        ] + [f"No {m.lower()} in your wardrobe to complete this look." for m in missing]
+        ar = req.language == "ar"
+        t = _FALLBACK_TEXT["ar" if ar else "en"]
+        limitations = [t["fallback_notice"]] + [
+            (t["missing"].format(category=_CATEGORY_AR.get(m, m)) if ar else t["missing"].format(category=m.lower()))
+            for m in missing
+        ]
+        # Nothing tagged for the occasion at all (eval S16: a suit was proposed
+        # for the gym without a word of warning).
+        by_id_all = {i.id: i for i in items}
+        occ_hits = sum(
+            1 for p in picked
+            if any(occasion_norm in str(o).lower() or str(o).lower() in occasion_norm
+                   for o in _loads(by_id_all[p.wardrobe_item_id].occasions))
+        )
+        if picked and occ_hits == 0:
+            limitations.append(t["no_occasion_match"].format(occasion=req.occasion))
         if colour_dropped:
             limitations.append(self._color_limitation(colour_dropped, banned, req.language))
         limitations.extend(self._unrecognised_limitation(req))
         return OutfitRecommendation(
             outfit_id=f"det_{uuid.uuid4().hex[:12]}",
             occasion=req.occasion,
-            title=f"{req.occasion} from your wardrobe",
-            summary=(
-                "Pieces chosen by occasion tags, season, favourites and neutral colours. "
-                "Configure watsonx.ai for a reasoned, context-specific recommendation."
-            ),
+            title=t["title"].format(occasion=req.occasion),
+            summary=t["summary"],
             items=picked,
             styling_notes=[],
             limitations=limitations,
@@ -476,18 +520,20 @@ class WardrobeStylistService:
 
     @staticmethod
     def _rule_reason(it: Any, role: str, req: OutfitRecommendationRequest) -> str:
+        t = _FALLBACK_TEXT["ar" if req.language == "ar" else "en"]
         bits = []
         occ = [str(o) for o in _loads(it.occasions)]
         if any(req.occasion.lower() in o.lower() or o.lower() in req.occasion.lower() for o in occ):
-            bits.append(f"tagged for {req.occasion.lower()}")
+            bits.append(t["r_tagged"].format(occasion=req.occasion if req.language == "ar" else req.occasion.lower()))
         if req.season and (getattr(it, "seasonality", "") or "").lower() in (req.season, "all-season"):
-            bits.append(f"suits {req.season}")
+            bits.append(t["r_season"].format(season=_SEASON_AR.get(req.season, req.season) if req.language == "ar" else req.season))
         if it.is_favorite:
-            bits.append("one of your favourites")
+            bits.append(t["r_favourite"])
         color = taxonomy.normalize_color(it.color_name)
         if color in ("Black", "White", "Navy", "Beige", "Grey", "Ivory"):
-            bits.append(f"{color.lower()} pairs easily")
-        return (f"{it.title}: " + ", ".join(bits)) if bits else f"{it.title}: best available {role} for this request."
+            bits.append(t["r_neutral"].format(color=_COLOR_AR.get(color, color) if req.language == "ar" else color.lower()))
+        sep = "، " if req.language == "ar" else ", "
+        return (f"{it.title}: " + sep.join(bits)) if bits else t["r_best_available"].format(title=it.title, role=_ROLE_AR.get(role, role) if req.language == "ar" else role)
 
     @staticmethod
     def _str(v: Any, limit: int) -> Optional[str]:

@@ -82,6 +82,18 @@ Targets not relaxed. Live-Granite / staging rerun: NOT RUN (blockers unchanged).
 
 Other jobs on `36a372a`: frontend, stylist drawer browser gate, production parity, gitleaks — **success**; release gate — failure (production 402, unchanged); Workers Builds — failure (external, unchanged).
 
+### 00.4c Git & CI — final state of this pass
+
+Branch `feat/watsonx-granite-stylist`, commits `36a372a` (fixes + docs) and `a8b3bb2`
+(CI follow-up), pushed to origin (remote SHA verified equal; token never persisted in git
+config; author `OmarAhmed-123 <omarsafealden@gmail.com>`). PR #387 head `a8b3bb2`, state
+open, `mergeable_state: blocked`. CI on `a8b3bb2` (checked ≈ 16:35 UTC): backend
+(dependency gate, **pip-audit clean**, full suite, mutation gates) **success**; frontend
+success; postgres migration chain + schema gate (incl. the new seed-lock tests on real
+PostgreSQL) **success**; stylist drawer browser gate success; production parity success;
+gitleaks success; release gate **failure** (production 402 — external); Cloudflare Workers
+Builds **failure** (external app, unchanged). No merge, deploy, new branch or force-push.
+
 ### 00.5 Test results this pass (all executed 2026-10-27, local)
 
 | Suite | Result |

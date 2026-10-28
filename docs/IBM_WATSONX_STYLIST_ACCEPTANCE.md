@@ -139,3 +139,37 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 | FR-22 | Server-computed `fit_status` ∈ {suitable, partial, unsuitable}; unsuitable ⇒ insufficiency statement first, honest summary, no fabricated performance claims; UI badge EN/AR | VERIFIED (mocked) + LIVE S16 | schema `OutfitRecommendation.fit_status`; `_fit_status`, `_UNSUPPORTED_CLAIM_RE`; `WardrobeStylistPanel.tsx` badge; i18n `fit_partial`/`fit_unsuitable`; tests `test_d11_*` |
 | FR-23 | Model id/description mix-ups that empty a core position are disclosed | VERIFIED (mocked) | `role_collision` limitation; `test_d12_role_collision_is_explained`; live S01 2026-10-28 |
 | NFR | Fabricated-attribute detection | PARTIAL — keyword heuristic only (`H10` in eval harness); human confirmation required | `scripts/eval/wardrobe_stylist_quality_eval.py` |
+
+
+## Addendum 2026-10-28 (second session) — D12 + classified requirements matrix
+
+| ID | Requirement | Status | Evidence |
+|---|---|---|---|
+| FR-24 | Empty core positions after validation are completed deterministically with an eligible wardrobe item, labelled `selected_by="rule_matcher"` and disclosed; impossible completion ⇒ explicit incomplete | VERIFIED (mocked) + LIVE (S03/S09/S14) | `_complete_core_positions`, `_rule_score`; tests `test_d12_*` (5); UI badge test |
+| FR-25 | A reason describing a different garment than the cited id is never shown next to that item | VERIFIED (mocked) + LIVE (S09) | `_validate_selection` mismatch branch, `reason_mismatch` limitation |
+| FR-26 | Arabic prose contains no English occasion enum values | VERIFIED (deterministic eval S12/S14) | `_OCCASION_AR`, `_occasion_label` |
+
+### Requirements matrix (classification per master prompt §3)
+| Requirement | Classification | Current state | Evidence | Action | Acceptance test |
+|---|---|---|---|---|---|
+| watsonx text inference with a verified supported model | Required | Implemented + tested (live) | 70 live calls 10-27/28, served `ibm/granite-4-h-small` | none | `test_watsonx_stylist.py`, live eval H6=0 |
+| Wardrobe-grounded recommendations with stable ids | Required | Implemented + tested | H1/H8 = 0 across all runs | none | eval H1/H8; scenario G test |
+| Server-side hard-constraint enforcement | Required | Implemented + tested | H3 = 0; 3 model breaches caught | none | `test_stylist_colour_constraints_eval.py` |
+| ID ↔ description ↔ category ↔ image mapping | Required | Implemented + tested (D12) | FR-24/25 | none | `test_d12_*`, H8 |
+| Honest unsuitable/insufficient wardrobes | Required | Implemented + tested (D11) | FR-22; live S16 | none | `test_d11_*`, H12 |
+| Consistent summary/reasons/limitations/outfit | Required | Implemented + tested (D10) | FR-21; H11 = 0 | none | `test_d10_*` |
+| EN + AR behaviour | Required | Implemented; **native review pending** | H5 = 0; Arabic sheet | native reviewer | sheet decisions |
+| Regression tests D10/D11/D12 | Required | Implemented | 13 tests in `test_stylist_explanation_consistency.py` | none | CI backend |
+| CI + security checks | Required | Implemented | gitleaks ✓, app jobs ✓ on HEAD | none | CI |
+| Production-safe migrations | Required | CI-validated chain; **remote not executed** | migration gate ✓; Neon quota-locked | account owner | staging alembic upgrade + smoke |
+| Error handling + rule-based fallback labelled | Required | Implemented + tested | `source=deterministic_fallback`, `ai_generated=false` | none | scenario J test |
+| Evidence-backed quality evaluation | Required | Implemented (automated + assistant); **human pending** | eval JSONs, report §7–8 | fashion reviewer | review sheet |
+| Deployment + DB blockers resolved | Required for production | **Blocked** (Neon quota, Vercel 402, Cloudflare build) | probes 2026-10-28 09:14Z | account owner | /health 200; DSN connects |
+| Approved thresholds | Required for production | **Pending product owner** | report §4/§8 | product owner | sign-off recorded |
+| Human fashion + Arabic review | Required for production | **Pending / blocked** | both sheets | reviewers | approval status set |
+| PostgreSQL benchmark vs targets | Required for production | **Blocked** (no PG rig; historical p99 11.5 s) | `docs/qa/LOAD_TEST_STYLIST.md` | eng + infra | p95 ≤ 6.5 / p99 ≤ 8 or documented gap |
+| Manual AT testing | Required for production | **Blocked** (no NVDA/VoiceOver platform) | `docs/qa/STYLIST_A11Y_REPORT.md` | QA | documented runs |
+| Staging smoke + release gate | Required for production | **Blocked** (gate INDETERMINATE: prod /health 402) | CI log | account owner | gate exit 0 |
+| Rollback / incident plan | Required for production | Partially documented | `docs/qa/MIGRATION_0047_0048_CHECKLIST.md` | eng | reviewed runbook |
+| Image-based wardrobe recognition (Granite Vision) | Conditional | **Blocked** — no Granite vision model in any of 6 watsonx regions (2026-10-28); non-Granite `llama-4-maverick` configured but inactive | `docs/GRANITE_VISION_AVAILABILITY_INVESTIGATION.md` | product owner decision | real-image classification tests |
+| Virtual try-on, e-commerce recs, chat follow-ups, body-shape personalisation | Optional / future | Not implemented | — | product owner | — |

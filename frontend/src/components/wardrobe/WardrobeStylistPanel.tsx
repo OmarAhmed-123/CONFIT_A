@@ -564,6 +564,15 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
                     <span className="absolute start-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
                       {t(`wardrobe_stylist.roles.${item.role}`)}
                     </span>
+                    {item.selected_by === "rule_matcher" && (
+                      <span
+                        data-testid="stylist-item-rule-matched"
+                        className="absolute end-3 top-3 rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[10px] font-semibold text-amber-900"
+                        title={t("wardrobe_stylist.rule_matched_hint")}
+                      >
+                        {t("wardrobe_stylist.rule_matched")}
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-1 flex-col p-4">
                     <p className="font-serif text-base font-bold text-brand-charcoal">{item.title}</p>

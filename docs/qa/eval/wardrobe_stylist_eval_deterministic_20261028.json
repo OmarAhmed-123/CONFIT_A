@@ -1,6 +1,6 @@
 {
  "summary": {
-  "generated_at": "2026-10-28T02:07:50+00:00",
+  "generated_at": "2026-10-28T09:22:08+00:00",
   "mode": "deterministic",
   "model_id_configured": null,
   "served_model_ids": [],
@@ -14,6 +14,7 @@
   "inventory_hallucination_rate": 0.0,
   "model_failure_rate": 0.0,
   "rubric_means_1to5": {
+   "rule_matcher_items_REVIEWER_NOTE": null,
    "constraint_compliance": 5,
    "inventory_fidelity": 5,
    "completeness": 5,
@@ -23,10 +24,12 @@
    "explanation_quality": 3,
    "occasion_fit": 4.94
   },
+  "rule_matcher_completed_items_total": 0,
+  "scenarios_with_rule_completion": 0,
   "latency_s": {
-   "p50": 0.005,
-   "max": 0.008,
-   "mean": 0.005
+   "p50": 0.007,
+   "max": 0.01,
+   "mean": 0.007
   },
   "model_call_attempts_total": 0,
   "model_calls_total": 0,
@@ -148,7 +151,7 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/a95d68c89fcd44ed96c1fc4586fd8988.jpg"
+     "image_url": "https://cdn.example.com/eval/d0b7c8af502f46a7a3cbd44e68456a6f.jpg"
     },
     "3": {
      "title": "White Cotton Tee",
@@ -160,7 +163,7 @@
       "Lounge"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/25a87e9f775c4aa39f404ad9e37bdadc.jpg"
+     "image_url": "https://cdn.example.com/eval/4617492e47fd472ca4d0004a2829b0cf.jpg"
     },
     "4": {
      "title": "Khaki Chinos",
@@ -172,7 +175,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/7935310737c74696852c56b162b3e17d.jpg"
+     "image_url": "https://cdn.example.com/eval/8b81174a2b044f59bf9163f1896e1681.jpg"
     },
     "5": {
      "title": "Dark Wash Jeans",
@@ -183,7 +186,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/d075a9d7d13248e4b9996ef68afaa3ea.jpg"
+     "image_url": "https://cdn.example.com/eval/9ada52016f8a4bc08921a84257610251.jpg"
     },
     "6": {
      "title": "Brown Leather Boots",
@@ -194,7 +197,7 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/6f6436cd06d24c119e4afa5e33fcb80c.jpg"
+     "image_url": "https://cdn.example.com/eval/2dc805772fbd4637a4831176f716e97b.jpg"
     },
     "7": {
      "title": "White Canvas Sneakers",
@@ -205,7 +208,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/f31da874631f4039a79a0b1cb6ebe7ed.jpg"
+     "image_url": "https://cdn.example.com/eval/5afd3095a7084afab91745e40f6956ae.jpg"
     },
     "8": {
      "title": "Olive Field Jacket",
@@ -216,14 +219,14 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/59a0eaf2dd5c45b086a70f598363d584.jpg"
+     "image_url": "https://cdn.example.com/eval/d6132e2356ed467b859f48e4e71b252c.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_1cdbff85b511",
+    "outfit_id": "det_bac8a24d2487",
     "occasion": "Casual",
     "title": "Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -236,10 +239,11 @@
       "subcategory": "White Cotton Tee",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/25a87e9f775c4aa39f404ad9e37bdadc.jpg",
+      "image_url": "https://cdn.example.com/eval/4617492e47fd472ca4d0004a2829b0cf.jpg",
       "reason": "White Cotton Tee: tagged for casual, suits autumn, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 4,
@@ -249,10 +253,11 @@
       "subcategory": "Khaki Chinos",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/7935310737c74696852c56b162b3e17d.jpg",
+      "image_url": "https://cdn.example.com/eval/8b81174a2b044f59bf9163f1896e1681.jpg",
       "reason": "Khaki Chinos: tagged for casual, suits autumn, beige pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 6,
@@ -262,10 +267,11 @@
       "subcategory": "Brown Leather Boots",
       "color_name": "Brown",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/6f6436cd06d24c119e4afa5e33fcb80c.jpg",
+      "image_url": "https://cdn.example.com/eval/2dc805772fbd4637a4831176f716e97b.jpg",
       "reason": "Brown Leather Boots: tagged for casual, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 8,
@@ -275,10 +281,11 @@
       "subcategory": "Olive Field Jacket",
       "color_name": "Green",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/59a0eaf2dd5c45b086a70f598363d584.jpg",
+      "image_url": "https://cdn.example.com/eval/d6132e2356ed467b859f48e4e71b252c.jpg",
       "reason": "Olive Field Jacket: tagged for casual, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -306,7 +313,8 @@
       "layered"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -340,6 +348,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -388,7 +397,7 @@
       "Business Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/ad5f1b090a924325a1655d221a4c9ff2.jpg"
+     "image_url": "https://cdn.example.com/eval/f7ddf07ab76345c48f233c4e6fbed581.jpg"
     },
     "10": {
      "title": "Light Blue Oxford",
@@ -399,7 +408,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/fa260d48abcc4c8e9c71d483a90587ac.jpg"
+     "image_url": "https://cdn.example.com/eval/d521c7f74f4e47fbbc10d36b16983bb6.jpg"
     },
     "11": {
      "title": "Graphic Band Tee",
@@ -410,7 +419,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/e2a53eff35084427925ce01ef87c780b.jpg"
+     "image_url": "https://cdn.example.com/eval/b291a664007f40f991aea4745a7ae55a.jpg"
     },
     "12": {
      "title": "Navy Wool Trousers",
@@ -422,7 +431,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/dbceac158fcb46dd9443a148967afdd7.jpg"
+     "image_url": "https://cdn.example.com/eval/9ca5dc15d1464496ba0d0e074e83b0ad.jpg"
     },
     "13": {
      "title": "Grey Flannel Trousers",
@@ -433,7 +442,7 @@
       "Work & Business"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/8a680b153f524be3a881f8fb6a98297a.jpg"
+     "image_url": "https://cdn.example.com/eval/f9f0b490cc7c44db9f18045670bdb5c3.jpg"
     },
     "14": {
      "title": "Ripped Jeans",
@@ -444,7 +453,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/8e27077b6e7c4312abda2d5375552a9c.jpg"
+     "image_url": "https://cdn.example.com/eval/004c7bb90e7f4ec4853bbcce1aa0b698.jpg"
     },
     "15": {
      "title": "Black Cap-Toe Oxfords",
@@ -456,7 +465,7 @@
       "Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/109d852310cd484cb0acde4727e4ee5f.jpg"
+     "image_url": "https://cdn.example.com/eval/fdf7e37e8ab043fe87790a17da1c78d9.jpg"
     },
     "16": {
      "title": "Running Shoes",
@@ -467,7 +476,7 @@
       "Active"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/944a792f3bb141648076a991194705a2.jpg"
+     "image_url": "https://cdn.example.com/eval/995aaa5a06c8478b904308a06522e3f5.jpg"
     },
     "17": {
      "title": "Navy Blazer",
@@ -479,14 +488,14 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/c9ef259f818b49fb8b3fdd130a435ade.jpg"
+     "image_url": "https://cdn.example.com/eval/c0138b43ad474df48930baf835668a95.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.006,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_f2fcdf6da555",
+    "outfit_id": "det_c5f3c0d168cd",
     "occasion": "Business Formal",
     "title": "Business Formal from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -499,10 +508,11 @@
       "subcategory": "White Poplin Shirt",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/ad5f1b090a924325a1655d221a4c9ff2.jpg",
+      "image_url": "https://cdn.example.com/eval/f7ddf07ab76345c48f233c4e6fbed581.jpg",
       "reason": "White Poplin Shirt: tagged for business formal, suits spring, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 12,
@@ -512,10 +522,11 @@
       "subcategory": "Navy Wool Trousers",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/dbceac158fcb46dd9443a148967afdd7.jpg",
+      "image_url": "https://cdn.example.com/eval/9ca5dc15d1464496ba0d0e074e83b0ad.jpg",
       "reason": "Navy Wool Trousers: tagged for business formal, suits spring, navy pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 15,
@@ -525,10 +536,11 @@
       "subcategory": "Black Cap-Toe Oxfords",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/109d852310cd484cb0acde4727e4ee5f.jpg",
+      "image_url": "https://cdn.example.com/eval/fdf7e37e8ab043fe87790a17da1c78d9.jpg",
       "reason": "Black Cap-Toe Oxfords: tagged for business formal, suits spring, black pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -557,7 +569,8 @@
       "white"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -584,6 +597,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -633,7 +647,7 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/2e410181fb4d475da9390de0359753b4.jpg"
+     "image_url": "https://cdn.example.com/eval/4958361c0b7946da841c6c6832f1fe44.jpg"
     },
     "19": {
      "title": "White Oxford Shirt",
@@ -644,7 +658,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/55cfac3ffa814dd594f1b18e0cda9be6.jpg"
+     "image_url": "https://cdn.example.com/eval/5e3c53d47a2f4812a0204f56fc05f8c7.jpg"
     },
     "20": {
      "title": "Black Tailored Trousers",
@@ -656,7 +670,7 @@
       "Business Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/dd49cc3d55ef47e5a2a1c46c525650c1.jpg"
+     "image_url": "https://cdn.example.com/eval/c0ec117dc96f484dbb8197d3b8571184.jpg"
     },
     "21": {
      "title": "Navy Chinos",
@@ -668,7 +682,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/30244e855f71430e8dd442e31113e97e.jpg"
+     "image_url": "https://cdn.example.com/eval/d3b7715ae99f4ae18ebf56782d3554f9.jpg"
     },
     "22": {
      "title": "Black Oxfords",
@@ -679,7 +693,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/f519760ad0da4a68a42ad946d523f649.jpg"
+     "image_url": "https://cdn.example.com/eval/e822e5d752a146bfaacc57dda499b46f.jpg"
     },
     "23": {
      "title": "Brown Derbies",
@@ -691,7 +705,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/b27ca30e22ee490d9d45f68596350a23.jpg"
+     "image_url": "https://cdn.example.com/eval/c9fe5e83dcf84c9f951bde71db3b4437.jpg"
     },
     "24": {
      "title": "Camel Coat",
@@ -702,14 +716,14 @@
       "Work & Business"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/8d00e7b4406647019c20e507c43ca56e.jpg"
+     "image_url": "https://cdn.example.com/eval/6889847747bd46869c6b8bef18229c02.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.006,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_fc365b7a99ad",
+    "outfit_id": "det_7618f5f61dfc",
     "occasion": "Work & Business",
     "title": "Work & Business from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -722,10 +736,11 @@
       "subcategory": "White Oxford Shirt",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/55cfac3ffa814dd594f1b18e0cda9be6.jpg",
+      "image_url": "https://cdn.example.com/eval/5e3c53d47a2f4812a0204f56fc05f8c7.jpg",
       "reason": "White Oxford Shirt: tagged for work & business, suits autumn, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 21,
@@ -735,10 +750,11 @@
       "subcategory": "Navy Chinos",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/30244e855f71430e8dd442e31113e97e.jpg",
+      "image_url": "https://cdn.example.com/eval/d3b7715ae99f4ae18ebf56782d3554f9.jpg",
       "reason": "Navy Chinos: tagged for work & business, suits autumn, navy pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 23,
@@ -748,10 +764,11 @@
       "subcategory": "Brown Derbies",
       "color_name": "Brown",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/b27ca30e22ee490d9d45f68596350a23.jpg",
+      "image_url": "https://cdn.example.com/eval/c9fe5e83dcf84c9f951bde71db3b4437.jpg",
       "reason": "Brown Derbies: tagged for work & business, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 24,
@@ -761,10 +778,11 @@
       "subcategory": "Camel Coat",
       "color_name": "Tan",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/8d00e7b4406647019c20e507c43ca56e.jpg",
+      "image_url": "https://cdn.example.com/eval/6889847747bd46869c6b8bef18229c02.jpg",
       "reason": "Camel Coat: tagged for work & business, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -797,7 +815,8 @@
       "black"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -831,6 +850,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -872,7 +892,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/5b52e6a33db0483796504a1a86852af3.jpg"
+     "image_url": "https://cdn.example.com/eval/5349ad7d5edd47289726e38c5cb7fcd6.jpg"
     },
     "26": {
      "title": "Chunky Wool Turtleneck",
@@ -883,7 +903,7 @@
       "Smart Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/4521f9850a3344f1857be946b033bd97.jpg"
+     "image_url": "https://cdn.example.com/eval/e6e19cda6ce8477788675267a2f0b625.jpg"
     },
     "27": {
      "title": "Tailored Linen Trousers",
@@ -894,7 +914,7 @@
       "Smart Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/6f705c6ef9dc4740ad2f2c9bde7747c3.jpg"
+     "image_url": "https://cdn.example.com/eval/8e08b1ca1c9a43d189248b86487f7b24.jpg"
     },
     "28": {
      "title": "Heavy Corduroy Trousers",
@@ -905,7 +925,7 @@
       "Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/6357a56a23b8446c9d5e54a1e16424c8.jpg"
+     "image_url": "https://cdn.example.com/eval/78fe775fa435422a851f1fa8eb628703.jpg"
     },
     "29": {
      "title": "Leather Loafers",
@@ -916,7 +936,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/4203b28b6d2c4de8a2ac9a1243f971eb.jpg"
+     "image_url": "https://cdn.example.com/eval/80bee4702d7c437aa7e0b60feef53f0e.jpg"
     },
     "30": {
      "title": "Shearling Boots",
@@ -927,7 +947,7 @@
       "Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/abcbee8f652245029323f7897cad22bd.jpg"
+     "image_url": "https://cdn.example.com/eval/3203cbf8d0a240e4a9d4028abb0224fd.jpg"
     },
     "31": {
      "title": "Down Parka",
@@ -938,14 +958,14 @@
       "Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/62d4b6d5b01f4c3f8ddc5c99f9fcceb0.jpg"
+     "image_url": "https://cdn.example.com/eval/af0a54074b3b4cdc85ca6d9bea6887bd.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_6d7828a78298",
+    "outfit_id": "det_2bc0b5f8b6c8",
     "occasion": "Smart Casual",
     "title": "Smart Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -958,10 +978,11 @@
       "subcategory": "Linen Camp Shirt",
       "color_name": "Ivory",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/5b52e6a33db0483796504a1a86852af3.jpg",
+      "image_url": "https://cdn.example.com/eval/5349ad7d5edd47289726e38c5cb7fcd6.jpg",
       "reason": "Linen Camp Shirt: tagged for smart casual, suits summer, ivory pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 27,
@@ -971,10 +992,11 @@
       "subcategory": "Tailored Linen Trousers",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/6f705c6ef9dc4740ad2f2c9bde7747c3.jpg",
+      "image_url": "https://cdn.example.com/eval/8e08b1ca1c9a43d189248b86487f7b24.jpg",
       "reason": "Tailored Linen Trousers: tagged for smart casual, suits summer, beige pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 29,
@@ -984,10 +1006,11 @@
       "subcategory": "Leather Loafers",
       "color_name": "Tan",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/4203b28b6d2c4de8a2ac9a1243f971eb.jpg",
+      "image_url": "https://cdn.example.com/eval/80bee4702d7c437aa7e0b60feef53f0e.jpg",
       "reason": "Leather Loafers: tagged for smart casual, suits summer",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -1012,7 +1035,8 @@
      "location": "rooftop restaurant, 31°C",
      "comfort_needs": "it will be hot and humid",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -1039,6 +1063,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -1081,7 +1106,7 @@
       "Smart Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/cd9661f7419c45b1b0b42bd7050e5dd9.jpg"
+     "image_url": "https://cdn.example.com/eval/9ffef681901c4b12824fa065ae7675a1.jpg"
     },
     "33": {
      "title": "Short-Sleeve Linen Shirt",
@@ -1092,7 +1117,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/8976b06eff1645b3ad4347efd1605274.jpg"
+     "image_url": "https://cdn.example.com/eval/2247e93cb43f4561b874c8b5fbec176e.jpg"
     },
     "34": {
      "title": "Grey Wool Trousers",
@@ -1103,7 +1128,7 @@
       "Work & Business"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/07b2cc176e554c299d4fd286793e867b.jpg"
+     "image_url": "https://cdn.example.com/eval/d69732ececb34e2598757ca6e8fc451f.jpg"
     },
     "35": {
      "title": "Linen Shorts",
@@ -1114,7 +1139,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/bc61ddf5a7ae498c9a005f1569ba7510.jpg"
+     "image_url": "https://cdn.example.com/eval/f9fc6c4ab40c431fa6c355488527c52a.jpg"
     },
     "36": {
      "title": "Leather Chelsea Boots",
@@ -1126,7 +1151,7 @@
       "Smart Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/09fd48b91d764a029fd213b90d7d4201.jpg"
+     "image_url": "https://cdn.example.com/eval/d4429670f85a47a59bd6bbd515e4a4c1.jpg"
     },
     "37": {
      "title": "Espadrilles",
@@ -1137,7 +1162,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/b7e9e909b9814c2ca9dd78e59cbb3fbd.jpg"
+     "image_url": "https://cdn.example.com/eval/bbd6de1039a645dfb40e2fbaa9e3016f.jpg"
     },
     "38": {
      "title": "Charcoal Wool Overcoat",
@@ -1148,14 +1173,14 @@
       "Work & Business"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/0f867b3e1f584d8d91a09eff871f2496.jpg"
+     "image_url": "https://cdn.example.com/eval/a0c367bcb4154697839dbea55fb6353f.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_7b29628c4829",
+    "outfit_id": "det_ab7e5df1cee9",
     "occasion": "Work & Business",
     "title": "Work & Business from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -1168,10 +1193,11 @@
       "subcategory": "Merino Crewneck",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/cd9661f7419c45b1b0b42bd7050e5dd9.jpg",
+      "image_url": "https://cdn.example.com/eval/9ffef681901c4b12824fa065ae7675a1.jpg",
       "reason": "Merino Crewneck: tagged for work & business, suits winter, navy pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 34,
@@ -1181,10 +1207,11 @@
       "subcategory": "Grey Wool Trousers",
       "color_name": "Grey",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/07b2cc176e554c299d4fd286793e867b.jpg",
+      "image_url": "https://cdn.example.com/eval/d69732ececb34e2598757ca6e8fc451f.jpg",
       "reason": "Grey Wool Trousers: tagged for work & business, suits winter, grey pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 36,
@@ -1194,10 +1221,11 @@
       "subcategory": "Leather Chelsea Boots",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/09fd48b91d764a029fd213b90d7d4201.jpg",
+      "image_url": "https://cdn.example.com/eval/d4429670f85a47a59bd6bbd515e4a4c1.jpg",
       "reason": "Leather Chelsea Boots: tagged for work & business, suits winter, black pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 38,
@@ -1207,10 +1235,11 @@
       "subcategory": "Charcoal Wool Overcoat",
       "color_name": "Grey",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/0f867b3e1f584d8d91a09eff871f2496.jpg",
+      "image_url": "https://cdn.example.com/eval/a0c367bcb4154697839dbea55fb6353f.jpg",
       "reason": "Charcoal Wool Overcoat: tagged for work & business, suits winter, grey pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -1235,7 +1264,8 @@
      "location": "city commute by metro",
      "comfort_needs": "walking 20 minutes outside",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -1269,6 +1299,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -1309,7 +1340,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/14b493d63cf24ab48c6c0f68bb4881e9.jpg"
+     "image_url": "https://cdn.example.com/eval/dc10aa0615394fd499f5cbaff4759983.jpg"
     },
     "40": {
      "title": "Stone Chinos",
@@ -1320,7 +1351,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/0322148b02e64679b5c2e3053b1ae38f.jpg"
+     "image_url": "https://cdn.example.com/eval/6066005065e7401bbc9cd9df30a4ac2c.jpg"
     },
     "41": {
      "title": "Navy Unstructured Blazer",
@@ -1331,14 +1362,14 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/ddbf1d8788be4b5e895b6f4a82bf93a5.jpg"
+     "image_url": "https://cdn.example.com/eval/4da1154294f3486297f3b1e26217da7c.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.004,
+   "latency_s": 0.009,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_7a26c7a8c569",
+    "outfit_id": "det_bc0be109f5df",
     "occasion": "Smart Casual",
     "title": "Smart Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -1351,10 +1382,11 @@
       "subcategory": "Striped Oxford Shirt",
       "color_name": "Blue",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/14b493d63cf24ab48c6c0f68bb4881e9.jpg",
+      "image_url": "https://cdn.example.com/eval/dc10aa0615394fd499f5cbaff4759983.jpg",
       "reason": "Striped Oxford Shirt: tagged for smart casual, suits spring",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 40,
@@ -1364,10 +1396,11 @@
       "subcategory": "Stone Chinos",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/0322148b02e64679b5c2e3053b1ae38f.jpg",
+      "image_url": "https://cdn.example.com/eval/6066005065e7401bbc9cd9df30a4ac2c.jpg",
       "reason": "Stone Chinos: tagged for smart casual, suits spring, beige pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -1393,7 +1426,8 @@
      "time_of_day": "afternoon",
      "season": "spring",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -1413,6 +1447,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -1453,7 +1488,7 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/f536564340d74cbe89a178300f4cdc34.jpg"
+     "image_url": "https://cdn.example.com/eval/2ecff7f5b2f84fab9a2ced78ae96a5e0.jpg"
     },
     "43": {
      "title": "Black Strappy Heels",
@@ -1466,7 +1501,7 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/680d932edc3c4b67a96a385ec14ce285.jpg"
+     "image_url": "https://cdn.example.com/eval/7b47cdde66cc475ea865ee75256922b8.jpg"
     },
     "44": {
      "title": "Gold Clutch",
@@ -1478,14 +1513,14 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/567b96cf8bb144aeb3cc7545cefc92fe.jpg"
+     "image_url": "https://cdn.example.com/eval/f80f2f68b6ab45b8bc5763194d11741a.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.004,
+   "latency_s": 0.008,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_ec7911b8b04e",
+    "outfit_id": "det_143639030993",
     "occasion": "Cocktail",
     "title": "Cocktail from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -1498,10 +1533,11 @@
       "subcategory": "Emerald Satin Midi Dress",
       "color_name": "Green",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/f536564340d74cbe89a178300f4cdc34.jpg",
+      "image_url": "https://cdn.example.com/eval/2ecff7f5b2f84fab9a2ced78ae96a5e0.jpg",
       "reason": "Emerald Satin Midi Dress: tagged for cocktail, suits summer",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 43,
@@ -1511,10 +1547,11 @@
       "subcategory": "Black Strappy Heels",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/680d932edc3c4b67a96a385ec14ce285.jpg",
+      "image_url": "https://cdn.example.com/eval/7b47cdde66cc475ea865ee75256922b8.jpg",
       "reason": "Black Strappy Heels: tagged for cocktail, suits summer, black pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -1538,7 +1575,8 @@
      "season": "summer",
      "location": "hotel terrace",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -1558,6 +1596,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -1597,7 +1636,7 @@
       "Lounge"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/8d620b559f02468eb2520323deafad14.jpg"
+     "image_url": "https://cdn.example.com/eval/1b40cf0b2b6b43eeb87667b89e07d691.jpg"
     },
     "46": {
      "title": "Black Joggers",
@@ -1610,14 +1649,14 @@
       "Active"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/997c3bccd02348bda4043956d4a9f3cc.jpg"
+     "image_url": "https://cdn.example.com/eval/a05c039033c840d187b9b3c23f4205b0.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.004,
+   "latency_s": 0.01,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_73f5478fac08",
+    "outfit_id": "det_73f99c6d83b6",
     "occasion": "Casual",
     "title": "Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -1630,10 +1669,11 @@
       "subcategory": "Grey Hoodie",
       "color_name": "Grey",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/8d620b559f02468eb2520323deafad14.jpg",
+      "image_url": "https://cdn.example.com/eval/1b40cf0b2b6b43eeb87667b89e07d691.jpg",
       "reason": "Grey Hoodie: tagged for casual, grey pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 46,
@@ -1643,10 +1683,11 @@
       "subcategory": "Black Joggers",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/997c3bccd02348bda4043956d4a9f3cc.jpg",
+      "image_url": "https://cdn.example.com/eval/a05c039033c840d187b9b3c23f4205b0.jpg",
       "reason": "Black Joggers: tagged for casual, black pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -1670,7 +1711,8 @@
     "context": {
      "occasion": "Casual",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -1690,6 +1732,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -1733,7 +1776,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/e463474b3ec747128d2c326cadf916a6.jpg"
+     "image_url": "https://cdn.example.com/eval/c494bcc7295942c694274b5f3cadd307.jpg"
     },
     "48": {
      "title": "Black Mock Neck",
@@ -1745,7 +1788,7 @@
       "Evening"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/3972ad04707a4a5584766340f76a8b1b.jpg"
+     "image_url": "https://cdn.example.com/eval/7081be12b3e14d2b91a3a0e2b66d9a58.jpg"
     },
     "49": {
      "title": "Sage Linen Shirt",
@@ -1757,7 +1800,7 @@
       "Smart Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/4b73dc2b269d4ba39065e5fe5cb7e864.jpg"
+     "image_url": "https://cdn.example.com/eval/0893a24912d241a4b5605e842e3b6480.jpg"
     },
     "50": {
      "title": "Striped Breton Top",
@@ -1768,7 +1811,7 @@
       "Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/15be6107c6bb4b7e8242c797c85dc18e.jpg"
+     "image_url": "https://cdn.example.com/eval/ed4d4f3ab0dd4403b9dc43585fa4ae6c.jpg"
     },
     "51": {
      "title": "Floral Blouse",
@@ -1780,7 +1823,7 @@
       "Smart Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/fd0648e95d104037b6da82792ccec2d7.jpg"
+     "image_url": "https://cdn.example.com/eval/c3379cd912b4446b961c8167ee99e2ff.jpg"
     },
     "52": {
      "title": "Band Tee",
@@ -1791,7 +1834,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/fff4dfacb57a4cd1bc63ad76f8330a75.jpg"
+     "image_url": "https://cdn.example.com/eval/bd596a33d1e74e34afd3725a1a8d47b6.jpg"
     },
     "53": {
      "title": "Cream Cable Knit",
@@ -1802,7 +1845,7 @@
       "Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/e085ac31761942aa95999426c77f458b.jpg"
+     "image_url": "https://cdn.example.com/eval/cd0af2a4661548c3a7cf0f6aac920aa5.jpg"
     },
     "54": {
      "title": "Burgundy Silk Camisole",
@@ -1814,7 +1857,7 @@
       "Cocktail"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/f3788e3a381249eea9d4410910de82ae.jpg"
+     "image_url": "https://cdn.example.com/eval/b68a624ddfeb415ba02ac1b5af5f0888.jpg"
     },
     "55": {
      "title": "Black Straight Trousers",
@@ -1826,7 +1869,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/f0b60c2cb62c460fa7b1641452090676.jpg"
+     "image_url": "https://cdn.example.com/eval/59c3447d11bd44c28068220c6459895a.jpg"
     },
     "56": {
      "title": "Ecru Wide-Leg Trousers",
@@ -1837,7 +1880,7 @@
       "Smart Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/bb720ed646be455797c1756cd87a53c3.jpg"
+     "image_url": "https://cdn.example.com/eval/68262e479ce94504ac78082317f56b28.jpg"
     },
     "57": {
      "title": "Light Wash Jeans",
@@ -1848,7 +1891,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/7164291d0cfa419caa3623b7d82a6b94.jpg"
+     "image_url": "https://cdn.example.com/eval/5cbd8b8430b24c42b914316a04b280b9.jpg"
     },
     "58": {
      "title": "Pleated Midi Skirt",
@@ -1859,7 +1902,7 @@
       "Smart Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/b595370c54f94798af1ffcadafc42d43.jpg"
+     "image_url": "https://cdn.example.com/eval/ee8107d8361643a49d86628c30d6a242.jpg"
     },
     "59": {
      "title": "Tartan Mini Skirt",
@@ -1870,7 +1913,7 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/4938d067e96a4b0ebd97bf444ae7ea2f.jpg"
+     "image_url": "https://cdn.example.com/eval/edd5ba9643b24f3db22a0d02b3ee8790.jpg"
     },
     "60": {
      "title": "Cycling Shorts",
@@ -1881,7 +1924,7 @@
       "Active"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/85b1341b33a6496baf4b96abf8788618.jpg"
+     "image_url": "https://cdn.example.com/eval/b6c185624c984806a32ee971e66bd3bf.jpg"
     },
     "61": {
      "title": "Black Slip Dress",
@@ -1893,7 +1936,7 @@
       "Cocktail"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/a004e50abcd24e09962729bbf99d2364.jpg"
+     "image_url": "https://cdn.example.com/eval/47684e51a0434370b1bef65a1fa28272.jpg"
     },
     "62": {
      "title": "White Leather Sneakers",
@@ -1905,7 +1948,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/8366089cf7f54edb943fca68ebe02507.jpg"
+     "image_url": "https://cdn.example.com/eval/bac25e6d229c477ea9f9dae4d8112ba5.jpg"
     },
     "63": {
      "title": "Black Loafers",
@@ -1917,7 +1960,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/667fc8fba5804498b37a52d712c7c575.jpg"
+     "image_url": "https://cdn.example.com/eval/06085322ce9346d393d48847186b6a51.jpg"
     },
     "64": {
      "title": "Tan Sandals",
@@ -1928,7 +1971,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/e00243bf26154d899fcfbf19fd21521c.jpg"
+     "image_url": "https://cdn.example.com/eval/1828a26c5d2a49c4945d247439676d36.jpg"
     },
     "65": {
      "title": "Chelsea Boots",
@@ -1939,7 +1982,7 @@
       "Smart Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/24e5eabf33ff4ed0a499ac529f592052.jpg"
+     "image_url": "https://cdn.example.com/eval/80a0c68360d94106aedd6bf5bde77d7d.jpg"
     },
     "66": {
      "title": "Trail Runners",
@@ -1950,7 +1993,7 @@
       "Active"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/05d87653109349468eea5c4fd9170bbb.jpg"
+     "image_url": "https://cdn.example.com/eval/6dd5c51126864badb55998ba770c1bab.jpg"
     },
     "67": {
      "title": "Camel Trench",
@@ -1962,7 +2005,7 @@
       "Work & Business"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/c22d886669d84e71854a16b72ff01da6.jpg"
+     "image_url": "https://cdn.example.com/eval/ab0ee0a2fd7349f585cf2fbda729cc4d.jpg"
     },
     "68": {
      "title": "Denim Jacket",
@@ -1973,7 +2016,7 @@
       "Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/7f19db8c7dac4bc2bdce159fd565018f.jpg"
+     "image_url": "https://cdn.example.com/eval/83675849dff3458ba727da1308e93564.jpg"
     },
     "69": {
      "title": "Puffer Jacket",
@@ -1984,7 +2027,7 @@
       "Casual"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/6dc7ef82ac1c4991bd558a26d0bb036b.jpg"
+     "image_url": "https://cdn.example.com/eval/e750f257a87b4df3be0cb410a7552a1c.jpg"
     },
     "70": {
      "title": "Silk Scarf",
@@ -1995,14 +2038,14 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/566702cff3d349fe93f0000ebd57f40f.jpg"
+     "image_url": "https://cdn.example.com/eval/e5ebadd9f0e349de992379031bdf4e8c.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.006,
+   "latency_s": 0.008,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_7290a2c502a2",
+    "outfit_id": "det_1e8535e8d881",
     "occasion": "Smart Casual",
     "title": "Smart Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -2015,10 +2058,11 @@
       "subcategory": "Striped Breton Top",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/15be6107c6bb4b7e8242c797c85dc18e.jpg",
+      "image_url": "https://cdn.example.com/eval/ed4d4f3ab0dd4403b9dc43585fa4ae6c.jpg",
       "reason": "Striped Breton Top: tagged for smart casual, suits spring, navy pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 56,
@@ -2028,10 +2072,11 @@
       "subcategory": "Ecru Wide-Leg Trousers",
       "color_name": "Ivory",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/bb720ed646be455797c1756cd87a53c3.jpg",
+      "image_url": "https://cdn.example.com/eval/68262e479ce94504ac78082317f56b28.jpg",
       "reason": "Ecru Wide-Leg Trousers: tagged for smart casual, suits spring, ivory pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 63,
@@ -2041,10 +2086,11 @@
       "subcategory": "Black Loafers",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/667fc8fba5804498b37a52d712c7c575.jpg",
+      "image_url": "https://cdn.example.com/eval/06085322ce9346d393d48847186b6a51.jpg",
       "reason": "Black Loafers: tagged for smart casual, suits spring, black pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -2072,7 +2118,8 @@
       "clean lines"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -2099,6 +2146,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -2148,7 +2196,7 @@
       "Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/00d0c8b481b14d0380c0766f44a967c0.jpg"
+     "image_url": "https://cdn.example.com/eval/10e3b210f0c743148fa20db7549c011a.jpg"
     },
     "72": {
      "title": "White Dress Shirt",
@@ -2161,7 +2209,7 @@
       "Business Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/06e58cf483c54c3a986c590603d8215a.jpg"
+     "image_url": "https://cdn.example.com/eval/86f024ea8b334eb082a7c3ce413d30a6.jpg"
     },
     "73": {
      "title": "Black Tuxedo Trousers",
@@ -2173,7 +2221,7 @@
       "Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/cf73779b7a264320aa9489e5238aa065.jpg"
+     "image_url": "https://cdn.example.com/eval/22960f3d1c214325a3ad46fa9821fd9c.jpg"
     },
     "74": {
      "title": "Navy Dress Trousers",
@@ -2185,7 +2233,7 @@
       "Business Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/5c779eec43494d72a78b040b7290294f.jpg"
+     "image_url": "https://cdn.example.com/eval/d7d869b306404811b184a7d20c3534d2.jpg"
     },
     "75": {
      "title": "Black Patent Shoes",
@@ -2197,7 +2245,7 @@
       "Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/3987d502249d4d7db41e42af95d09dc1.jpg"
+     "image_url": "https://cdn.example.com/eval/086a907e5dc14175ba6b0fe2d57f5094.jpg"
     },
     "76": {
      "title": "Grey Suede Loafers",
@@ -2208,14 +2256,14 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/68a2308ba5544c28ac9ba29d1e699c58.jpg"
+     "image_url": "https://cdn.example.com/eval/5fdfff69257145e2ade71bd053e07738.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.008,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_a42b4ddff595",
+    "outfit_id": "det_e67a04bbedf4",
     "occasion": "Black Tie",
     "title": "Black Tie from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -2228,10 +2276,11 @@
       "subcategory": "White Dress Shirt",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/06e58cf483c54c3a986c590603d8215a.jpg",
+      "image_url": "https://cdn.example.com/eval/86f024ea8b334eb082a7c3ce413d30a6.jpg",
       "reason": "White Dress Shirt: tagged for black tie, suits winter, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -2266,7 +2315,8 @@
       "grey"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -2279,6 +2329,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -2316,7 +2367,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/f629a752edbf48b4bd73c734750dfab4.jpg"
+     "image_url": "https://cdn.example.com/eval/4b01dbf066a244668ec45ea1b15d952c.jpg"
     },
     "78": {
      "title": "thing from grandma",
@@ -2327,7 +2378,7 @@
       "Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/ee230fff88e44cf4b6a7ba389f200827.jpg"
+     "image_url": "https://cdn.example.com/eval/52f326e11c2842f6bdbf0a330c1976e2.jpg"
     },
     "79": {
      "title": "trousers (old)",
@@ -2338,7 +2389,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/da77107c1277441aaa191103c3a0ced2.jpg"
+     "image_url": "https://cdn.example.com/eval/779bd40cff434528acad8405359ca217.jpg"
     },
     "80": {
      "title": "shoes 2",
@@ -2349,7 +2400,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/d8272dee9bf649f7925f6b05e31ae1d5.jpg"
+     "image_url": "https://cdn.example.com/eval/4228ab43eb904626a09aab6199546a6d.jpg"
     },
     "81": {
      "title": "???",
@@ -2360,14 +2411,14 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/c22c3a81ee1845c2af9120c6ba8b3106.jpg"
+     "image_url": "https://cdn.example.com/eval/bd028e288a5541dba06d92bb6cc6f23e.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_b0c0e1433299",
+    "outfit_id": "det_436277bc32b9",
     "occasion": "Casual",
     "title": "Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -2380,10 +2431,11 @@
       "subcategory": "thing from grandma",
       "color_name": "Multi",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/ee230fff88e44cf4b6a7ba389f200827.jpg",
+      "image_url": "https://cdn.example.com/eval/52f326e11c2842f6bdbf0a330c1976e2.jpg",
       "reason": "thing from grandma: tagged for casual, suits spring",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 79,
@@ -2393,10 +2445,11 @@
       "subcategory": "trousers (old)",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/da77107c1277441aaa191103c3a0ced2.jpg",
+      "image_url": "https://cdn.example.com/eval/779bd40cff434528acad8405359ca217.jpg",
       "reason": "trousers (old): tagged for casual, suits spring, beige pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 80,
@@ -2406,10 +2459,11 @@
       "subcategory": "shoes 2",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/d8272dee9bf649f7925f6b05e31ae1d5.jpg",
+      "image_url": "https://cdn.example.com/eval/4228ab43eb904626a09aab6199546a6d.jpg",
       "reason": "shoes 2: tagged for casual, suits spring, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -2432,7 +2486,8 @@
      "time_of_day": "afternoon",
      "season": "spring",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -2459,6 +2514,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -2502,7 +2558,7 @@
       "Smart Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/097c13fa977149deb18acaed215c68b2.jpg"
+     "image_url": "https://cdn.example.com/eval/5fb54909fd7c4eb0b8761feb2b692d86.jpg"
     },
     "83": {
      "title": "تيشيرت رمادي",
@@ -2514,7 +2570,7 @@
       "Lounge"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/86210daf07d2476ab7a4f63f9eedd0ca.jpg"
+     "image_url": "https://cdn.example.com/eval/4e3cbdfd11ec4d998cca85d9422bd31b.jpg"
     },
     "84": {
      "title": "بنطلون جينز أزرق",
@@ -2525,7 +2581,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/73093aac0a8f46a5a5f72bb95cba1a75.jpg"
+     "image_url": "https://cdn.example.com/eval/729a119eee514f72bec1b60e9fe48de6.jpg"
     },
     "85": {
      "title": "بنطلون كاكي",
@@ -2537,7 +2593,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/8e4f1e953ffe4df8b7004e46f30d189a.jpg"
+     "image_url": "https://cdn.example.com/eval/30830b085e474ccaa3c422a0ad878626.jpg"
     },
     "86": {
      "title": "حذاء رياضي أبيض",
@@ -2548,7 +2604,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/39106151c55f4a20a56a092d3fa5b674.jpg"
+     "image_url": "https://cdn.example.com/eval/045087aacb734fd4ad8b71011a6e5bd0.jpg"
     },
     "87": {
      "title": "جاكيت جينز",
@@ -2559,16 +2615,16 @@
       "Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/330979f052e849acb91b0891a9ea5318.jpg"
+     "image_url": "https://cdn.example.com/eval/fe15bbf785b14b2e93874dfcd3159867.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_aeeb7cfc3c98",
+    "outfit_id": "det_783159f2bc11",
     "occasion": "Casual",
-    "title": "إطلالة Casual من خزانتك",
+    "title": "إطلالة كاجوال من خزانتك",
     "summary": "قطع اختيرت وفق وسوم المناسبة والموسم والمفضّلات والألوان المحايدة. فعّل watsonx.ai للحصول على توصية مُعلَّلة ومناسبة للسياق.",
     "items": [
      {
@@ -2579,10 +2635,11 @@
       "subcategory": "تيشيرت رمادي",
       "color_name": "Grey",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/86210daf07d2476ab7a4f63f9eedd0ca.jpg",
-      "reason": "تيشيرت رمادي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/4e3cbdfd11ec4d998cca85d9422bd31b.jpg",
+      "reason": "تيشيرت رمادي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 85,
@@ -2592,10 +2649,11 @@
       "subcategory": "بنطلون كاكي",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/8e4f1e953ffe4df8b7004e46f30d189a.jpg",
-      "reason": "بنطلون كاكي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون البيج سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/30830b085e474ccaa3c422a0ad878626.jpg",
+      "reason": "بنطلون كاكي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون البيج سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 86,
@@ -2605,10 +2663,11 @@
       "subcategory": "حذاء رياضي أبيض",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/39106151c55f4a20a56a092d3fa5b674.jpg",
-      "reason": "حذاء رياضي أبيض: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/045087aacb734fd4ad8b71011a6e5bd0.jpg",
+      "reason": "حذاء رياضي أبيض: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -2636,7 +2695,8 @@
       "بسيط"
      ],
      "language": "ar"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -2644,25 +2704,26 @@
      "role": "top",
      "title": "تيشيرت رمادي",
      "color": "Grey",
-     "reason": "تيشيرت رمادي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق"
+     "reason": "تيشيرت رمادي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق"
     },
     {
      "id": 85,
      "role": "bottom",
      "title": "بنطلون كاكي",
      "color": "Beige",
-     "reason": "بنطلون كاكي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون البيج سهل التنسيق"
+     "reason": "بنطلون كاكي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون البيج سهل التنسيق"
     },
     {
      "id": 86,
      "role": "footwear",
      "title": "حذاء رياضي أبيض",
      "color": "White",
-     "reason": "حذاء رياضي أبيض: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق"
+     "reason": "حذاء رياضي أبيض: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق"
     }
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -2704,7 +2765,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/b517b57ceeb14549822db81ce17a0a81.jpg"
+     "image_url": "https://cdn.example.com/eval/977f02d7d46d44a0ad79e06adbbff4a6.jpg"
     },
     "89": {
      "title": "قميص أبيض",
@@ -2715,7 +2776,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/c29f132dc4a44ca09aa6b548c9fb1668.jpg"
+     "image_url": "https://cdn.example.com/eval/4ec58315016c473cbae6034ba67f9735.jpg"
     },
     "90": {
      "title": "بنطلون أسود",
@@ -2726,7 +2787,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/af072f4cc27d4267b5cf8a9d9defb492.jpg"
+     "image_url": "https://cdn.example.com/eval/3f9a11a3169049118c34d8d481263bc1.jpg"
     },
     "91": {
      "title": "بنطلون كحلي",
@@ -2737,7 +2798,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/518190948c36436ea8a8467eecf79df4.jpg"
+     "image_url": "https://cdn.example.com/eval/9dfd2fe7337249dc94657712f3361870.jpg"
     },
     "92": {
      "title": "حذاء أسود",
@@ -2748,7 +2809,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/ba821f63cd31400d8f1f61b4ddb7acce.jpg"
+     "image_url": "https://cdn.example.com/eval/43b49ff58eff403da033f19a99d90eda.jpg"
     },
     "93": {
      "title": "حذاء بني",
@@ -2759,16 +2820,16 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/cfdee05a025f4c1dbbc7be8089130606.jpg"
+     "image_url": "https://cdn.example.com/eval/6b817cd47bd843f393f6f53a2739ab00.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.006,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_0882867ddf7d",
+    "outfit_id": "det_78b76cc9daea",
     "occasion": "Work & Business",
-    "title": "إطلالة Work & Business من خزانتك",
+    "title": "إطلالة العمل من خزانتك",
     "summary": "قطع اختيرت وفق وسوم المناسبة والموسم والمفضّلات والألوان المحايدة. فعّل watsonx.ai للحصول على توصية مُعلَّلة ومناسبة للسياق.",
     "items": [
      {
@@ -2779,10 +2840,11 @@
       "subcategory": "قميص أبيض",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/c29f132dc4a44ca09aa6b548c9fb1668.jpg",
-      "reason": "قميص أبيض: موسومة لمناسبة Work & Business، مناسبة لفصل الخريف، اللون الأبيض سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/4ec58315016c473cbae6034ba67f9735.jpg",
+      "reason": "قميص أبيض: موسومة لمناسبة العمل، مناسبة لفصل الخريف، اللون الأبيض سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 91,
@@ -2792,10 +2854,11 @@
       "subcategory": "بنطلون كحلي",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/518190948c36436ea8a8467eecf79df4.jpg",
-      "reason": "بنطلون كحلي: موسومة لمناسبة Work & Business، مناسبة لفصل الخريف، اللون الكحلي سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/9dfd2fe7337249dc94657712f3361870.jpg",
+      "reason": "بنطلون كحلي: موسومة لمناسبة العمل، مناسبة لفصل الخريف، اللون الكحلي سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 93,
@@ -2805,10 +2868,11 @@
       "subcategory": "حذاء بني",
       "color_name": "Brown",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/cfdee05a025f4c1dbbc7be8089130606.jpg",
-      "reason": "حذاء بني: موسومة لمناسبة Work & Business، مناسبة لفصل الخريف",
+      "image_url": "https://cdn.example.com/eval/6b817cd47bd843f393f6f53a2739ab00.jpg",
+      "reason": "حذاء بني: موسومة لمناسبة العمل، مناسبة لفصل الخريف",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -2834,7 +2898,8 @@
      "activity": "مقابلة عمل",
      "exclusions": "بدون أسود",
      "language": "ar"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -2842,25 +2907,26 @@
      "role": "top",
      "title": "قميص أبيض",
      "color": "White",
-     "reason": "قميص أبيض: موسومة لمناسبة Work & Business، مناسبة لفصل الخريف، اللون الأبيض سهل التنسيق"
+     "reason": "قميص أبيض: موسومة لمناسبة العمل، مناسبة لفصل الخريف، اللون الأبيض سهل التنسيق"
     },
     {
      "id": 91,
      "role": "bottom",
      "title": "بنطلون كحلي",
      "color": "Navy",
-     "reason": "بنطلون كحلي: موسومة لمناسبة Work & Business، مناسبة لفصل الخريف، اللون الكحلي سهل التنسيق"
+     "reason": "بنطلون كحلي: موسومة لمناسبة العمل، مناسبة لفصل الخريف، اللون الكحلي سهل التنسيق"
     },
     {
      "id": 93,
      "role": "footwear",
      "title": "حذاء بني",
      "color": "Brown",
-     "reason": "حذاء بني: موسومة لمناسبة Work & Business، مناسبة لفصل الخريف"
+     "reason": "حذاء بني: موسومة لمناسبة العمل، مناسبة لفصل الخريف"
     }
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -2902,7 +2968,7 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/937296b0e2c9407c953f5106dc8073f9.jpg"
+     "image_url": "https://cdn.example.com/eval/eb3383010a5a4e7489c7e5bdeb2239ec.jpg"
     },
     "95": {
      "title": "فستان قطني صيفي",
@@ -2913,7 +2979,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/41aba9ae8a384b80899fb85d52351996.jpg"
+     "image_url": "https://cdn.example.com/eval/f1451f2f9c744edeb41850f8d9a94717.jpg"
     },
     "96": {
      "title": "حذاء كعب فضي",
@@ -2926,7 +2992,7 @@
       "Cocktail"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/7b6510ab7f344c1a962396efac6c175d.jpg"
+     "image_url": "https://cdn.example.com/eval/d5a5243418154c46a2c8358620d9673d.jpg"
     },
     "97": {
      "title": "صندل مسطح",
@@ -2937,7 +3003,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/b0c9b67b6a9f4525a0bfc4bfe4f8f5aa.jpg"
+     "image_url": "https://cdn.example.com/eval/8aed94ebb46848c6836bbf0901938826.jpg"
     },
     "98": {
      "title": "شال صوف أسود",
@@ -2949,7 +3015,7 @@
       "Evening"
      ],
      "seasonality": "Winter",
-     "image_url": "https://cdn.example.com/eval/ab86124ac5af4e66bd42b42b406db0e6.jpg"
+     "image_url": "https://cdn.example.com/eval/f41d82352b854688915ac1323c8938ac.jpg"
     },
     "99": {
      "title": "حقيبة كلاتش ذهبية",
@@ -2961,16 +3027,16 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/b60e9833729b47ffb14798ef5319b1f4.jpg"
+     "image_url": "https://cdn.example.com/eval/3a2731d996434c82a4ea261b9ba34765.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.006,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_73bf608e9242",
+    "outfit_id": "det_8809c3eaa684",
     "occasion": "Formal",
-    "title": "إطلالة Formal من خزانتك",
+    "title": "إطلالة المناسبات الرسمية من خزانتك",
     "summary": "قطع اختيرت وفق وسوم المناسبة والموسم والمفضّلات والألوان المحايدة. فعّل watsonx.ai للحصول على توصية مُعلَّلة ومناسبة للسياق.",
     "items": [
      {
@@ -2981,10 +3047,11 @@
       "subcategory": "فستان سهرة كحلي",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/937296b0e2c9407c953f5106dc8073f9.jpg",
-      "reason": "فستان سهرة كحلي: موسومة لمناسبة Formal، مناسبة لفصل الشتاء، اللون الكحلي سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/eb3383010a5a4e7489c7e5bdeb2239ec.jpg",
+      "reason": "فستان سهرة كحلي: موسومة لمناسبة المناسبات الرسمية، مناسبة لفصل الشتاء، اللون الكحلي سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 96,
@@ -2994,10 +3061,11 @@
       "subcategory": "حذاء كعب فضي",
       "color_name": "Silver",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/7b6510ab7f344c1a962396efac6c175d.jpg",
-      "reason": "حذاء كعب فضي: موسومة لمناسبة Formal، مناسبة لفصل الشتاء",
+      "image_url": "https://cdn.example.com/eval/d5a5243418154c46a2c8358620d9673d.jpg",
+      "reason": "حذاء كعب فضي: موسومة لمناسبة المناسبات الرسمية، مناسبة لفصل الشتاء",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 98,
@@ -3007,10 +3075,11 @@
       "subcategory": "شال صوف أسود",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/ab86124ac5af4e66bd42b42b406db0e6.jpg",
-      "reason": "شال صوف أسود: موسومة لمناسبة Formal، مناسبة لفصل الشتاء، اللون الأسود سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/f41d82352b854688915ac1323c8938ac.jpg",
+      "reason": "شال صوف أسود: موسومة لمناسبة المناسبات الرسمية، مناسبة لفصل الشتاء، اللون الأسود سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -3035,7 +3104,8 @@
      "location": "حفل زفاف في قاعة",
      "dress_code": "رسمي",
      "language": "ar"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -3043,25 +3113,26 @@
      "role": "dress",
      "title": "فستان سهرة كحلي",
      "color": "Navy",
-     "reason": "فستان سهرة كحلي: موسومة لمناسبة Formal، مناسبة لفصل الشتاء، اللون الكحلي سهل التنسيق"
+     "reason": "فستان سهرة كحلي: موسومة لمناسبة المناسبات الرسمية، مناسبة لفصل الشتاء، اللون الكحلي سهل التنسيق"
     },
     {
      "id": 96,
      "role": "footwear",
      "title": "حذاء كعب فضي",
      "color": "Silver",
-     "reason": "حذاء كعب فضي: موسومة لمناسبة Formal، مناسبة لفصل الشتاء"
+     "reason": "حذاء كعب فضي: موسومة لمناسبة المناسبات الرسمية، مناسبة لفصل الشتاء"
     },
     {
      "id": 98,
      "role": "outerwear",
      "title": "شال صوف أسود",
      "color": "Black",
-     "reason": "شال صوف أسود: موسومة لمناسبة Formal، مناسبة لفصل الشتاء، اللون الأسود سهل التنسيق"
+     "reason": "شال صوف أسود: موسومة لمناسبة المناسبات الرسمية، مناسبة لفصل الشتاء، اللون الأسود سهل التنسيق"
     }
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -3101,7 +3172,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/f3cf3a6830094bf48eca476fbe73a440.jpg"
+     "image_url": "https://cdn.example.com/eval/a6a3604d0c044c5888ae56e60bb55a17.jpg"
     },
     "101": {
      "title": "Striped Shirt",
@@ -3112,7 +3183,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/ee0a7c8260964a7abdda8f5aaf2cbd25.jpg"
+     "image_url": "https://cdn.example.com/eval/f6bd52568e364c668a94992b743eff83.jpg"
     },
     "102": {
      "title": "Plain White Shirt",
@@ -3123,7 +3194,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/c4878e91901046e194d7e74a672f88f8.jpg"
+     "image_url": "https://cdn.example.com/eval/aa55f41dd30b4122be5ee1c435b95227.jpg"
     },
     "103": {
      "title": "Houndstooth Trousers",
@@ -3134,7 +3205,7 @@
       "Smart Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/99fdc122284a410db801718da4f81b2e.jpg"
+     "image_url": "https://cdn.example.com/eval/fc73b7fb6bf344198c08e05f6323630d.jpg"
     },
     "104": {
      "title": "Floral Trousers",
@@ -3145,7 +3216,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/6ea2f8fab3bd49ddaf16c3e676687bb2.jpg"
+     "image_url": "https://cdn.example.com/eval/ad7bf8b22350423b80bed3862f677538.jpg"
     },
     "105": {
      "title": "Navy Chinos",
@@ -3156,7 +3227,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/e9b2abb493d649a2b9047d6ffa81ac6e.jpg"
+     "image_url": "https://cdn.example.com/eval/bc0f1f51217e473cac69e104fbab5d23.jpg"
     },
     "106": {
      "title": "Leopard Loafers",
@@ -3167,7 +3238,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/4e14dc3eba34457e81c7d60299e4dd2d.jpg"
+     "image_url": "https://cdn.example.com/eval/cbae32fda9744ea18a34bddcb12c1176.jpg"
     },
     "107": {
      "title": "White Sneakers",
@@ -3179,14 +3250,14 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/78235db42e294d59a8f4722af71d154f.jpg"
+     "image_url": "https://cdn.example.com/eval/249ef78256114bcbb0d26be34523a45c.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.006,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_ec797478be74",
+    "outfit_id": "det_b11528a9c505",
     "occasion": "Smart Casual",
     "title": "Smart Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -3199,10 +3270,11 @@
       "subcategory": "Plain White Shirt",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/c4878e91901046e194d7e74a672f88f8.jpg",
+      "image_url": "https://cdn.example.com/eval/aa55f41dd30b4122be5ee1c435b95227.jpg",
       "reason": "Plain White Shirt: tagged for smart casual, suits spring, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 105,
@@ -3212,10 +3284,11 @@
       "subcategory": "Navy Chinos",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/e9b2abb493d649a2b9047d6ffa81ac6e.jpg",
+      "image_url": "https://cdn.example.com/eval/bc0f1f51217e473cac69e104fbab5d23.jpg",
       "reason": "Navy Chinos: tagged for smart casual, suits spring, navy pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 107,
@@ -3225,10 +3298,11 @@
       "subcategory": "White Sneakers",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/78235db42e294d59a8f4722af71d154f.jpg",
+      "image_url": "https://cdn.example.com/eval/249ef78256114bcbb0d26be34523a45c.jpg",
       "reason": "White Sneakers: tagged for smart casual, suits spring, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -3252,7 +3326,8 @@
      "season": "spring",
      "location": "brunch",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -3279,6 +3354,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -3319,7 +3395,7 @@
       "Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/ebb24805794d411ba14fe6cc97bd5302.jpg"
+     "image_url": "https://cdn.example.com/eval/f851636a47b84919a33ebf4b39fff583.jpg"
     },
     "109": {
      "title": "Black Suit Trousers",
@@ -3331,7 +3407,7 @@
       "Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/e6c37023c77840f39b32520ce9fda418.jpg"
+     "image_url": "https://cdn.example.com/eval/233b4bbdfb55440aadb04bde29f42aae.jpg"
     },
     "110": {
      "title": "Black Oxfords",
@@ -3343,14 +3419,14 @@
       "Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/3782f6ea76a543feb02485fe33a20739.jpg"
+     "image_url": "https://cdn.example.com/eval/38a2a35925734344a8ae29bdde6877e3.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_2c2b6d673586",
+    "outfit_id": "det_6253e84d6928",
     "occasion": "Active",
     "title": "Active from your wardrobe",
     "summary": "Your wardrobe has no items suited to gym workout. The pieces below are the closest available, shown so you can see what you own — they are not a recommended outfit for this.",
@@ -3363,10 +3439,11 @@
       "subcategory": "White Dress Shirt",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/ebb24805794d411ba14fe6cc97bd5302.jpg",
+      "image_url": "https://cdn.example.com/eval/f851636a47b84919a33ebf4b39fff583.jpg",
       "reason": "White Dress Shirt: suits summer, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 109,
@@ -3376,10 +3453,11 @@
       "subcategory": "Black Suit Trousers",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/e6c37023c77840f39b32520ce9fda418.jpg",
+      "image_url": "https://cdn.example.com/eval/233b4bbdfb55440aadb04bde29f42aae.jpg",
       "reason": "Black Suit Trousers: suits summer, black pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 110,
@@ -3389,10 +3467,11 @@
       "subcategory": "Black Oxfords",
       "color_name": "Black",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/3782f6ea76a543feb02485fe33a20739.jpg",
+      "image_url": "https://cdn.example.com/eval/38a2a35925734344a8ae29bdde6877e3.jpg",
       "reason": "Black Oxfords: suits summer, black pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -3417,7 +3496,8 @@
      "season": "summer",
      "activity": "gym workout",
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -3444,6 +3524,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -3486,7 +3567,7 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/3acaa1a2d4e94d26a71c18b93d3ae8b8.jpg"
+     "image_url": "https://cdn.example.com/eval/35f89caae19043b3a143cd1e4be8ccfe.jpg"
     },
     "112": {
      "title": "White Cotton Tee",
@@ -3498,7 +3579,7 @@
       "Lounge"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/c571d3cd065147b48dd792ca16980999.jpg"
+     "image_url": "https://cdn.example.com/eval/7bc687016334440c806e6017d4b6bd0e.jpg"
     },
     "113": {
      "title": "Khaki Chinos",
@@ -3510,7 +3591,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/2591dd1c02314e77a9f779ccf0ea87e7.jpg"
+     "image_url": "https://cdn.example.com/eval/83905ea92c7948ebbe708180fbe081eb.jpg"
     },
     "114": {
      "title": "Dark Wash Jeans",
@@ -3521,7 +3602,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/9eb47cc554ee457d9f33e308ea0150a2.jpg"
+     "image_url": "https://cdn.example.com/eval/3839e54ef5f5439e88ef6639775a0f16.jpg"
     },
     "115": {
      "title": "Brown Leather Boots",
@@ -3532,7 +3613,7 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/f27cea3d7b8d499ea2eba390198bbba3.jpg"
+     "image_url": "https://cdn.example.com/eval/9e99d6c86bc64ee5b24cf3bd35e2b4de.jpg"
     },
     "116": {
      "title": "White Canvas Sneakers",
@@ -3543,7 +3624,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/fe437bf803664413804fca7fbaeac052.jpg"
+     "image_url": "https://cdn.example.com/eval/a8f33190516b44edba318f430d7129ed.jpg"
     },
     "117": {
      "title": "Olive Field Jacket",
@@ -3554,14 +3635,14 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/ab2f045c010047a9b05e771647ce8d40.jpg"
+     "image_url": "https://cdn.example.com/eval/0769d9916600477e873f028b24cfefad.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_eeb3fca5cc07",
+    "outfit_id": "det_b9e3f051b6a0",
     "occasion": "Casual",
     "title": "Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -3574,10 +3655,11 @@
       "subcategory": "White Cotton Tee",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/c571d3cd065147b48dd792ca16980999.jpg",
+      "image_url": "https://cdn.example.com/eval/7bc687016334440c806e6017d4b6bd0e.jpg",
       "reason": "White Cotton Tee: tagged for casual, suits autumn, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 113,
@@ -3587,10 +3669,11 @@
       "subcategory": "Khaki Chinos",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/2591dd1c02314e77a9f779ccf0ea87e7.jpg",
+      "image_url": "https://cdn.example.com/eval/83905ea92c7948ebbe708180fbe081eb.jpg",
       "reason": "Khaki Chinos: tagged for casual, suits autumn, beige pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 115,
@@ -3600,10 +3683,11 @@
       "subcategory": "Brown Leather Boots",
       "color_name": "Brown",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/f27cea3d7b8d499ea2eba390198bbba3.jpg",
+      "image_url": "https://cdn.example.com/eval/9e99d6c86bc64ee5b24cf3bd35e2b4de.jpg",
       "reason": "Brown Leather Boots: tagged for casual, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 117,
@@ -3613,10 +3697,11 @@
       "subcategory": "Olive Field Jacket",
       "color_name": "Green",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/ab2f045c010047a9b05e771647ce8d40.jpg",
+      "image_url": "https://cdn.example.com/eval/0769d9916600477e873f028b24cfefad.jpg",
       "reason": "Olive Field Jacket: tagged for casual, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -3644,7 +3729,8 @@
       "layered"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -3678,6 +3764,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -3720,7 +3807,7 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/d98717d4bb464ae78482b25f18208261.jpg"
+     "image_url": "https://cdn.example.com/eval/1704d5f3f9ee428a9a3d085253770ef4.jpg"
     },
     "119": {
      "title": "White Cotton Tee",
@@ -3732,7 +3819,7 @@
       "Lounge"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/ba23c8bf4b404816874935aa39432af7.jpg"
+     "image_url": "https://cdn.example.com/eval/7d732138a3704f7fb58998eb22fe0b4f.jpg"
     },
     "120": {
      "title": "Khaki Chinos",
@@ -3744,7 +3831,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/46f97903105147b491c73825e252a152.jpg"
+     "image_url": "https://cdn.example.com/eval/6229ba17218a44bd9dcfbf5069561f8f.jpg"
     },
     "121": {
      "title": "Dark Wash Jeans",
@@ -3755,7 +3842,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/e3494e4819dc473c97cc32f9dc110b35.jpg"
+     "image_url": "https://cdn.example.com/eval/2c422dc28aa4425e83b1d45a4863c241.jpg"
     },
     "122": {
      "title": "Brown Leather Boots",
@@ -3766,7 +3853,7 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/487a1ddebbf3444e9759a53f0c67af9e.jpg"
+     "image_url": "https://cdn.example.com/eval/5f0502b80ac2462b879d451bfb6ff6dd.jpg"
     },
     "123": {
      "title": "White Canvas Sneakers",
@@ -3777,7 +3864,7 @@
       "Casual"
      ],
      "seasonality": "Summer",
-     "image_url": "https://cdn.example.com/eval/480850f995cc43f9b798a69aa53af04c.jpg"
+     "image_url": "https://cdn.example.com/eval/ede10aacf5724760831ce88eb3f8477a.jpg"
     },
     "124": {
      "title": "Olive Field Jacket",
@@ -3788,14 +3875,14 @@
       "Casual"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/c8def59ed3e844ec900da6a0f88b84c0.jpg"
+     "image_url": "https://cdn.example.com/eval/c1704504360047f38b0a7aef822e9c18.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_f61329f6661e",
+    "outfit_id": "det_b9f254a1cf3f",
     "occasion": "Casual",
     "title": "Casual from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -3808,10 +3895,11 @@
       "subcategory": "White Cotton Tee",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/ba23c8bf4b404816874935aa39432af7.jpg",
+      "image_url": "https://cdn.example.com/eval/7d732138a3704f7fb58998eb22fe0b4f.jpg",
       "reason": "White Cotton Tee: tagged for casual, suits autumn, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 120,
@@ -3821,10 +3909,11 @@
       "subcategory": "Khaki Chinos",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/46f97903105147b491c73825e252a152.jpg",
+      "image_url": "https://cdn.example.com/eval/6229ba17218a44bd9dcfbf5069561f8f.jpg",
       "reason": "Khaki Chinos: tagged for casual, suits autumn, beige pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 122,
@@ -3834,10 +3923,11 @@
       "subcategory": "Brown Leather Boots",
       "color_name": "Brown",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/487a1ddebbf3444e9759a53f0c67af9e.jpg",
+      "image_url": "https://cdn.example.com/eval/5f0502b80ac2462b879d451bfb6ff6dd.jpg",
       "reason": "Brown Leather Boots: tagged for casual, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 124,
@@ -3847,10 +3937,11 @@
       "subcategory": "Olive Field Jacket",
       "color_name": "Green",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/c8def59ed3e844ec900da6a0f88b84c0.jpg",
+      "image_url": "https://cdn.example.com/eval/c1704504360047f38b0a7aef822e9c18.jpg",
       "reason": "Olive Field Jacket: tagged for casual, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -3878,7 +3969,8 @@
       "layered"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -3912,6 +4004,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -3961,7 +4054,7 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/3c1e3adabdde46cf8cf8394fc365821c.jpg"
+     "image_url": "https://cdn.example.com/eval/da04e07a9b464006849c635e722cb38f.jpg"
     },
     "126": {
      "title": "White Oxford Shirt",
@@ -3972,7 +4065,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/12f58e727d6d4d96afbb8e67f662a871.jpg"
+     "image_url": "https://cdn.example.com/eval/4bf2c7ffaf4f42ed8592dd4d84c35b44.jpg"
     },
     "127": {
      "title": "Black Tailored Trousers",
@@ -3984,7 +4077,7 @@
       "Business Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/b2c8063fdbf74aabbfb2427f39f6dbe2.jpg"
+     "image_url": "https://cdn.example.com/eval/995c6cfc33c64250ad28a5d6f66318c7.jpg"
     },
     "128": {
      "title": "Navy Chinos",
@@ -3996,7 +4089,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/f4f5733f8ab4440a8457578e271b868e.jpg"
+     "image_url": "https://cdn.example.com/eval/26d54f5ce50b414ab046231a9c240d33.jpg"
     },
     "129": {
      "title": "Black Oxfords",
@@ -4007,7 +4100,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/9b715df57ea2477db2cfcd6346bbb3c4.jpg"
+     "image_url": "https://cdn.example.com/eval/526336ed30524b40b4d4aa1ce67170de.jpg"
     },
     "130": {
      "title": "Brown Derbies",
@@ -4019,7 +4112,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/43ae2e0e73f84d49af3df5dcd211c2b1.jpg"
+     "image_url": "https://cdn.example.com/eval/5b06468821934d78af2b598463fcde0c.jpg"
     },
     "131": {
      "title": "Camel Coat",
@@ -4030,14 +4123,14 @@
       "Work & Business"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/430a0dc93bf840d78435c756ca388dee.jpg"
+     "image_url": "https://cdn.example.com/eval/09e63b828ce64957a6f55e5df494ff4b.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_6601ddaa5935",
+    "outfit_id": "det_ea22b309e5cb",
     "occasion": "Work & Business",
     "title": "Work & Business from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -4050,10 +4143,11 @@
       "subcategory": "White Oxford Shirt",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/12f58e727d6d4d96afbb8e67f662a871.jpg",
+      "image_url": "https://cdn.example.com/eval/4bf2c7ffaf4f42ed8592dd4d84c35b44.jpg",
       "reason": "White Oxford Shirt: tagged for work & business, suits autumn, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 128,
@@ -4063,10 +4157,11 @@
       "subcategory": "Navy Chinos",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/f4f5733f8ab4440a8457578e271b868e.jpg",
+      "image_url": "https://cdn.example.com/eval/26d54f5ce50b414ab046231a9c240d33.jpg",
       "reason": "Navy Chinos: tagged for work & business, suits autumn, navy pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 130,
@@ -4076,10 +4171,11 @@
       "subcategory": "Brown Derbies",
       "color_name": "Brown",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/43ae2e0e73f84d49af3df5dcd211c2b1.jpg",
+      "image_url": "https://cdn.example.com/eval/5b06468821934d78af2b598463fcde0c.jpg",
       "reason": "Brown Derbies: tagged for work & business, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 131,
@@ -4089,10 +4185,11 @@
       "subcategory": "Camel Coat",
       "color_name": "Tan",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/430a0dc93bf840d78435c756ca388dee.jpg",
+      "image_url": "https://cdn.example.com/eval/09e63b828ce64957a6f55e5df494ff4b.jpg",
       "reason": "Camel Coat: tagged for work & business, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -4125,7 +4222,8 @@
       "black"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -4159,6 +4257,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -4208,7 +4307,7 @@
       "Evening"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/c2ea2ff4ab644c9b9252a9b6e7bc3927.jpg"
+     "image_url": "https://cdn.example.com/eval/be664ba993a54d419750d4434b9fef24.jpg"
     },
     "133": {
      "title": "White Oxford Shirt",
@@ -4219,7 +4318,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/5a80fd03b421443f9042a3a19820d737.jpg"
+     "image_url": "https://cdn.example.com/eval/3065fe0e22274550a0f3a2ddc1c64ea4.jpg"
     },
     "134": {
      "title": "Black Tailored Trousers",
@@ -4231,7 +4330,7 @@
       "Business Formal"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/cfcea7207c5b429c967bfcb7b1a29901.jpg"
+     "image_url": "https://cdn.example.com/eval/1968863f537f4b999c0fdc2369dca1c1.jpg"
     },
     "135": {
      "title": "Navy Chinos",
@@ -4243,7 +4342,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/58f5587203e64030818a67013ffc45fa.jpg"
+     "image_url": "https://cdn.example.com/eval/d9e6fde516d14b7388608f6a8d916a59.jpg"
     },
     "136": {
      "title": "Black Oxfords",
@@ -4254,7 +4353,7 @@
       "Work & Business"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/883d41ccbb5a4908aa9b776ff99270ca.jpg"
+     "image_url": "https://cdn.example.com/eval/75c162b0cb5f4152987196477c653528.jpg"
     },
     "137": {
      "title": "Brown Derbies",
@@ -4266,7 +4365,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/dd52182fc12d46379d6ebe01eb052f6a.jpg"
+     "image_url": "https://cdn.example.com/eval/86b96363a5cd4f61be95d73a482c371e.jpg"
     },
     "138": {
      "title": "Camel Coat",
@@ -4277,14 +4376,14 @@
       "Work & Business"
      ],
      "seasonality": "Autumn",
-     "image_url": "https://cdn.example.com/eval/83e963ddf793492a84d9a9078712f70a.jpg"
+     "image_url": "https://cdn.example.com/eval/e2519f165de24001a78c32405005100d.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.005,
+   "latency_s": 0.008,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_91c01c00ba8d",
+    "outfit_id": "det_01d4a304fb10",
     "occasion": "Work & Business",
     "title": "Work & Business from your wardrobe",
     "summary": "Pieces chosen by occasion tags, season, favourites and neutral colours. Configure watsonx.ai for a reasoned, context-specific recommendation.",
@@ -4297,10 +4396,11 @@
       "subcategory": "White Oxford Shirt",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/5a80fd03b421443f9042a3a19820d737.jpg",
+      "image_url": "https://cdn.example.com/eval/3065fe0e22274550a0f3a2ddc1c64ea4.jpg",
       "reason": "White Oxford Shirt: tagged for work & business, suits autumn, white pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 135,
@@ -4310,10 +4410,11 @@
       "subcategory": "Navy Chinos",
       "color_name": "Navy",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/58f5587203e64030818a67013ffc45fa.jpg",
+      "image_url": "https://cdn.example.com/eval/d9e6fde516d14b7388608f6a8d916a59.jpg",
       "reason": "Navy Chinos: tagged for work & business, suits autumn, navy pairs easily",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 137,
@@ -4323,10 +4424,11 @@
       "subcategory": "Brown Derbies",
       "color_name": "Brown",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/dd52182fc12d46379d6ebe01eb052f6a.jpg",
+      "image_url": "https://cdn.example.com/eval/86b96363a5cd4f61be95d73a482c371e.jpg",
       "reason": "Brown Derbies: tagged for work & business, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 138,
@@ -4336,10 +4438,11 @@
       "subcategory": "Camel Coat",
       "color_name": "Tan",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/83e963ddf793492a84d9a9078712f70a.jpg",
+      "image_url": "https://cdn.example.com/eval/e2519f165de24001a78c32405005100d.jpg",
       "reason": "Camel Coat: tagged for work & business, suits autumn",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -4372,7 +4475,8 @@
       "black"
      ],
      "language": "en"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -4406,6 +4510,7 @@
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -4449,7 +4554,7 @@
       "Smart Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/4a5bded5d1684059b0c7d4bb0dbc96a3.jpg"
+     "image_url": "https://cdn.example.com/eval/60b6274fbeed46318ed7593bb8de7140.jpg"
     },
     "140": {
      "title": "تيشيرت رمادي",
@@ -4461,7 +4566,7 @@
       "Lounge"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/85b31b5498fd4b958e813894924e79b1.jpg"
+     "image_url": "https://cdn.example.com/eval/a3fa236036f3447cbfdef3807321c690.jpg"
     },
     "141": {
      "title": "بنطلون جينز أزرق",
@@ -4472,7 +4577,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/0b4595caceae40c7a7ffa06f014d1ad7.jpg"
+     "image_url": "https://cdn.example.com/eval/58955ef9ab194dd5924110976ad7c487.jpg"
     },
     "142": {
      "title": "بنطلون كاكي",
@@ -4484,7 +4589,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/7d30aa0f0e2f478285721a3f9e6ec2e7.jpg"
+     "image_url": "https://cdn.example.com/eval/14ed838b83734cc292483fae3c04b38f.jpg"
     },
     "143": {
      "title": "حذاء رياضي أبيض",
@@ -4495,7 +4600,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/39b462a322854b36bb46ac105257a94c.jpg"
+     "image_url": "https://cdn.example.com/eval/27dbb34e87c14657b834258cc9de7e01.jpg"
     },
     "144": {
      "title": "جاكيت جينز",
@@ -4506,16 +4611,16 @@
       "Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/20f6ba3fda4e429bbe84e70409e76fd7.jpg"
+     "image_url": "https://cdn.example.com/eval/53d0be7f66624acb965f648a029c68ac.jpg"
     }
    },
    "http_status": 200,
    "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_cc5aa5a956b3",
+    "outfit_id": "det_607b81aa5824",
     "occasion": "Casual",
-    "title": "إطلالة Casual من خزانتك",
+    "title": "إطلالة كاجوال من خزانتك",
     "summary": "قطع اختيرت وفق وسوم المناسبة والموسم والمفضّلات والألوان المحايدة. فعّل watsonx.ai للحصول على توصية مُعلَّلة ومناسبة للسياق.",
     "items": [
      {
@@ -4526,10 +4631,11 @@
       "subcategory": "تيشيرت رمادي",
       "color_name": "Grey",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/85b31b5498fd4b958e813894924e79b1.jpg",
-      "reason": "تيشيرت رمادي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/a3fa236036f3447cbfdef3807321c690.jpg",
+      "reason": "تيشيرت رمادي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 142,
@@ -4539,10 +4645,11 @@
       "subcategory": "بنطلون كاكي",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/7d30aa0f0e2f478285721a3f9e6ec2e7.jpg",
-      "reason": "بنطلون كاكي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون البيج سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/14ed838b83734cc292483fae3c04b38f.jpg",
+      "reason": "بنطلون كاكي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون البيج سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 143,
@@ -4552,10 +4659,11 @@
       "subcategory": "حذاء رياضي أبيض",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/39b462a322854b36bb46ac105257a94c.jpg",
-      "reason": "حذاء رياضي أبيض: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/27dbb34e87c14657b834258cc9de7e01.jpg",
+      "reason": "حذاء رياضي أبيض: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -4583,7 +4691,8 @@
       "بسيط"
      ],
      "language": "ar"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -4591,25 +4700,26 @@
      "role": "top",
      "title": "تيشيرت رمادي",
      "color": "Grey",
-     "reason": "تيشيرت رمادي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق"
+     "reason": "تيشيرت رمادي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق"
     },
     {
      "id": 142,
      "role": "bottom",
      "title": "بنطلون كاكي",
      "color": "Beige",
-     "reason": "بنطلون كاكي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون البيج سهل التنسيق"
+     "reason": "بنطلون كاكي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون البيج سهل التنسيق"
     },
     {
      "id": 143,
      "role": "footwear",
      "title": "حذاء رياضي أبيض",
      "color": "White",
-     "reason": "حذاء رياضي أبيض: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق"
+     "reason": "حذاء رياضي أبيض: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق"
     }
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,
@@ -4653,7 +4763,7 @@
       "Smart Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/f018db08ef4242e5b3d371aa35143fa6.jpg"
+     "image_url": "https://cdn.example.com/eval/9152d783f9794839bd2e4b8fea73bd85.jpg"
     },
     "146": {
      "title": "تيشيرت رمادي",
@@ -4665,7 +4775,7 @@
       "Lounge"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/869a1f9cae454ac38aeda2052114a15c.jpg"
+     "image_url": "https://cdn.example.com/eval/ad7f9f1297a3466ab4a4192c90675c9c.jpg"
     },
     "147": {
      "title": "بنطلون جينز أزرق",
@@ -4676,7 +4786,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/057b12b3a27544b7bebdff35958bffdb.jpg"
+     "image_url": "https://cdn.example.com/eval/dd3fa3125776487d8d91561a4eff608e.jpg"
     },
     "148": {
      "title": "بنطلون كاكي",
@@ -4688,7 +4798,7 @@
       "Smart Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/57163dd559dc44bdb47e8a73326e6d68.jpg"
+     "image_url": "https://cdn.example.com/eval/98870535aa184693a7af3698514043c3.jpg"
     },
     "149": {
      "title": "حذاء رياضي أبيض",
@@ -4699,7 +4809,7 @@
       "Casual"
      ],
      "seasonality": "All-Season",
-     "image_url": "https://cdn.example.com/eval/c1f0a7ae13a540709d1a446e87f0f9ff.jpg"
+     "image_url": "https://cdn.example.com/eval/79230e2492ff4bb48784d580df78d14e.jpg"
     },
     "150": {
      "title": "جاكيت جينز",
@@ -4710,16 +4820,16 @@
       "Casual"
      ],
      "seasonality": "Spring",
-     "image_url": "https://cdn.example.com/eval/03f648a0f67b4f378064ab92ce9174d8.jpg"
+     "image_url": "https://cdn.example.com/eval/4476d82ba3624f779a71e8a346051ddf.jpg"
     }
    },
    "http_status": 200,
-   "latency_s": 0.008,
+   "latency_s": 0.007,
    "model_calls": [],
    "response": {
-    "outfit_id": "det_fb4661b74808",
+    "outfit_id": "det_bb70786a54d3",
     "occasion": "Casual",
-    "title": "إطلالة Casual من خزانتك",
+    "title": "إطلالة كاجوال من خزانتك",
     "summary": "قطع اختيرت وفق وسوم المناسبة والموسم والمفضّلات والألوان المحايدة. فعّل watsonx.ai للحصول على توصية مُعلَّلة ومناسبة للسياق.",
     "items": [
      {
@@ -4730,10 +4840,11 @@
       "subcategory": "تيشيرت رمادي",
       "color_name": "Grey",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/869a1f9cae454ac38aeda2052114a15c.jpg",
-      "reason": "تيشيرت رمادي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/ad7f9f1297a3466ab4a4192c90675c9c.jpg",
+      "reason": "تيشيرت رمادي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 148,
@@ -4743,10 +4854,11 @@
       "subcategory": "بنطلون كاكي",
       "color_name": "Beige",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/57163dd559dc44bdb47e8a73326e6d68.jpg",
-      "reason": "بنطلون كاكي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون البيج سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/98870535aa184693a7af3698514043c3.jpg",
+      "reason": "بنطلون كاكي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون البيج سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      },
      {
       "wardrobe_item_id": 149,
@@ -4756,10 +4868,11 @@
       "subcategory": "حذاء رياضي أبيض",
       "color_name": "White",
       "color_hex": "#777777",
-      "image_url": "https://cdn.example.com/eval/c1f0a7ae13a540709d1a446e87f0f9ff.jpg",
-      "reason": "حذاء رياضي أبيض: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق",
+      "image_url": "https://cdn.example.com/eval/79230e2492ff4bb48784d580df78d14e.jpg",
+      "reason": "حذاء رياضي أبيض: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق",
       "analysis_source": null,
-      "ai_confidence": null
+      "ai_confidence": null,
+      "selected_by": "model"
      }
     ],
     "styling_notes": [],
@@ -4787,7 +4900,8 @@
       "بسيط"
      ],
      "language": "ar"
-    }
+    },
+    "_rule_matcher_items": 0
    },
    "final_items": [
     {
@@ -4795,25 +4909,26 @@
      "role": "top",
      "title": "تيشيرت رمادي",
      "color": "Grey",
-     "reason": "تيشيرت رمادي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق"
+     "reason": "تيشيرت رمادي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الرمادي سهل التنسيق"
     },
     {
      "id": 148,
      "role": "bottom",
      "title": "بنطلون كاكي",
      "color": "Beige",
-     "reason": "بنطلون كاكي: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون البيج سهل التنسيق"
+     "reason": "بنطلون كاكي: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون البيج سهل التنسيق"
     },
     {
      "id": 149,
      "role": "footwear",
      "title": "حذاء رياضي أبيض",
      "color": "White",
-     "reason": "حذاء رياضي أبيض: موسومة لمناسبة Casual، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق"
+     "reason": "حذاء رياضي أبيض: موسومة لمناسبة كاجوال، مناسبة لفصل الربيع، اللون الأبيض سهل التنسيق"
     }
    ],
    "hard_failures": [],
    "rubric": {
+    "rule_matcher_items_REVIEWER_NOTE": null,
     "constraint_compliance": 5,
     "inventory_fidelity": 5,
     "completeness": 5,

@@ -3370,6 +3370,8 @@
     "image_unavailable": "الصورة غير متاحة",
     "tagged_by": "وسمه {{model}}",
     "tagged_manually": "وسمته أنت",
+    "rule_matched": "أُضيفت وفق القواعد",
+    "rule_matched_hint": "أُضيفت هذه القطعة بواسطة المُطابِق القاعدي في CONFIT لإكمال الإطلالة؛ لم يخترها المصمم الذكي.",
     "tagged_unknown": "مصدر الوسم غير معروف",
     "swap_out": "استبدل",
     "styling_notes": "ملاحظات التنسيق",

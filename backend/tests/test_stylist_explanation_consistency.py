@@ -268,6 +268,100 @@ def test_d12_role_collision_is_explained(client, wx_env, monkeypatch):
     res = client.post(URL, headers=headers, json={"occasion": "Casual", "season": "autumn"})
     assert res.status_code == 200, res.text
     out = res.json()
-    assert [i["role"] for i in out["items"]] == ["top", "footwear"]
-    assert out["is_complete"] is False and out["missing_categories"] == []
-    assert any("duplicated a position" in lim and "mixed up item ids" in lim for lim in out["limitations"])
+    # The duplicate top is dropped, the empty bottom position is completed by the
+    # rule matcher with the real jeans, and every piece says who selected it.
+    by_role = {i["role"]: i for i in out["items"]}
+    assert set(by_role) == {"top", "bottom", "footwear"} and out["is_complete"] is True
+    assert by_role["bottom"]["title"] == "Dark Wash Jeans" and by_role["bottom"]["selected_by"] == "rule_matcher"
+    assert by_role["top"]["selected_by"] == "model" and by_role["footwear"]["selected_by"] == "model"
+    assert "Dark Wash Jeans" in by_role["bottom"]["reason"]  # rule reason names the actual garment
+    assert any("duplicated a position" in lim for lim in out["limitations"])
+    assert any("added by CONFIT's rule-based matcher" in lim and "not chosen by the AI stylist" in lim for lim in out["limitations"])
+
+
+def test_d12_mismatched_reason_never_shown_next_to_wrong_item(client, wx_env, monkeypatch):
+    """Model cites the tee's id as 'top' but the reason describes the jeans and
+    the role it claimed does not match the stored category → the reason is
+    replaced by a rule note; the tee keeps its real identity."""
+    headers = _register(client)
+    tee = _add_item(client, headers, title="White Cotton Tee", category="Tops", color_name="White", occasions=["Casual"])
+    _add_item(client, headers, title="Dark Wash Jeans", category="Bottoms", subcategory="Jeans", color_name="Blue", occasions=["Casual"])
+    boots = _add_item(client, headers, title="Brown Leather Boots", category="Footwear", subcategory="Boots", color_name="Brown", occasions=["Casual"])
+    _model_returns(monkeypatch, {
+        "title": "Look", "summary": "Casual look.",
+        "items": [
+            {"wardrobe_item_id": tee["id"], "role": "bottom", "reason": "Dark wash jeans give a relaxed denim base."},
+            {"wardrobe_item_id": boots["id"], "role": "footwear", "reason": "Boots for autumn."},
+        ],
+        "styling_notes": [], "limitations": [], "missing_categories": [], "assumptions": [],
+    })
+    res = client.post(URL, headers=headers, json={"occasion": "Casual", "season": "autumn"})
+    out = res.json()
+    top = next(i for i in out["items"] if i["wardrobe_item_id"] == tee["id"])
+    assert top["role"] == "top" and "jeans" not in top["reason"].lower() and "White Cotton Tee" in top["reason"]
+    assert any("described a different garment" in lim for lim in out["limitations"])
+    bottom = next(i for i in out["items"] if i["role"] == "bottom")
+    assert bottom["title"] == "Dark Wash Jeans" and bottom["selected_by"] == "rule_matcher"
+
+
+def test_d12_completion_respects_colour_exclusion_and_reports_impossible(client, wx_env, monkeypatch):
+    headers = _register(client)
+    top = _add_item(client, headers, title="White Oxford Shirt", category="Tops", color_name="White", occasions=["Smart Casual"])
+    _add_item(client, headers, title="Black Jeans", category="Bottoms", subcategory="Jeans", color_name="Black", occasions=["Smart Casual"])
+    _add_item(client, headers, title="Navy Chinos", category="Bottoms", subcategory="Chinos", color_name="Navy", occasions=["Smart Casual"])
+    shoes = _add_item(client, headers, title="Tan Loafers", category="Footwear", subcategory="Loafers", color_name="Tan", occasions=["Smart Casual"])
+    _model_returns(monkeypatch, {
+        "title": "Look", "summary": "Shirt and loafers.",
+        "items": [
+            {"wardrobe_item_id": top["id"], "role": "top", "reason": "Crisp shirt."},
+            {"wardrobe_item_id": shoes["id"], "role": "footwear", "reason": "Loafers."},
+        ],
+        "styling_notes": [], "limitations": [], "missing_categories": [], "assumptions": [],
+    })
+    # Navy allowed → chinos are completed in; black jeans never considered.
+    out = client.post(URL, headers=headers, json={"occasion": "Smart Casual", "excluded_colors": ["black"]}).json()
+    bottom = next(i for i in out["items"] if i["role"] == "bottom")
+    assert bottom["title"] == "Navy Chinos" and bottom["selected_by"] == "rule_matcher" and out["is_complete"] is True
+    # Both bottoms excluded → nothing is inserted; the outfit is explicitly incomplete.
+    out = client.post(URL, headers=headers, json={"occasion": "Smart Casual", "excluded_colors": ["black", "navy"]}).json()
+    assert [i["role"] for i in out["items"]] == ["top", "footwear"] and out["is_complete"] is False
+    assert all(i["selected_by"] == "model" for i in out["items"])
+    assert not any("rule-based matcher" in lim for lim in out["limitations"])
+
+
+def test_d12_model_claim_that_filled_position_is_missing_is_dropped(client, wx_env, monkeypatch):
+    """Live eval S07/S09/S14 (2026-10-28): the model wrote "No suitable footwear in
+    the wardrobe" and the server then added the heels. Contradictory claims about a
+    position the matcher filled must not survive; unrelated limitations must."""
+    headers = _register(client)
+    dress = _add_item(client, headers, title="Emerald Satin Midi Dress", category="Dresses", color_name="Green", occasions=["Cocktail"])
+    _add_item(client, headers, title="Black Strappy Heels", category="Footwear", subcategory="Heels", color_name="Black", occasions=["Cocktail"])
+    _model_returns(monkeypatch, {
+        "title": "Cocktail", "summary": "Emerald dress.",
+        "items": [{"wardrobe_item_id": dress["id"], "role": "dress", "reason": "Cocktail-appropriate silhouette."}],
+        "styling_notes": [], "limitations": ["No suitable footwear in the wardrobe for the occasion; consider bringing heels.",
+                                             "No outerwear for a cool evening."],
+        "missing_categories": ["Footwear"], "assumptions": [],
+    })
+    out = client.post(URL, headers=headers, json={"occasion": "Cocktail", "season": "summer"}).json()
+    roles = {i["role"]: i for i in out["items"]}
+    assert roles["footwear"]["selected_by"] == "rule_matcher" and out["is_complete"] is True
+    assert out["missing_categories"] == []
+    assert not any("footwear" in lim.lower() and "no suitable" in lim.lower() for lim in out["limitations"])
+    assert any("No outerwear" in lim for lim in out["limitations"])
+
+
+def test_d12_completion_arabic_labels(client, wx_env, monkeypatch):
+    headers = _register(client)
+    top = _add_item(client, headers, title="قميص أبيض", category="Tops", color_name="White", occasions=["Business"])
+    _add_item(client, headers, title="بنطلون كحلي", category="Bottoms", color_name="Navy", occasions=["Business"])
+    _add_item(client, headers, title="حذاء بني", category="Footwear", color_name="Brown", occasions=["Business"])
+    _model_returns(monkeypatch, {
+        "title": "إطلالة", "summary": "قميص فقط.",
+        "items": [{"wardrobe_item_id": top["id"], "role": "top", "reason": "قميص أنيق."}],
+        "styling_notes": [], "limitations": [], "missing_categories": [], "assumptions": [],
+    })
+    out = client.post(URL, headers=headers, json={"occasion": "Business", "language": "ar"}).json()
+    assert out["is_complete"] is True
+    assert sum(1 for i in out["items"] if i["selected_by"] == "rule_matcher") == 2
+    assert any("المُطابِق القاعدي" in lim and "لم يخترها المصمم الذكي" in lim for lim in out["limitations"])

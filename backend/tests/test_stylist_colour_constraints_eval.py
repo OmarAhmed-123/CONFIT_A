@@ -109,10 +109,17 @@ def test_model_path_drops_excluded_colour_and_explains(client, wx_env, monkeypat
     }).json()
     ids = [i["wardrobe_item_id"] for i in out["items"]]
     assert c["black_top"]["id"] not in ids and c["black_shoes"]["id"] not in ids
-    assert ids == [c["navy_bottom"]["id"]]
+    # The model's own pick survives; the two positions it lost to the colour
+    # filter are completed by the rule matcher with NON-black pieces, labelled.
+    by_id = {i["wardrobe_item_id"]: i for i in out["items"]}
+    assert by_id[c["navy_bottom"]["id"]]["selected_by"] == "model"
+    assert set(ids) == {c["navy_bottom"]["id"], c["white_top"]["id"], c["brown_shoes"]["id"]}
+    assert by_id[c["white_top"]["id"]]["selected_by"] == "rule_matcher"
+    assert by_id[c["brown_shoes"]["id"]]["selected_by"] == "rule_matcher"
     assert all(taxonomy.normalize_color(i["color_name"]) != "Black" for i in out["items"])
     assert any("colour you asked to avoid" in lim and "Black" in lim for lim in out["limitations"])
-    assert out["is_complete"] is False  # honest: the model's answer lost two positions
+    assert any("rule-based matcher" in lim and "not chosen by the AI stylist" in lim for lim in out["limitations"])
+    assert out["is_complete"] is True
     # Prompt carried both the positive and negative colour instructions
     user_msg = captured["body"]["messages"][1]["content"]
     assert "preferred colours: navy, white" in user_msg

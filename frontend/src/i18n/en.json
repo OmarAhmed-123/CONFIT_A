@@ -3363,6 +3363,8 @@
     "image_unavailable": "Photo unavailable",
     "tagged_by": "Tagged by {{model}}",
     "tagged_manually": "Tagged by you",
+    "rule_matched": "Added by rules",
+    "rule_matched_hint": "This piece was added by CONFIT's rule-based matcher to complete the look; it was not chosen by the AI stylist.",
     "tagged_unknown": "Tag source unknown",
     "swap_out": "Swap out",
     "styling_notes": "Styling notes",

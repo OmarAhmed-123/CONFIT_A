@@ -118,3 +118,43 @@ human-scored rubric **unverified** (no human reviewer) · consistency ≥ 0.66: 
 ### Human review status
 No qualified fashion reviewer and no native Arabic reviewer were available in this environment. All subjective judgements
 above are assistant review. The JSON files carry empty `*_REVIEWER` slots for them.
+
+
+---
+
+## 8. D12 resolution and final re-evaluation — 2026-10-28 (second session)
+
+### Decision: deterministic, constraint-aware completion (option 4) + mismatch neutralisation (option 2), no re-prompt
+Trade-off considered:
+| Option | Pros | Cons | Decision |
+|---|---|---|---|
+| Controlled re-prompt with offending id removed | Keeps all prose model-authored | +3 s latency and +1 billed call per incident; model may fail again (observed 3 colour breaches in 70 calls); still needs server validation afterwards | not chosen (kept as follow-up if product prefers) |
+| **Deterministic completion, labelled** | 0 extra latency/cost; uses the same scorer as the audited fallback; respects excluded ids and banned colours by construction; fully testable | A rule-chosen piece is less "styled" — hence it is visibly labelled and disclosed | **implemented** |
+| Leave incomplete | Simplest | Users got 2-piece outfits while owning the missing piece (S01, S07, S09, S14) | rejected |
+
+Implementation (`wardrobe_stylist_service.py`): `_rule_score` extracted and shared; `_complete_core_positions` fills empty
+core roles (top/bottom/footwear, or footwear for a dress) with the best eligible item; each added `RecommendedItem` carries
+`selected_by="rule_matcher"` (new field, default `"model"`), a rule reason naming the real garment, and the response gets the
+limitation "N piece(s) were added by CONFIT's rule-based matcher … not chosen by the AI stylist" (EN/AR). A model reason that
+describes a *different* wardrobe item than the id it cites (role claim ≠ stored category AND the text names another item) is
+replaced by a rule reason and disclosed. Model limitations claiming a position is missing are dropped when the server fills it.
+UI: amber "Added by rules / أُضيفت وفق القواعد" badge on the item card.
+
+### Final live run (22 calls, ibm/granite-4-h-small, prompt wx-stylist-1.1)
+| Metric | Result |
+|---|---|
+| Final-outfit hard-constraint violations | **0 / 16** |
+| Invented / foreign wardrobe ids in final output | **0** (`rejected_references` empty) |
+| ID-to-description mismatches reaching the user | **0** (1 detected live in S09 and neutralised + disclosed) |
+| Completeness when completable (H4) | **16/16** (was 13/16 before D12; 3 scenarios completed by the rule matcher: S03 derbies, S09 Breton top, S14 silver heels — all disclosed, H13 = 0) |
+| Unsuitable-wardrobe honesty (H12) | **1/1** (S16) |
+| Language match EN/AR | **16/16**; Arabic prose now free of English occasion enums |
+| Prose describing server-removed items (H11) | **0** |
+| Suspected fabricated attributes (H10) | 3 — on inspection all are *negated* statements ("lacks moisture-wicking tops", "sneakers are summer-seasonal"); the keyword heuristic cannot parse negation. Human review required; not counted as defects. |
+| Consistency (Jaccard, 3×3) | S01 0.73 · S03 1.0 · S12 0.83 (all ≥ 0.66) |
+| Latency (single user, n=22) | p50 2.91 s · max 6.21 s — n too small for a p95 claim |
+| Model-level colour-exclusion compliance (raw output, cumulative since 10-27) | **67/70 calls (95.7 %)**; every breach caught by the server guard |
+
+Sample-size caveat: 16 scenarios × ≤3 repeats. These numbers show the mechanisms work; they are not a statistically
+powered quality estimate. Human fashion review: **pending** (`docs/qa/FASHION_REVIEW_SHEET_STYLIST.md`). Native Arabic
+review: **pending** (`docs/qa/ARABIC_REVIEW_SHEET_STYLIST.md`).

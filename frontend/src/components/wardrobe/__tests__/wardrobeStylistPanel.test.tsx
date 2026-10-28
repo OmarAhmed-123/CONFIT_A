@@ -168,6 +168,18 @@ describe("WardrobeStylistPanel", () => {
     await setAppLanguage("en");
   });
 
+  it("marks rule-matched pieces so the user knows the AI did not choose them (D12)", async () => {
+    const items = modelResult.items.map((it, i) => (i === 0 ? { ...it, selected_by: "rule_matcher" as const } : { ...it, selected_by: "model" as const }));
+    recommendOutfit.mockResolvedValue({ ...modelResult, items });
+    renderPanel();
+    fireEvent.change(screen.getByLabelText(en.wardrobe_stylist.occasion), { target: { value: "Casual" } });
+    fireEvent.click(screen.getByRole("button", { name: en.wardrobe_stylist.generate }));
+    await screen.findByTestId("stylist-result");
+    const badges = screen.getAllByTestId("stylist-item-rule-matched");
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toBe(en.wardrobe_stylist.rule_matched);
+  });
+
   it("labels a deterministic fallback honestly and never as AI (Scenario J)", async () => {
     recommendOutfit.mockResolvedValue(fallbackResult);
     renderPanel();

@@ -67,3 +67,9 @@ Source files: `docs/qa/eval/wardrobe_stylist_eval_live_20261027.json`, `…_2026
 = «مطابقة جزئية», `wardrobe_stylist.fit_unsuitable` = «لا توجد إطلالة مناسبة — تُعرض أقرب القطع».
 Known limitation carried over: occasion values inside these strings are the request's English enum
 (e.g. «موسومة لمناسبة Active») — localising occasion names is a follow-up.
+
+
+### Update 2026-10-28 (second session)
+- Occasion names in server-generated Arabic are now localised (`_OCCASION_AR`): «موسومة لمناسبة كاجوال», «إطلالة المناسبات الرسمية من خزانتك» — the earlier "English enum inside Arabic" limitation is closed for the taxonomy occasions; free-text occasions typed by the user are echoed as typed. **Needs native review** of the chosen labels (e.g. «البدلة الرسمية (بلاك تاي)» for Black Tie, «النشاط الرياضي» for Active).
+- New strings: `reason_mismatch`, `completed_by_rules`, UI `rule_matched` = «أُضيفت وفق القواعد», `rule_matched_hint`.
+- Live S14 (final run) no longer carries the contradictory «لا توجد أحذية رسمية مناسبة» next to the added heels. Terminology drift «الملابس الشخصية» vs «الخزانة» persists in model output — prompt wording candidate for the reviewer.

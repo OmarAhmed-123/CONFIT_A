@@ -407,10 +407,15 @@ def test_recommendation_scenario_g_rejects_invalid_reference(client, wx_env, mon
     assert res.status_code == 200, res.text
     out = res.json()
     ids = [i["wardrobe_item_id"] for i in out["items"]]
-    assert ids == [top["id"], shoes["id"]]
+    # ghost + foreign ids rejected; the empty bottom position is completed by the
+    # rule matcher with the user's own chinos (labelled), never with the foreign item.
+    assert ids == [top["id"], shoes["id"], bottom["id"]]
+    assert [i["selected_by"] for i in out["items"]] == ["model", "model", "rule_matcher"]
+    assert foreign["id"] not in ids
     assert sorted(out["rejected_references"]) == sorted([999999, foreign["id"]])
-    assert out["is_complete"] is False
+    assert out["is_complete"] is True
     assert any("discarded" in l for l in out["limitations"])
+    assert any("rule-based matcher" in l for l in out["limitations"])
     # The bottom exists in the wardrobe but the model skipped it → not "missing"
     assert out["missing_categories"] == []
 

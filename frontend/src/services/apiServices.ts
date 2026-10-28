@@ -1083,6 +1083,8 @@ export interface RecommendedWardrobeItem {
   reason: string;
   analysis_source?: string | null;
   ai_confidence?: number | null;
+  /** "model" = chosen by the AI stylist (validated); "rule_matcher" = added by CONFIT's rule-based completion (D12). */
+  selected_by?: "model" | "rule_matcher";
 }
 
 export interface OutfitRecommendation {

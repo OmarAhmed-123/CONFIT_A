@@ -27,6 +27,7 @@ What is scored automatically
     H11 prose describes an item the SERVER removed (banned-colour item of the
         scenario whose title appears in the prose; catches D10). Mentioning an
         owned-but-unselected item ("the sneakers are too light for autumn") is fine.
+    H13 a rule-matcher-completed piece without the disclosure limitation (D12)
     H12 unsuitable wardrobe presented as suitable (scenario expects unsuitable_inventory
         but fit_status != "unsuitable" or the summary lacks an insufficiency statement; D11)
   HEURISTIC RUBRIC 1-5 (automatic, documented in docs/qa/WARDROBE_STYLIST_QUALITY_REPORT.md)
@@ -192,6 +193,11 @@ def _score(scn: dict[str, Any], req: dict[str, Any], resp: dict[str, Any] | None
         if title and title not in final_titles and len(title) >= 6 and title in all_prose:
             hard.append("H11_prose_describes_filtered_item")
             break
+    rule_added = [i for i in items if i.get("selected_by") == "rule_matcher"]
+    if rule_added and not any("rule-based matcher" in lim or "المُطابِق القاعدي" in lim for lim in (resp.get("limitations") or [])):
+        hard.append("H13_rule_completion_not_disclosed")
+    rubric["rule_matcher_items_REVIEWER_NOTE"] = None  # placeholder keeps rubric keys stable
+    resp["_rule_matcher_items"] = len(rule_added)
     if exp.get("unsuitable_inventory") and (
         resp.get("fit_status") != "unsuitable"
         or not any(k in all_prose for k in ("no items suited", "not a recommended outfit", "nothing in your wardrobe is tagged",
@@ -403,6 +409,8 @@ def main() -> int:
         "inventory_hallucination_rate": round(sum(1 for r_ in base if any(h.startswith(("H1", "H8")) for h in r_["hard_failures"])) / n, 3) if n else None,
         "model_failure_rate": round(sum(1 for r_ in base if "H7_invalid_response" in r_["hard_failures"]) / n, 3) if n else None,
         "rubric_means_1to5": rubric_means,
+        "rule_matcher_completed_items_total": sum((r_["response"] or {}).get("_rule_matcher_items", 0) for r_ in base if isinstance(r_["response"], dict)),
+        "scenarios_with_rule_completion": sum(1 for r_ in base if isinstance(r_["response"], dict) and r_["response"].get("_rule_matcher_items", 0) > 0),
         "latency_s": {"p50": round(statistics.median(lat), 3) if lat else None,
                       "max": max(lat) if lat else None, "mean": round(statistics.mean(lat), 3) if lat else None},
         "model_call_attempts_total": sum(c.get("attempts", 0) for c in calls),

@@ -70,6 +70,10 @@ class RecommendedItem(BaseModel):
     reason: str = Field(min_length=1, max_length=400)
     analysis_source: Optional[str] = None
     ai_confidence: Optional[float] = None
+    # Who put this piece in the outfit (D12). "model" = the language model's own
+    # selection (validated server-side); "rule_matcher" = added by CONFIT's
+    # deterministic completion to fill a core position the model left empty.
+    selected_by: Literal["model", "rule_matcher"] = "model"
 
 
 class OutfitRecommendation(BaseModel):

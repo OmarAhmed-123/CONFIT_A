@@ -71,6 +71,10 @@ _FALLBACK_TEXT = {
         "unfilled": "No {category} left once the colours you asked to avoid were excluded.",
         "role_collision": "{n} suggested piece(s) duplicated a position already filled and were left out; "
                           "the stylist may have mixed up item ids.",
+        "reason_mismatch": "{n} explanation(s) described a different garment than the one referenced and were replaced "
+                           "with a rule-based note.",
+        "completed_by_rules": "{n} piece(s) were added by CONFIT's rule-based matcher to complete the look; "
+                              "they were not chosen by the AI stylist.",
         "generic_reason": "Selected for your {occasion} request.",
         "r_tagged": "tagged for {occasion}", "r_season": "suits {season}", "r_favourite": "one of your favourites",
         "r_neutral": "{color} pairs easily", "r_best_available": "{title}: best available {role} for this request.",
@@ -93,6 +97,8 @@ _FALLBACK_TEXT = {
         "neutral_reason": "أقرب {category} متاح؛ غير موسوم لـ {occasion}.",
         "unfilled": "لم يتبقَّ {category} بعد استبعاد الألوان التي طلبت تجنّبها.",
         "role_collision": "استُبعدت {n} قطعة مقترحة لأنها تكرر موضعًا مشغولًا؛ ربما خلط المصمم بين معرّفات القطع.",
+        "reason_mismatch": "استُبدل {n} تفسير لأنه وصف قطعة مختلفة عن القطعة المُشار إليها، ووُضع بدلًا منه تعليق قاعدي.",
+        "completed_by_rules": "أُضيفت {n} قطعة بواسطة المُطابِق القاعدي في CONFIT لإكمال الإطلالة؛ لم يخترها المصمم الذكي.",
         "generic_reason": "اختيرت لطلبك الخاص بـ {occasion}.",
         "r_tagged": "موسومة لمناسبة {occasion}", "r_season": "مناسبة لفصل {season}", "r_favourite": "من مفضّلاتك",
         "r_neutral": "اللون {color} سهل التنسيق", "r_best_available": "{title}: أفضل {role} متاح لهذا الطلب.",
@@ -103,6 +109,21 @@ _CATEGORY_AR = {"Tops": "قطعة علوية", "Bottoms": "قطعة سفلية",
 _ROLE_AR = {"top": "قطعة علوية", "bottom": "قطعة سفلية", "dress": "فستان", "footwear": "حذاء",
             "outerwear": "قطعة خارجية", "accessory": "إكسسوار"}
 _SEASON_AR = {"spring": "الربيع", "summer": "الصيف", "autumn": "الخريف", "winter": "الشتاء"}
+_OCCASION_AR = {
+    "casual": "كاجوال", "smart casual": "سمارت كاجوال", "work & business": "العمل", "business": "العمل",
+    "business formal": "العمل الرسمي", "cocktail": "الكوكتيل", "formal": "المناسبات الرسمية",
+    "black tie": "البدلة الرسمية (بلاك تاي)", "active": "النشاط الرياضي", "lounge": "الاسترخاء المنزلي",
+    "evening": "السهرة", "interview": "مقابلة العمل", "wedding": "حفل الزفاف", "gym": "التمرين",
+}
+
+
+def _occasion_label(value: Optional[str], language: str) -> str:
+    """Occasion/activity for prose: Arabic label when known (keeps Arabic prose free of
+    English enum values), otherwise the user's own words."""
+    text = (value or "").strip()
+    if language == "ar":
+        return _OCCASION_AR.get(text.lower(), text)
+    return text
 _COLOR_AR = {"Black": "الأسود", "White": "الأبيض", "Navy": "الكحلي", "Beige": "البيج", "Grey": "الرمادي", "Ivory": "العاجي"}
 
 
@@ -230,6 +251,16 @@ class WardrobeStylistService:
                 "watsonx", "model did not reference any valid wardrobe item", retryable=True
             )
 
+        completed = self._complete_core_positions(picked, items, req)
+        if completed:
+            picked.extend(completed)
+            # The model may have written "no suitable footwear in the wardrobe" for a
+            # position the server has just filled — drop those claims (contradiction).
+            filled_words = {w for c in completed for w in self._ROLE_WORDS.get(c.role, ())}
+            limitations = [lim for lim in limitations if not any(w in lim.lower() for w in filled_words)]
+            limitations.append(
+                _FALLBACK_TEXT["ar" if req.language == "ar" else "en"]["completed_by_rules"].format(n=len(completed))
+            )
         present_roles = {p.role for p in picked}
         missing = self._missing_categories(items, present_roles)
         for m in missing:
@@ -352,6 +383,7 @@ class WardrobeStylistService:
         colour_dropped = 0
         dropped: List[Any] = []  # real items the server removed (D10: prose must not describe them)
         role_collisions = 0
+        id_mismatches = 0
         for entry in (raw.get("items") or [])[:8]:
             if not isinstance(entry, dict):
                 continue
@@ -385,6 +417,13 @@ class WardrobeStylistService:
                 role_collisions += 1
                 continue
             reason = self._str(entry.get("reason"), 400) or f"Selected for a {req.occasion.lower()} setting."
+            # D12: a reason that describes a DIFFERENT wardrobe item (e.g. "dark wash
+            # jeans…" attached to the tee's id) must never be shown next to this item.
+            others = [o for o in items if o.id != it.id]
+            if claimed != real_role and self._mentions_any(reason, others, kept=[it]):
+                logger.info("wardrobe_stylist_reason_item_mismatch", item_id=item_id, claimed=claimed, real=real_role)
+                reason = self._rule_reason(it, real_role, req)
+                id_mismatches += 1
             picked.append(RecommendedItem(
                 wardrobe_item_id=it.id, role=real_role,
                 category=taxonomy.normalize_category(it.category), title=it.title,
@@ -401,16 +440,25 @@ class WardrobeStylistService:
             )
         if colour_dropped:
             limitations.append(self._color_limitation(colour_dropped, banned, req.language))
+        t = _FALLBACK_TEXT["ar" if req.language == "ar" else "en"]
         if role_collisions:
-            limitations.append(
-                _FALLBACK_TEXT["ar" if req.language == "ar" else "en"]["role_collision"].format(n=role_collisions)
-            )
+            limitations.append(t["role_collision"].format(n=role_collisions))
+        if id_mismatches:
+            limitations.append(t["reason_mismatch"].format(n=id_mismatches))
         limitations.extend(self._unrecognised_limitation(req))
         for lim in self._str_list(raw.get("limitations"), 4, 240):
             if lim not in limitations and not self._mentions_any(lim, dropped, kept=[by_id[p.wardrobe_item_id] for p in picked]):
                 limitations.append(lim)
         self._dropped_items = dropped
         return picked, rejected, limitations
+
+    # Words a model limitation uses when it claims a position cannot be filled.
+    _ROLE_WORDS = {
+        "top": ("top", "shirt", "blouse", "قطعة علوية", "قميص", "بلوزة"),
+        "bottom": ("bottom", "trouser", "pants", "skirt", "jeans", "بنطلون", "تنورة", "قطعة سفلية"),
+        "footwear": ("footwear", "shoe", "heel", "boot", "sneaker", "loafer", "sandal", "حذاء", "أحذية", "كعب"),
+        "dress": ("dress", "فستان"),
+    }
 
     # ── D10/D11: reconcile model prose with the final, server-filtered outfit ──
     _GENERIC_TOKENS = frozenset({
@@ -497,7 +545,8 @@ class WardrobeStylistService:
         """Server-controlled post-processing so the text matches the outfit.
         Returns (summary, styling_notes, assumptions, limitations, fit_status)."""
         t = _FALLBACK_TEXT["ar" if req.language == "ar" else "en"]
-        occ = req.occasion
+        occ = _occasion_label(req.occasion, req.language)
+        act = _occasion_label(req.activity, req.language) if getattr(req, "activity", None) else None
         fit = self._fit_status(picked_items, req)
         if dropped:
             # D10: anything the model wrote may describe removed garments; rewrite deterministically.
@@ -524,7 +573,7 @@ class WardrobeStylistService:
         if fit == "unsuitable":
             # D11: do not let an unsuitable outfit read as suitable, and strip
             # performance claims the metadata cannot support.
-            summary = t["unsuitable_summary"].format(occasion=req.activity or occ)
+            summary = t["unsuitable_summary"].format(occasion=act or occ)
             note = t["no_occasion_match"].format(occasion=occ)
             if note not in limitations:
                 limitations.insert(0, note)
@@ -553,24 +602,7 @@ class WardrobeStylistService:
             items = kept
 
         def score(it: Any) -> float:
-            s = 0.0
-            occ = [str(o).lower() for o in _loads(it.occasions)]
-            if any(occasion_norm in o or o in occasion_norm for o in occ):
-                s += 50
-            seas = (getattr(it, "seasonality", "") or "").lower()
-            if season and (seas == season or seas == "all-season"):
-                s += 12
-            elif season and seas and seas != "all-season":
-                s -= 15
-            if it.is_favorite or it.wear_frequency == "favorite":
-                s += 15
-            if taxonomy.normalize_color(it.color_name) in prefer_colors:
-                s += 10
-            if taxonomy.normalize_color(it.color_name) in ("Black", "White", "Navy", "Beige", "Grey", "Ivory"):
-                s += 5
-            if it.id in previous:
-                s -= 25  # "another outfit": vary when possible
-            return s
+            return self._rule_score(it, req)
 
         by_role: Dict[str, List[Any]] = {}
         for it in items:
@@ -617,15 +649,17 @@ class WardrobeStylistService:
         )
         fit = self._fit_status([by_id_all[p.wardrobe_item_id] for p in picked], req)
         if picked and occ_hits == 0:
-            limitations.append(t["no_occasion_match"].format(occasion=req.occasion))
+            limitations.append(t["no_occasion_match"].format(occasion=_occasion_label(req.occasion, req.language)))
         if colour_dropped:
             limitations.append(self._color_limitation(colour_dropped, banned, req.language))
         limitations.extend(self._unrecognised_limitation(req))
         return OutfitRecommendation(
             outfit_id=f"det_{uuid.uuid4().hex[:12]}",
             occasion=req.occasion,
-            title=t["title"].format(occasion=req.occasion),
-            summary=(t["unsuitable_summary"].format(occasion=req.activity or req.occasion) if fit == "unsuitable"
+            title=t["title"].format(occasion=_occasion_label(req.occasion, req.language)),
+            summary=(t["unsuitable_summary"].format(
+                occasion=_occasion_label(req.activity, req.language) if req.activity else _occasion_label(req.occasion, req.language)
+            ) if fit == "unsuitable"
                      else t["summary"]),
             items=picked,
             fit_status=fit,
@@ -693,12 +727,83 @@ class WardrobeStylistService:
         return ("dress" in present_roles or {"top", "bottom"} <= present_roles) and "footwear" in present_roles
 
     @staticmethod
+    def _rule_score(it: Any, req: OutfitRecommendationRequest) -> float:
+        """Constraint-aware wardrobe scorer shared by the deterministic fallback and
+        the D12 core-position completion. Banned colours / excluded ids are filtered
+        by the callers; this only ranks eligible items."""
+        occasion_norm = req.occasion.strip().lower()
+        season = (req.season or "").lower()
+        prefer_colors = {taxonomy.normalize_color(c) for c in req.color_preferences}
+        s = 0.0
+        occ = [str(o).lower() for o in _loads(it.occasions)]
+        if any(occasion_norm in o or o in occasion_norm for o in occ):
+            s += 50
+        seas = (getattr(it, "seasonality", "") or "").lower()
+        if season and (seas == season or seas == "all-season"):
+            s += 12
+        elif season and seas and seas != "all-season":
+            s -= 15
+        if it.is_favorite or it.wear_frequency == "favorite":
+            s += 15
+        if taxonomy.normalize_color(it.color_name) in prefer_colors:
+            s += 10
+        if taxonomy.normalize_color(it.color_name) in ("Black", "White", "Navy", "Beige", "Grey", "Ivory"):
+            s += 5
+        if it.id in set(req.previous_item_ids):
+            s -= 25  # "another outfit": vary when possible
+        return s
+
+    def _complete_core_positions(
+        self, picked: List[RecommendedItem], items: List[Any], req: OutfitRecommendationRequest
+    ) -> List[RecommendedItem]:
+        """D12: fill core positions the model left empty (after an id mix-up, a
+        duplicate, or a colour-filtered piece) with the best *eligible* wardrobe
+        item. Eligible = right category, not excluded by id, not in a banned colour,
+        not already used. Each added piece is labelled selected_by="rule_matcher"
+        and carries a rule reason — never attributed to the model."""
+        present = {p.role for p in picked}
+        if "dress" in present:
+            needed = ["footwear"]
+        elif not ({"top", "bottom"} & present) and any(
+            CATEGORY_TO_ROLE.get(taxonomy.normalize_category(it.category)) == "dress" for it in items
+        ) and not any(CATEGORY_TO_ROLE.get(taxonomy.normalize_category(it.category)) in ("top", "bottom") for it in items):
+            needed = ["dress", "footwear"]
+        else:
+            needed = list(CORE_ROLES)
+        banned = self.banned_color_families(req)
+        used = {p.wardrobe_item_id for p in picked}
+        added: List[RecommendedItem] = []
+        for role in needed:
+            if role in present:
+                continue
+            cands = [
+                it for it in items
+                if CATEGORY_TO_ROLE.get(taxonomy.normalize_category(it.category), "accessory") == role
+                and it.id not in used and it.id not in req.excluded_item_ids
+                and not (banned and taxonomy.normalize_color(it.color_name) in banned)
+            ]
+            if not cands:
+                continue
+            best = max(cands, key=lambda it: self._rule_score(it, req))
+            added.append(RecommendedItem(
+                wardrobe_item_id=best.id, role=role, category=taxonomy.normalize_category(best.category),
+                title=best.title, subcategory=best.subcategory, color_name=best.color_name,
+                color_hex=best.color_hex or "#000000", image_url=storage_public_url(best.image_url),
+                reason=self._rule_reason(best, role, req), analysis_source=getattr(best, "analysis_source", None),
+                ai_confidence=getattr(best, "ai_confidence", None), selected_by="rule_matcher",
+            ))
+            used.add(best.id)
+            present.add(role)
+            logger.info("wardrobe_stylist_core_position_completed", item_id=best.id, role=role)
+        return added
+
+    @staticmethod
     def _rule_reason(it: Any, role: str, req: OutfitRecommendationRequest) -> str:
         t = _FALLBACK_TEXT["ar" if req.language == "ar" else "en"]
         bits = []
         occ = [str(o) for o in _loads(it.occasions)]
         if any(req.occasion.lower() in o.lower() or o.lower() in req.occasion.lower() for o in occ):
-            bits.append(t["r_tagged"].format(occasion=req.occasion if req.language == "ar" else req.occasion.lower()))
+            bits.append(t["r_tagged"].format(occasion=_occasion_label(req.occasion, "ar") if req.language == "ar" else req.occasion.lower()))
         if req.season and (getattr(it, "seasonality", "") or "").lower() in (req.season, "all-season"):
             bits.append(t["r_season"].format(season=_SEASON_AR.get(req.season, req.season) if req.language == "ar" else req.season))
         if it.is_favorite:

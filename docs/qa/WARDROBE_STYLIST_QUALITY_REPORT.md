@@ -1,9 +1,9 @@
 # Wardrobe Stylist — AI Recommendation Quality Report
 
-Date: 2026-10-27 · Branch: `feat/watsonx-granite-stylist` · Prompt: `STYLIST_PROMPT_VERSION` unchanged
+Dates: 2026-10-27 (baseline, prompt wx-stylist-1.0) and 2026-10-28 (after D10/D11 fixes, prompt **wx-stylist-1.1**) · Branch: `feat/watsonx-granite-stylist`
 Dataset: `docs/qa/eval/wardrobe_stylist_eval_dataset.json` (v2026-10-27.1, 16 scenarios)
 Harness: `scripts/eval/wardrobe_stylist_quality_eval.py` (FastAPI TestClient + SQLite, one user, items re-seeded per scenario)
-Raw evidence: `docs/qa/eval/wardrobe_stylist_eval_deterministic_20261027.json`, `docs/qa/eval/wardrobe_stylist_eval_live_20261027.json`
+Raw evidence: `docs/qa/eval/wardrobe_stylist_eval_{deterministic,live}_20261027.json` (before fixes) and `…_20261028.json` (after fixes)
 (inputs, item ids, served model id, prompt version, raw + parsed model output, final outfit, scores, latency, attempts).
 
 > **Honesty labels.** "Live" = real inference against watsonx.ai, served model `ibm/granite-4-h-small`, 22 calls, 0 retries, 0 fallbacks.
@@ -81,3 +81,40 @@ set -a && source ~/.env.local && set +a
 PYTHONPATH=. .venv/bin/python scripts/eval/wardrobe_stylist_quality_eval.py --mode live
 ```
 Outputs: `docs/qa/eval/wardrobe_stylist_eval_{mode}_{YYYYMMDD}.json`. Fill the `*_REVIEWER` fields when a human scores a run.
+
+
+---
+
+## 7. Post-fix re-evaluation — 2026-10-28 (prompt wx-stylist-1.1, server reconciliation active)
+
+Live: 22 real calls to `ibm/granite-4-h-small`, 0 retries, 0 fallbacks, p50 2.95 s, max 5.27 s. Harness gained three
+hard-failure classes: **H10** fabricated-attribute *suspected* (keyword heuristic — human confirmation required),
+**H11** prose describes a server-removed item, **H12** unsuitable wardrobe presented as suitable.
+
+| Metric | 10-27 (before) | 10-28 (after) |
+|---|---|---|
+| Final-outfit constraint violations / hallucinated ids | 0 / 0 | **0 / 0** |
+| Model-level colour-exclusion breaches (pre-filter, raw output) | 1/16 (S10) | 1/16 (S10 again) — **plus** S13 breached in run #1 of the day (black blouse in a "no black" Arabic request). Cumulative **3 breaches / 48 constrained-scenario calls**. Server guard caught all. |
+| D10 — prose describes removed garments | S10 yes | **S10 fixed** (summary rewritten: "Final selection: White Dress Shirt … incomplete"; kept-item reason neutralised; "no bottoms/footwear left once the colours you asked to avoid were excluded"). Arabic S13 run #1 also rewritten correctly after the Arabic-prefix tokeniser fix. Remaining H11 hit on S10 is the model's own limitation naming the *unselected* grey loafers ("do not match the black-tie requirement") — a legitimate why-not statement; counted but not a defect. |
+| D11 — unsuitable wardrobe sold as suitable | S16 yes | **S16 fixed**: `fit_status=unsuitable`, summary "Your wardrobe has no items suited to gym workout…", first limitation is the insufficiency statement, every reason is "Closest available X; not tagged for Active", no performance claims. The *model's raw* output also improved under prompt 1.1 ("formal shoes; not designed for gym use"). H12 = 0. |
+| H10 suspected fabricated attribute | n/a | 1 (S04: "moisture-wicking" linen shirt; material not in metadata). Linen breathability is common knowledge but unsupported by the record — left to human review; server does not scrub outside the unsuitable path to avoid damaging good explanations. |
+| H4 incomplete when completable | 0 | 1 (S01, see D12) + in run #1: S09 (model claimed "no smart-casual tops" while a sage linen shirt exists), S14 (model told the user to "choose silver heels if available" while silver heels exist in the wardrobe). Model-side inventory-awareness lapses; server cannot fix without re-prompting. |
+| Consistency (Jaccard, 3 repeats) | 0.83 / 0.83 / 0.83 | 0.58 / 0.67 / 0.83 — more variance under the longer prompt; still ≥ 0.5. |
+| Rubric means (heuristic) | expl 4.75, compl 5 | expl 4.88, compl 4.81, colour 4.62, others 5 |
+
+### New defect
+**D12 (P1, open) — id/description mix-up.** S01 raw output cited `wardrobe_item_id 3` (White Cotton Tee) with the reason
+"Dark wash jeans provide a relaxed base" (jeans are id 5). The server correctly trusts stored categories, so the second
+top was dropped and the outfit had no bottom. Fixed today: the response now says "1 suggested piece duplicated a position
+already filled and was left out; the stylist may have mixed up item ids" (EN/AR, test `test_d12_role_collision_is_explained`).
+Proposed next step: deterministic completion of empty core positions from the wardrobe, labelled "added by CONFIT's matcher",
+or one controlled re-prompt with the offending id removed — product decision needed because both change what the user sees.
+
+### Status of thresholds (still REQUIRE PRODUCT-OWNER APPROVAL)
+Inventory hallucination 0 % ✓ · system-level constraint violation 0 % ✓ · language match 100 % ✓ ·
+unsuitable-inventory honesty 1/1 ✓ (was 0/1) · model-level constraint compliance 93.75 % (gate ≥ 95 % not met — informational while the server guard exists) ·
+human-scored rubric **unverified** (no human reviewer) · consistency ≥ 0.66: 2 of 3 scenarios ✓, S01 0.58 ✗.
+
+### Human review status
+No qualified fashion reviewer and no native Arabic reviewer were available in this environment. All subjective judgements
+above are assistant review. The JSON files carry empty `*_REVIEWER` slots for them.

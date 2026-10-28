@@ -530,12 +530,20 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
                 </div>
                 <span
                   className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                    result.is_complete
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-amber-200 bg-amber-50 text-amber-900"
+                    result.fit_status === "unsuitable"
+                      ? "border-rose-200 bg-rose-50 text-rose-900"
+                      : result.is_complete && result.fit_status !== "partial"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-amber-200 bg-amber-50 text-amber-900"
                   }`}
                 >
-                  {result.is_complete ? t("wardrobe_stylist.complete") : t("wardrobe_stylist.partial")}
+                  {result.fit_status === "unsuitable"
+                    ? t("wardrobe_stylist.fit_unsuitable")
+                    : result.fit_status === "partial"
+                      ? t("wardrobe_stylist.fit_partial")
+                      : result.is_complete
+                        ? t("wardrobe_stylist.complete")
+                        : t("wardrobe_stylist.partial")}
                 </span>
               </div>
             </header>

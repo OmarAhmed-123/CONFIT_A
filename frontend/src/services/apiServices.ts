@@ -1096,6 +1096,8 @@ export interface OutfitRecommendation {
   missing_categories: string[];
   assumptions: string[];
   is_complete: boolean;
+  /** Server-computed: "suitable" | "partial" | "unsuitable" (D11). Optional for older saved looks. */
+  fit_status?: "suitable" | "partial" | "unsuitable";
   /** Honesty block — never render "AI" when ai_generated is false. */
   source: "watsonx" | "deterministic_fallback";
   ai_generated: boolean;

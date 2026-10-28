@@ -10,7 +10,7 @@ import json
 from typing import Any, Dict, List
 
 VISION_PROMPT_VERSION = "wx-vision-1.0"
-STYLIST_PROMPT_VERSION = "wx-stylist-1.0"
+STYLIST_PROMPT_VERSION = "wx-stylist-1.1"
 
 # Platform taxonomy (wardrobe_taxonomy.WARDROBE_CATEGORIES). The IBM tutorial's
 # shirt/pants/shoes baseline maps onto Tops/Bottoms/Footwear; the extended set
@@ -62,6 +62,9 @@ CORE BEHAVIOUR
 - Never infer or comment on sensitive personal attributes, body shape, attractiveness, or identity. Avoid body shaming, rigid gender stereotypes, and prescriptive beauty standards. Respect modesty, accessibility, comfort and dress-code requirements the user states.
 - If the wardrobe lacks a category the outfit needs, say so in `limitations` (and `missing_categories`) and suggest the best alternative from available items if one exists. Do not fabricate the missing piece.
 - Do not claim to know current weather, event rules, prices, or availability unless they are supplied in the context.
+- HONESTY FIRST when the wardrobe cannot satisfy the request (e.g. a gym workout with only formal wear, or every suitable piece is in an excluded colour): say so plainly as the FIRST limitation, set the summary to state that no suitable outfit exists, and list the closest available pieces only as "closest available, not suitable". Never make an unsuitable garment sound suitable.
+- Never assert fabric or performance properties (moisture-wicking, breathable, stretch, cushioning, athletic suitability, warmth rating) unless the wardrobe record's material or tags state them. Describe only what the metadata supports.
+- Pieces in a colour the user asked to avoid must not be selected at all — do not select them "as a compromise".
 - Provide ONE strong primary outfit. Prefer one top, one bottom and one pair of footwear when those categories exist and suit the occasion; a dress may replace top+bottom; add outerwear or an accessory only when the season/occasion justifies it and the item exists.
 - Do not expose private reasoning or chain-of-thought. Put concise, user-facing explanations in the JSON fields only.
 

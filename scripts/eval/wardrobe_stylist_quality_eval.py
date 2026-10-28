@@ -22,6 +22,13 @@ What is scored automatically
     H7 invalid response (non-200 / unparseable)
     H8 image_url not the one stored for that wardrobe id
     H9 role contradiction (dress together with top/bottom)
+    H10 fabricated performance attribute in prose (keyword heuristic — wick/breathable/
+        cushion/... — on items with no supporting material/tag; needs human confirmation)
+    H11 prose describes an item the SERVER removed (banned-colour item of the
+        scenario whose title appears in the prose; catches D10). Mentioning an
+        owned-but-unselected item ("the sneakers are too light for autumn") is fine.
+    H12 unsuitable wardrobe presented as suitable (scenario expects unsuitable_inventory
+        but fit_status != "unsuitable" or the summary lacks an insufficiency statement; D11)
   HEURISTIC RUBRIC 1-5 (automatic, documented in docs/qa/WARDROBE_STYLIST_QUALITY_REPORT.md)
     constraint_compliance, inventory_fidelity, completeness, seasonal_appropriateness,
     colour_coordination, pattern_discipline, explanation_quality, occasion_fit
@@ -164,6 +171,33 @@ def _score(scn: dict[str, Any], req: dict[str, Any], resp: dict[str, Any] | None
             break
     if "dress" in roles and ({"top", "bottom"} & set(roles)):
         hard.append("H9_role_contradiction")
+    all_prose = " ".join(
+        [resp.get("summary") or ""] + (resp.get("styling_notes") or []) + (resp.get("limitations") or [])
+        + (resp.get("assumptions") or []) + [i.get("reason") or "" for i in items]
+    ).lower()
+    claim_re = re.compile(r"wick|sweat|moisture|breathab|athletic|cushion|stretch|quick[- ]dry|gym[- ]ready|sporty|يمتص العرق|مقاوم للعرق", re.IGNORECASE)
+    if claim_re.search(all_prose) and not any(
+        claim_re.search(" ".join(str(x) for x in [created[i]["title"], created[i].get("subcategory"), created[i].get("material"),
+                                                  *(created[i].get("occasions") or []), *(created[i].get("style_tags") or [])]))
+        for i in ids if i in created
+    ):
+        hard.append("H10_fabricated_attribute_suspected")
+    # Only items the SERVER removed count (banned colour is the one removal reason
+    # observable from outside); mentioning an owned-but-unselected item is legitimate.
+    final_titles = {str(i.get("title") or "").lower() for i in items}
+    for row in created.values():
+        title = str(row.get("title") or "").lower()
+        if not banned or normalize_color(row.get("color")) not in banned:
+            continue
+        if title and title not in final_titles and len(title) >= 6 and title in all_prose:
+            hard.append("H11_prose_describes_filtered_item")
+            break
+    if exp.get("unsuitable_inventory") and (
+        resp.get("fit_status") != "unsuitable"
+        or not any(k in all_prose for k in ("no items suited", "not a recommended outfit", "nothing in your wardrobe is tagged",
+                                              "لا تحتوي خزانتك", "موسومة لمناسبة"))
+    ):
+        hard.append("H12_unsuitable_presented_as_suitable")
 
     # ── heuristic rubric ─────────────────────────────────────────────
     rubric["constraint_compliance"] = 1 if "H3_banned_colour_present" in hard else 5

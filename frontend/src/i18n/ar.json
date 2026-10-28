@@ -3363,6 +3363,8 @@
     "source_model": "نسّقه {{model}}",
     "source_fallback": "مطابقة قائمة على القواعد — ليست ذكاءً اصطناعيًا",
     "complete": "إطلالة مكتملة",
+    "fit_partial": "مطابقة جزئية",
+    "fit_unsuitable": "لا توجد إطلالة مناسبة — تُعرض أقرب القطع",
     "partial": "إطلالة جزئية",
     "items_label": "القطع الموصى بها",
     "image_unavailable": "الصورة غير متاحة",

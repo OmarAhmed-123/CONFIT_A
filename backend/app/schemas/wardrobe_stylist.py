@@ -83,6 +83,10 @@ class OutfitRecommendation(BaseModel):
     missing_categories: List[str] = Field(default_factory=list)
     assumptions: List[str] = Field(default_factory=list)
     is_complete: bool
+    # Server-computed honesty signal (D11): "suitable" = every piece is tagged for the
+    # requested occasion/activity in the user's own wardrobe records; "partial" = some;
+    # "unsuitable" = none — the items are shown as the closest available, NOT as a fit.
+    fit_status: Literal["suitable", "partial", "unsuitable"] = "suitable"
     # Honesty block (FR-18). `source` is one of:
     #   "watsonx"                 – a language model produced the selection + reasons
     #   "deterministic_fallback"  – rule-based scorer; `ai_generated` is False

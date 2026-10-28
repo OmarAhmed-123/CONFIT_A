@@ -43,3 +43,27 @@ family names is a follow-up. The taxonomy now understands Arabic colour words
 (أسود/أبيض/كحلي/…), which makes preferences and exclusions typed in Arabic effective for
 the first time. Native-speaker review: **BLOCKED — NOT VERIFIED** (no reviewer available
 in this environment); owner: product/localisation.
+
+
+## Update 2026-10-28 — live-model Arabic samples + new server strings
+
+Native-speaker review status: **still BLOCKED — NOT VERIFIED** (no native Arabic reviewer available
+in this environment). Everything below is an assistant observation, queued for the reviewer.
+
+### Live Granite output (ibm/granite-4-h-small), raw samples for review
+Source files: `docs/qa/eval/wardrobe_stylist_eval_live_20261027.json`, `…_20261028.json` (scenarios S12–S14).
+
+| Run | Scenario | Sample (verbatim) | Assistant observation | Reviewer decision |
+|---|---|---|---|---|
+| 10-27 | S14 summary | «…لحفل زفاف في قاعة مغطى باللون الأسود.» | Grammatically odd — "hall covered in black" appears to be a mangled rendering of the excluded colour. | _pending_ |
+| 10-27 | S13 assumption | «المقابلة تتطلب ملابس رسمية وليس بدون تيشيرت أو بدلة رسمية.» | Incoherent double negation. | _pending_ |
+| 10-28 | S13 summary | «القميص الأبيض مع البنطلون الكحلي يشكلان مجموعة عمل رسمية مناسبة لمقابلة عمل صباحية في الخريف، بينما الحذاء البني يضيف لمسة دافئة دون انتهاك الحظر على الأسود.» | Reads naturally; «انتهاك الحظر» is a slightly legalistic register for a stylist. | _pending_ |
+| 10-28 | S14 summary | «فستان سهرة كحلي يناسب الحفل الرسمي في الليلة الزفاف…» | «في الليلة الزفاف» is ungrammatical (definite article on both words of an iḍāfa); should be «في ليلة الزفاف». Model also wrote «الملابس الشخصية» for "wardrobe" instead of «الخزانة» used elsewhere — terminology inconsistency. | _pending_ |
+| 10-28 | S12 | full response | Clean; consistent with 10-27 run (regression sample). | _pending_ |
+
+### New server-side Arabic strings (D10/D11/D12 fixes, `wardrobe_stylist_service.py::_FALLBACK_TEXT["ar"]`)
+`unsuitable_summary`, `partial_summary`, `filtered_summary`, `incomplete_word`/`complete_word`,
+`neutral_reason`, `generic_reason`, `unfilled`, `role_collision`; UI badges `wardrobe_stylist.fit_partial`
+= «مطابقة جزئية», `wardrobe_stylist.fit_unsuitable` = «لا توجد إطلالة مناسبة — تُعرض أقرب القطع».
+Known limitation carried over: occasion values inside these strings are the request's English enum
+(e.g. «موسومة لمناسبة Active») — localising occasion names is a follow-up.

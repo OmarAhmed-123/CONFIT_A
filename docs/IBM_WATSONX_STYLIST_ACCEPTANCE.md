@@ -22,7 +22,7 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 | FR-04 | Honest handling when vision model cannot classify (no invented category) | MOCKED + LIVE | Synthetic drawing → `category=null`, item left for manual categorisation (smoke script); test `test_unknown_category_is_null_not_guessed` |
 | FR-05 | User can correct category/metadata; correction wins over model; provenance updated | VERIFIED (API live + UI built) | `PATCH /wardrobe/items/{id}` → `analysis_source="manual (was <model>)"`; `WardrobeView.tsx` per-card `<select>` → `setCategory` (tsc clean, `wardrobeStylistPanel.test.tsx`); second live recommendation used the corrected category as the role |
 | FR-06 | Occasion / time of day / season / location / preferences / comfort inputs | VERIFIED | `schemas/wardrobe_stylist.py::OutfitRecommendationRequest` (validated enums + length caps); panel form; live request with all fields → 200 |
-| FR-07 | Granite reasoning via watsonx.ai with the versioned "CONFIT Stylist" system prompt | LIVE + MOCKED | `providers/watsonx/prompts.py` (`STYLIST_PROMPT_VERSION="wx-stylist-1.0"`, prompt text verbatim from the brief); response carries `prompt_version`; live `model_id=ibm/granite-4-h-small`, 2.3 s |
+| FR-07 | Granite reasoning via watsonx.ai with the versioned "CONFIT Stylist" system prompt | LIVE + MOCKED | `providers/watsonx/prompts.py` (`STYLIST_PROMPT_VERSION="wx-stylist-1.1"` since 2026-10-28 — honesty-first + no-unsupported-attribute rules added, see docs/qa/WARDROBE_STYLIST_QUALITY_REPORT.md §7); response carries `prompt_version`; live `model_id=ibm/granite-4-h-small`, 2.3 s |
 | FR-08 | Structured recommendation contract (`outfit_id`, `occasion`, `title`, `summary`, `items[{wardrobe_item_id, category, role, title, filename, reason}]`, `styling_notes`, `limitations`, `missing_categories`, `source`, `ai_generated`, `model_id`, `prompt_version`, `is_complete`) | VERIFIED | `schemas/wardrobe_stylist.py::OutfitRecommendationResponse`; FE types in `models/index.ts`; live payload printed in E2E run |
 | FR-09 | Every model item reference validated against the caller's real wardrobe by **id** (no filename substring matching) | MOCKED + LIVE | `wardrobe_stylist_service._validate_items`: unknown ids / other users' ids / duplicates dropped and counted in `rejected_references`; tests Scenario D (`test_hallucinated_ids_rejected`, `test_cross_user_ids_rejected`, `test_duplicate_ids_collapsed`); live `rejected: []` |
 | FR-10 | Role derived from stored category, not from the model's claim | LIVE | Log `wardrobe_stylist_role_corrected claimed=bottoms real=bottom`, `claimed=dress real=outerwear` (after user correction) |
@@ -130,3 +130,12 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 * **Latency under load** not measured; single-user numbers only
   (vision 1.5–2.6 s/image, reasoning 2.3–2.8 s).
 * Coverage percentages were **not** computed; none are claimed.
+
+## Addendum 2026-10-28 — explanation/outfit consistency (D10, D11, D12)
+
+| ID | Requirement | Status | Evidence |
+|---|---|---|---|
+| FR-21 | After server-side filtering, summary / limitations / notes / reasons must not describe removed garments; emptied positions are explained | VERIFIED (mocked, from real captured outputs) + LIVE re-eval | `wardrobe_stylist_service.py::_reconcile`, `_mentions_any` (EN + Arabic clitic-aware tokens); tests `test_stylist_explanation_consistency.py::test_d10_*`; live S10/S13 2026-10-28 |
+| FR-22 | Server-computed `fit_status` ∈ {suitable, partial, unsuitable}; unsuitable ⇒ insufficiency statement first, honest summary, no fabricated performance claims; UI badge EN/AR | VERIFIED (mocked) + LIVE S16 | schema `OutfitRecommendation.fit_status`; `_fit_status`, `_UNSUPPORTED_CLAIM_RE`; `WardrobeStylistPanel.tsx` badge; i18n `fit_partial`/`fit_unsuitable`; tests `test_d11_*` |
+| FR-23 | Model id/description mix-ups that empty a core position are disclosed | VERIFIED (mocked) | `role_collision` limitation; `test_d12_role_collision_is_explained`; live S01 2026-10-28 |
+| NFR | Fabricated-attribute detection | PARTIAL — keyword heuristic only (`H10` in eval harness); human confirmation required | `scripts/eval/wardrobe_stylist_quality_eval.py` |

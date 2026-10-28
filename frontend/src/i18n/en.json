@@ -3356,6 +3356,8 @@
     "source_model": "Styled by {{model}}",
     "source_fallback": "Rule-based match — not AI",
     "complete": "Complete outfit",
+    "fit_partial": "Partial match",
+    "fit_unsuitable": "No suitable outfit — closest pieces shown",
     "partial": "Partial outfit",
     "items_label": "Recommended pieces",
     "image_unavailable": "Photo unavailable",

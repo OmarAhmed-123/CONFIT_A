@@ -148,6 +148,26 @@ describe("WardrobeStylistPanel", () => {
     expect(screen.getByText(en.wardrobe_stylist.tagged_manually)).toBeTruthy();
   });
 
+  it("labels an unsuitable wardrobe honestly (D11) and a partial match as such, in EN and AR", async () => {
+    recommendOutfit.mockResolvedValue({ ...modelResult, is_complete: true, fit_status: "unsuitable" });
+    renderPanel();
+    fireEvent.change(screen.getByLabelText(en.wardrobe_stylist.occasion), { target: { value: "Active" } });
+    fireEvent.click(screen.getByRole("button", { name: en.wardrobe_stylist.generate }));
+    await screen.findByTestId("stylist-result");
+    expect(screen.getByText(en.wardrobe_stylist.fit_unsuitable)).toBeTruthy();
+    expect(screen.queryByText(en.wardrobe_stylist.complete)).toBeNull();
+    cleanup();
+
+    recommendOutfit.mockResolvedValue({ ...modelResult, is_complete: true, fit_status: "partial" });
+    await setAppLanguage("ar");
+    renderPanel();
+    fireEvent.change(screen.getByLabelText(ar.wardrobe_stylist.occasion), { target: { value: "Active" } });
+    fireEvent.click(screen.getByRole("button", { name: ar.wardrobe_stylist.generate }));
+    await screen.findByTestId("stylist-result");
+    expect(screen.getByText(ar.wardrobe_stylist.fit_partial)).toBeTruthy();
+    await setAppLanguage("en");
+  });
+
   it("labels a deterministic fallback honestly and never as AI (Scenario J)", async () => {
     recommendOutfit.mockResolvedValue(fallbackResult);
     renderPanel();

@@ -308,14 +308,13 @@ class WardrobeStylistService:
 
     @staticmethod
     def _known_color_family(text: str) -> Optional[str]:
-        """normalize_color() falls back to "Black" for unknown words, which is
-        fine for labelling but dangerous for a ban list. Only map strings that
-        actually contain a known alias."""
+        """Only map strings that actually contain a known alias; the Unknown
+        family (and fuzzy near-misses) must never reach a ban list."""
         v = taxonomy._norm(text)
         if not v:
             return None
         fam = taxonomy.normalize_color(v)
-        if any(alias in v for alias in taxonomy.COLOR_FAMILIES.get(fam, [])):
+        if taxonomy.is_known_color(fam) and any(alias in v for alias in taxonomy.COLOR_FAMILIES.get(fam, [])):
             return fam
         return None
 
@@ -592,7 +591,7 @@ class WardrobeStylistService:
     ) -> OutfitRecommendation:
         occasion_norm = req.occasion.strip().lower()
         season = (req.season or "").lower()
-        prefer_colors = {taxonomy.normalize_color(c) for c in req.color_preferences}
+        prefer_colors = {taxonomy.normalize_color(c) for c in req.color_preferences} - {taxonomy.UNKNOWN_COLOR}
         previous = set(req.previous_item_ids)
         banned = self.banned_color_families(req)
         colour_dropped = 0
@@ -735,7 +734,7 @@ class WardrobeStylistService:
         by the callers; this only ranks eligible items."""
         occasion_norm = req.occasion.strip().lower()
         season = (req.season or "").lower()
-        prefer_colors = {taxonomy.normalize_color(c) for c in req.color_preferences}
+        prefer_colors = {taxonomy.normalize_color(c) for c in req.color_preferences} - {taxonomy.UNKNOWN_COLOR}
         s = 0.0
         occ = [str(o).lower() for o in _loads(it.occasions)]
         if any(occasion_norm in o or o in occasion_norm for o in occ):

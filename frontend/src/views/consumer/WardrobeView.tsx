@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
+import { colorLabel } from "../../lib/colorLabel";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useUndoableRemove } from '../../hooks/useUndoableRemove';
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -603,7 +604,7 @@ export const WardrobeView: React.FC = () => {
                       {item.title}
                     </h2>
                     <p className="text-xs text-brand-muted">
-                      {item.color_name} · {item.category}
+                      {colorLabel(item.color_name, t)} · {item.category}
                     </p>
                     {/* FR-18 provenance: who/what produced this metadata. Never
                         says "AI" for a manual edit or a legacy row. */}

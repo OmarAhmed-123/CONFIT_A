@@ -670,7 +670,8 @@
     "upload_status_saved_retryable": "محفوظ (قابل لإعادة محاولة التحليل)",
     "upload_status_processing": "جارٍ المعالجة…",
     "dup_worn_times_one": "تم ارتداؤها مرة واحدة",
-    "dup_worn_times_other": "تم ارتداؤها {{count}} مرات"
+    "dup_worn_times_other": "تم ارتداؤها {{count}} مرات",
+    "color_unknown": "لون غير محدد"
   },
   "commerce": {
     "add_to_cart": "إضافة للحقيبة",

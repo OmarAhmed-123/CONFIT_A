@@ -90,6 +90,7 @@ COLOR_FAMILY_HEX = {
     "Brown": "#4A3525", "Green": "#2D4A3E", "Red": "#8C2F39", "Pink": "#D9A7B0",
     "Purple": "#6B5B95", "Yellow": "#C5A059", "Orange": "#C4733B", "Silver": "#C0C0C0",
     "Multi": "#888888",
+    "Unknown": "#A3A3A3",  # neutral swatch; the label says it is unclassified
 }
 
 # ── Patterns ────────────────────────────────────────────────────────────────
@@ -179,11 +180,26 @@ def normalize_category(raw: Optional[str], subcategory_hint: Optional[str] = Non
     return "Tops"  # safest default bucket for an unrecognized garment
 
 
+UNKNOWN_COLOR = "Unknown"
+
+
+def is_known_color(family: Optional[str]) -> bool:
+    """True only for a real colour family — never for the Unknown bucket."""
+    return bool(family) and family != UNKNOWN_COLOR and family in COLOR_FAMILIES
+
+
 def normalize_color(raw: Optional[str]) -> str:
-    """Normalize 'Navy Blue' / 'dark navy' / 'midnight' to one family."""
+    """Normalize 'Navy Blue' / 'dark navy' / 'midnight' to one family.
+
+    Words that match no alias (exactly or fuzzily) normalise to ``"Unknown"``
+    (2026-10-29). Before that the fallback was ``"Black"``, which let
+    "Periwinkle" or an empty value be excluded by "no black", counted as a
+    neutral, and matched against black products — all false claims. Unknown is
+    never neutral, never preferred, never banned and never a colour match.
+    """
     v = _norm(raw or "")
     if not v:
-        return "Black"
+        return UNKNOWN_COLOR
     # Longest alias first so 'navy blue' wins over 'blue'
     aliases = sorted(
         ((alias, fam) for fam, toks in COLOR_FAMILIES.items() for alias in toks),
@@ -194,7 +210,7 @@ def normalize_color(raw: Optional[str]) -> str:
         if alias in v:
             return fam
     match = _closest(v, list(COLOR_FAMILIES.keys()))
-    return match or "Black"
+    return match or UNKNOWN_COLOR
 
 
 def color_hex_for_family(family: str, model_hex: Optional[str] = None) -> str:

@@ -670,7 +670,8 @@
     "upload_status_saved_retryable": "Saved (AI retryable)",
     "upload_status_processing": "Processing…",
     "dup_worn_times_one": "Worn once",
-    "dup_worn_times_other": "Worn {{count}} times"
+    "dup_worn_times_other": "Worn {{count}} times",
+    "color_unknown": "Unknown colour"
   },
   "commerce": {
     "add_to_cart": "Add to Bag",

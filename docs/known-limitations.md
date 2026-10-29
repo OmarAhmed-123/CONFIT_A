@@ -13,11 +13,12 @@ a default that pretends otherwise.
 3. **Deterministic mode is a rule matcher, not a stylist**: it picks by occasion/season
    tags, favourites and neutral colours; reasons are templated. Labelled
    "Rule-based match — not AI" EN/AR. Code, by design.
-4. **Unknown colour words fall back to the "Black" family** in `normalize_color` (e.g.
-   "Periwinkle"). Common misses (indigo, teal, denim, bordeaux, lime…) were fixed
-   2026-10-29 (D14); the generic fallback remains because changing it alters persisted
-   data semantics and the exclusion filter. Follow-up: fall back to an "Unknown"
-   family that the exclusion filter ignores. Code, tracked in release-readiness §C.
+4. **(RESOLVED 2026-10-29)** Unknown colour words used to fall back to the "Black"
+   family. `normalize_color` now returns `"Unknown"`, which is never neutral, preferred,
+   banned or matched in gap analysis; the UI shows "Unknown colour / لون غير محدد".
+   Items persisted as `Black` before this date from unrecognised words are **not**
+   migrated (no way to recover the original word) — users can edit them.
+   Tests: `backend/tests/test_color_unknown_family.py`.
 5. **Eval heuristic H10** over-fires on negated statements ("lacks moisture-wicking");
    flags are reviewed manually (quality report §8). Process.
 6. **Human validation pending**: fashion-expert rubric and native-Arabic review have

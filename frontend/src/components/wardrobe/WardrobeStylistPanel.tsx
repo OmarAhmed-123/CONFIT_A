@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { colorLabel } from "../../lib/colorLabel";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -557,7 +558,7 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
                   <div className="relative aspect-[4/5] bg-slate-100">
                     <HonestProductImage
                       src={item.image_url}
-                      alt={`${item.title} — ${item.color_name} ${item.category}`}
+                      alt={`${item.title} — ${colorLabel(item.color_name, t)} ${item.category}`}
                       className="h-full w-full object-cover"
                       unavailableLabel={t("wardrobe_stylist.image_unavailable")}
                     />
@@ -577,7 +578,7 @@ export const WardrobeStylistPanel: React.FC<Props> = ({
                   <div className="flex flex-1 flex-col p-4">
                     <p className="font-serif text-base font-bold text-brand-charcoal">{item.title}</p>
                     <p className="text-[11px] text-brand-muted">
-                      {[item.subcategory, item.color_name, item.category].filter(Boolean).join(" · ")}
+                      {[item.subcategory, colorLabel(item.color_name, t), item.category].filter(Boolean).join(" · ")}
                     </p>
                     <p dir="auto" className="mt-2 flex-1 text-sm leading-relaxed text-slate-700">{item.reason}</p>
                     <div className="mt-3 flex items-center justify-between gap-2">

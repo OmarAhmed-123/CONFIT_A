@@ -1,3 +1,5 @@
+> **Superseded 2026-10-29 (ninth pass)** by `docs/release/PRODUCTION_READINESS_REPORT.md`. Kept for history; the decision below (NO-GO production / CONDITIONAL GO code) is unchanged.
+
 # Release readiness — wardrobe stylist (IBM watsonx.ai / Granite)
 
 Branch `feat/watsonx-granite-stylist` · prepared 2026-10-29 · supersedes the

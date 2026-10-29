@@ -314,7 +314,7 @@ static image or the user's own photo for a render.
 | Visual search | ✅ Live — real Gemini vision analysis (verified: dress/blazer/sneaker photos detected and matched truthfully) |
 | Virtual try-on rendering | ⏳ Awaiting GPU worker deployment (code complete; honest 503 until then) |
 | Payments | ⚠️ Demo mode — webhook signatures verified, idempotency real; live charges need PSP credentials + sandbox testing first |
-| **Production / staging** | ⛔ Currently unverifiable — Vercel 402, Neon quota (account-side, not code). Release decision and provider recovery: `docs/release-readiness.md`, `docs/deployment-recovery.md` |
+| **Production / staging** | ⛔ Currently unverifiable — Vercel 402, Neon quota (account-side, not code). Release decision: `docs/release/PRODUCTION_READINESS_REPORT.md`; recovery runbooks: `docs/deployment/`; history: `docs/release-readiness.md` |
 
 ## Security posture (abridged)
 

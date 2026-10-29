@@ -1,0 +1,189 @@
+{
+  "started_at": "2026-10-29T13:06:36.415Z",
+  "web": "http://127.0.0.1:43124",
+  "api": "http://127.0.0.1:8000",
+  "languages": {
+    "en": [
+      {
+        "lang": "en",
+        "name": "auth.session_cookie_set",
+        "ok": true,
+        "detail": [
+          "confit_token",
+          "confit_csrf",
+          "confit_refresh"
+        ]
+      },
+      {
+        "lang": "en",
+        "name": "page.dir",
+        "ok": true
+      },
+      {
+        "lang": "en",
+        "name": "wardrobe.add_via_ui",
+        "ok": true,
+        "detail": {
+          "status": 201,
+          "color_name": "Green"
+        }
+      },
+      {
+        "lang": "en",
+        "name": "wardrobe.ui_item_colour_family_is_known",
+        "ok": true,
+        "detail": "Green"
+      },
+      {
+        "lang": "en",
+        "name": "wardrobe.ui_item_visible_in_closet",
+        "ok": true
+      },
+      {
+        "lang": "en",
+        "name": "stylist.result_rendered",
+        "ok": true,
+        "detail": {
+          "items": 3
+        }
+      },
+      {
+        "lang": "en",
+        "name": "stylist.source_is_deterministic_and_labelled",
+        "ok": true,
+        "detail": {
+          "source": "deterministic_fallback",
+          "badge": "Rule-based match — not AI"
+        }
+      },
+      {
+        "lang": "en",
+        "name": "stylist.no_live_ai_claim",
+        "ok": true,
+        "detail": {
+          "badge": "Rule-based match — not AI"
+        }
+      },
+      {
+        "lang": "en",
+        "name": "stylist.save_button_present",
+        "ok": true
+      },
+      {
+        "lang": "en",
+        "name": "stylist.save_persisted",
+        "ok": true,
+        "detail": {
+          "status": 201,
+          "ui": "Saved to your wardrobe looks (#4). Find it under Looks."
+        }
+      },
+      {
+        "lang": "en",
+        "name": "looks.saved_outfit_listed",
+        "ok": true,
+        "detail": {
+          "savedTitle": "Smart Casual from your wardrobe"
+        }
+      },
+      {
+        "lang": "en",
+        "name": "page.no_uncaught_errors",
+        "ok": true,
+        "detail": []
+      }
+    ],
+    "ar": [
+      {
+        "lang": "ar",
+        "name": "auth.session_cookie_set",
+        "ok": true,
+        "detail": [
+          "confit_token",
+          "confit_csrf",
+          "confit_refresh"
+        ]
+      },
+      {
+        "lang": "ar",
+        "name": "page.dir",
+        "ok": true
+      },
+      {
+        "lang": "ar",
+        "name": "wardrobe.add_via_ui",
+        "ok": true,
+        "detail": {
+          "status": 201,
+          "color_name": "Green"
+        }
+      },
+      {
+        "lang": "ar",
+        "name": "wardrobe.ui_item_colour_family_is_known",
+        "ok": true,
+        "detail": "Green"
+      },
+      {
+        "lang": "ar",
+        "name": "wardrobe.ui_item_visible_in_closet",
+        "ok": true
+      },
+      {
+        "lang": "ar",
+        "name": "stylist.result_rendered",
+        "ok": true,
+        "detail": {
+          "items": 3
+        }
+      },
+      {
+        "lang": "ar",
+        "name": "stylist.source_is_deterministic_and_labelled",
+        "ok": true,
+        "detail": {
+          "source": "deterministic_fallback",
+          "badge": "مطابقة قائمة على القواعد — ليست ذكاءً اصطناعيًا"
+        }
+      },
+      {
+        "lang": "ar",
+        "name": "stylist.no_live_ai_claim",
+        "ok": true,
+        "detail": {
+          "badge": "مطابقة قائمة على القواعد — ليست ذكاءً اصطناعيًا"
+        }
+      },
+      {
+        "lang": "ar",
+        "name": "stylist.save_button_present",
+        "ok": true
+      },
+      {
+        "lang": "ar",
+        "name": "stylist.save_persisted",
+        "ok": true,
+        "detail": {
+          "status": 201,
+          "ui": "حُفظت ضمن إطلالات خزانتك (رقم 5). ستجدها في تبويب الإطلالات."
+        }
+      },
+      {
+        "lang": "ar",
+        "name": "looks.saved_outfit_listed",
+        "ok": true,
+        "detail": {
+          "savedTitle": "إطلالة سمارت كاجوال من خزانتك"
+        }
+      },
+      {
+        "lang": "ar",
+        "name": "page.no_uncaught_errors",
+        "ok": true,
+        "detail": []
+      }
+    ]
+  },
+  "failures": [],
+  "pass": true
+}

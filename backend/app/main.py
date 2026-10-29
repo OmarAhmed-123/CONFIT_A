@@ -50,35 +50,13 @@ async def lifespan(app: FastAPI):
     # when ENVIRONMENT=production, forcing the operator to run migrations.
     try:
         if settings.ENVIRONMENT.lower() != "production":
-            Base.metadata.create_all(bind=engine)
-            # Seed guard level 1 (startup): demo catalogue + demo accounts are
-            # a development convenience only. In production the operator runs
-            # Alembic migrations and the app must NEVER auto-create known
-            # credentials like admin@confit.io / Password123!.
-            from sqlalchemy.orm import Session as _Session
-            from backend.app.models.catalog import Category
-            # Decide INSIDE the session, seed OUTSIDE it. seed_database()
-            # runs drop_all() on a second connection; on PostgreSQL that needs
-            # exclusive locks on FK-referenced tables (e.g. categories) which
-            # this probe session still holds idle-in-transaction — a
-            # self-deadlock that hangs startup forever (verified 2026-10-26 on
-            # PostgreSQL 16 with 1 and 2 uvicorn workers; invisible on SQLite).
-            # Multi-worker startup on an EMPTY database (reproduced 3/3 on
-            # 2026-10-27, PostgreSQL 17, `--workers 2`): worker A's seeder
-            # drop_all()s while worker B is still probing, so B logs
-            # "relation does not exist" and its schema gate records a false
-            # `drift` verdict. Serialise the decide-and-seed step with a
-            # session-level advisory lock held on a dedicated AUTOCOMMIT
-            # connection (holds no table locks, so the drop_all() self-deadlock
-            # documented above cannot return). No-op on SQLite.
-            from backend.app.core.startup_lock import seed_lock
-            with seed_lock(engine):
-                with _Session(engine) as _s:
-                    _needs_seed = _s.query(Category).count() == 0
-                if _needs_seed:
-                    from backend.app.seed_data import seed_database
-                    seed_database(target_engine=engine)
-                    logger.info("Database was empty — seeded the default catalogue")
+            # create_all + first seed, serialised across workers with a
+            # session-level advisory lock (history and rationale in
+            # core/startup_init.py and core/startup_lock.py). Seed guard
+            # level 1: demo catalogue/accounts are a development convenience;
+            # production must never auto-create known credentials.
+            from backend.app.core.startup_init import initialise_dev_database
+            initialise_dev_database(engine, logger=logger)
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
 

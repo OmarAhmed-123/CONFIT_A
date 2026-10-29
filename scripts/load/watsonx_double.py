@@ -10,7 +10,8 @@ backend's ``WatsonxClient``:
 Knobs (env): ``DOUBLE_LATENCY_MS`` (base simulated inference latency, default
 900 — roughly what granite-4-h-small showed live), ``DOUBLE_JITTER_MS``
 (default 400), ``DOUBLE_ERROR_RATE`` (0..1 share of 503s, default 0.02),
-``DOUBLE_RATE_LIMIT_RATE`` (share of 429s, default 0.0).
+``DOUBLE_RATE_LIMIT_RATE`` (share of 429s, default 0.0), ``DOUBLE_FAULT_TIMING``
+(``after`` = fault after the simulated latency, default; ``before`` = immediate).
 
 The canned answer references wardrobe item ids from the request's closet
 list, so the backend's id validation accepts them — it reads the ids out of
@@ -38,6 +39,13 @@ LAT = float(os.getenv("DOUBLE_LATENCY_MS", "900")) / 1000.0
 JIT = float(os.getenv("DOUBLE_JITTER_MS", "400")) / 1000.0
 ERR = float(os.getenv("DOUBLE_ERROR_RATE", "0.02"))
 RL = float(os.getenv("DOUBLE_RATE_LIMIT_RATE", "0.0"))
+# When do injected faults arrive? "after" (default, pessimistic: the fault is
+# returned only after the full simulated inference delay, so a retried request
+# costs two model latencies) or "before" (gateway-style: 429/503 returned
+# immediately, as watsonx's rate limiter was observed to do during live probes).
+# Added 2026-10-29 while investigating the p99 miss; the default is unchanged
+# so historical runs stay comparable.
+FAULT_TIMING = os.getenv("DOUBLE_FAULT_TIMING", "after").strip().lower()
 
 STATS = {"iam": 0, "chat": 0, "errors_injected": 0, "rate_limits_injected": 0}
 
@@ -84,8 +92,9 @@ def _stylist_payload(ids: list[int]) -> dict:
 async def _chat(request: Request, served_model: str | None):
     STATS["chat"] += 1
     body = await request.json()
-    await asyncio.sleep(max(0.0, LAT + random.uniform(-JIT, JIT)))
     r = random.random()
+    if FAULT_TIMING != "before" or r >= RL + ERR:
+        await asyncio.sleep(max(0.0, LAT + random.uniform(-JIT, JIT)))
     if r < RL:
         STATS["rate_limits_injected"] += 1
         return JSONResponse({"errors": [{"code": "rate_limit", "message": "double: too many requests"}], "status_code": 429},

@@ -130,7 +130,7 @@ jobs:
           CONFIT_CONCURRENCY_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_conc
         run: |
           PGPASSWORD="$CI_PG_PASSWORD" createdb -h localhost -U confit confit_conc
-          PYTHONPATH=. python3 -m pytest -q backend/tests/test_mfa_concurrency_postgres.py backend/tests/test_startup_seed_lock_postgres.py
+          PYTHONPATH=. python3 -m pytest -q backend/tests/test_mfa_concurrency_postgres.py backend/tests/test_startup_seed_lock_postgres.py backend/tests/test_startup_init_concurrent_postgres.py
 
   # Guards against "works on the developer machine" regressions: the Vercel
   # function manifest, entrypoint, environment contract and forbidden
@@ -253,4 +253,62 @@ jobs:
         with:
           name: stylist-browser-gate
           path: frontend/gate-artifacts/
+          if-no-files-found: warn
+
+  # Permanent browser end-to-end gate (2026-10-29). Real Chromium against a
+  # served production bundle, a PostgreSQL 17 service and the backend with
+  # WARDROBE_STYLIST_PROVIDER=deterministic (no model call, labelled result).
+  # Journey, en + ar: sign in through the AuthModal → add a garment through the
+  # manual form → request an outfit → save the look → find it in My Looks.
+  # Fails the workflow when any check fails; artifacts (screenshots, JSON
+  # report, server logs) are uploaded on every outcome.
+  browser-e2e:
+    name: browser e2e (auth → wardrobe → stylist → save, en + ar)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: confit
+          POSTGRES_PASSWORD: confit_ci
+          POSTGRES_DB: confit_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U confit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Throwaway password for the ephemeral CI service container (not a secret).
+      CI_PG_PASSWORD: confit_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Install frontend dependencies (locked) and build
+        working-directory: frontend
+        run: npm ci && npm run build
+      - name: Install Chromium and its system libraries
+        working-directory: frontend
+        run: npx playwright-core install --with-deps chromium
+      - name: Run browser e2e journey
+        env:
+          E2E_DATABASE_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_e2e
+          E2E_OUT: ${{ github.workspace }}/e2e-artifacts
+          SECRET_KEY: ci-only-browser-e2e-signing-key-not-a-secret-0001
+        run: bash scripts/qa/e2e_stylist_browser.sh
+      - name: Upload e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e
+          path: e2e-artifacts/
           if-no-files-found: warn

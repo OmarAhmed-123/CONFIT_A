@@ -6,7 +6,16 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export PYTHONPATH="${PYTHONPATH:-$REPO_ROOT}"
 export LANG="${LANG:-C.UTF-8}"
 export ENVIRONMENT="${ENVIRONMENT:-development}"
-export DATABASE_URL="${DATABASE_URL:-postgresql://confit:confit@127.0.0.1:5432/confit_dev}"
+# Local PostgreSQL credentials. The password is a variable, never a literal
+# inside a URL (repo policy enforced by the gitleaks rule database-dsn-with-password).
+export POSTGRES_USER="${POSTGRES_USER:-confit}"
+export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-confit}"      # local-only default
+export POSTGRES_HOST="${POSTGRES_HOST:-127.0.0.1}"
+export POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+PG_BASE="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}"
+export DATABASE_URL="${DATABASE_URL:-$PG_BASE/confit_dev}"
+export CONFIT_TEST_DB_URL="${CONFIT_TEST_DB_URL:-$PG_BASE/confit_test}"
+export BENCH_DATABASE_URL="${BENCH_DATABASE_URL:-$PG_BASE/confit_bench}"
 export SECRET_KEY="${SECRET_KEY:-local-dev-secret-not-for-prod}"
 export JWT_REFRESH_SECRET="${JWT_REFRESH_SECRET:-local-dev-refresh-not-for-prod}"
 # AI mode. "deterministic" = labelled rule-based matcher, NO model call, honest

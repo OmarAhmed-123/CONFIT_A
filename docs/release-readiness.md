@@ -32,6 +32,7 @@ date on the current checkout unless a date says otherwise; "not run" means not r
 | Explicit AI modes | documented and verified: deterministic (labelled), watsonx (live), auto; double only via explicit `WATSONX_URL` override | local-development §6 |
 | Defects fixed | **D13** `selected_by="rule_matcher"` on every fallback item (+ test) · **D14** colour aliases indigo/denim/teal/turquoise/aqua/petrol/bordeaux/cherry/lime/moss/pistachio (+ 6 tests) · eval completion metric excludes fallback answers · stale `wx-stylist-1.0` references corrected in two docs | diff |
 | Benchmark | 20 VU × 20 on PG17/2 workers/5 s double, scripted | `performance-test-report.md`, JSON |
+| CI hygiene | gitleaks flagged the first commit of this pass (local-only `confit:confit@127.0.0.1` DSN literals in dev scripts — policy breach, not a credential leak); fixed by assembling DSNs from `${POSTGRES_PASSWORD}` and suppressing the historical fingerprints in `.gitleaksignore` (repo precedent; no history rewrite) | follow-up commit |
 | Documentation | `ibm-tutorial-alignment`, `functional-requirements`, `non-functional-requirements`, `local-development`, `deployment-recovery`, `vision-integration-decision`, `fashion-expert-review`, `performance-test-report`, `accessibility-audit`, `known-limitations`, `architecture`, this file; README updated | `docs/` |
 
 Earlier passes (D1–D12, EN/AR disclosure, colour exclusions, saved looks, a11y

@@ -54,3 +54,18 @@ b49ab275c8e8139133bb886537c7ba88f58847f7:backend/app/core/database.py:database-d
 # material ever existed at these locations.
 5c0599f6aed41424e4918e97583c8cd010a16076:backend/tests/test_verify_provider_credentials.py:generic-api-key:441
 5c0599f6aed41424e4918e97583c8cd010a16076:backend/tests/test_verify_provider_credentials.py:generic-api-key:460
+
+# Commit ceb8616 (2026-10-29) introduced the local-development scripts with the
+# LOCAL-ONLY PostgreSQL dev password `confit` written literally inside
+# `postgresql://confit:confit@127.0.0.1:…` DSNs (loopback host, role created by
+# the same script, never used by any deployment). Not a credential leak; still a
+# policy breach of "the URL never carries a literal password", fixed in the next
+# commit by assembling the DSN from ${POSTGRES_PASSWORD} (already allowlisted,
+# same convention as docker-compose.yml). History is not rewritten; suppress by
+# fingerprint only.
+ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:docker-compose.dev.yml:database-dsn-with-password:6
+ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:scripts/dev/test_backend_pg.sh:database-dsn-with-password:6
+ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:scripts/dev/_env.sh:database-dsn-with-password:9
+ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:scripts/dev/start_postgres_native.sh:database-dsn-with-password:27
+ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:docs/local-development.md:database-dsn-with-password:53
+ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:scripts/dev/run_benchmark.sh:database-dsn-with-password:8

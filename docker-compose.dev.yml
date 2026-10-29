@@ -3,8 +3,7 @@
 # hot-reload, debuggers and test runners behave normally.
 #
 #   docker compose -f docker-compose.dev.yml up -d
-#   export DATABASE_URL=postgresql://confit:confit@127.0.0.1:5432/confit_dev
-#   ./scripts/dev/migrate.sh && ./scripts/dev/run_backend.sh
+#   ./scripts/dev/migrate.sh      # scripts/dev/_env.sh builds DATABASE_URL from POSTGRES_* (defaults match this file) && ./scripts/dev/run_backend.sh
 #
 # The full production-shaped stack (Redis, Meilisearch, Celery, built images)
 # stays in docker-compose.yml. See docs/local-development.md.
@@ -14,7 +13,7 @@ services:
     container_name: confit-dev-postgres
     environment:
       POSTGRES_USER: confit
-      POSTGRES_PASSWORD: confit          # local only — never reuse outside this compose file
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-confit}   # local only; override via env for anything shared
       POSTGRES_DB: confit_dev
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"   # seed contains Arabic
     ports:

@@ -27,7 +27,7 @@ PostgreSQL.
 ```bash
 docker compose -f docker-compose.dev.yml up -d      # postgres:17-alpine, 127.0.0.1:5432
 ```
-Creates `confit_dev`, `confit_test`, `confit_bench` (user/password `confit`/`confit`,
+Creates `confit_dev`, `confit_test`, `confit_bench` (role `confit`, password `POSTGRES_PASSWORD`, default `confit`,
 UTF-8, C.UTF-8 — the seed contains Arabic). PostgreSQL **only**; the API and Vite run
 natively. The full production-shaped stack (Redis, Meilisearch, Celery, built images)
 remains in `docker-compose.yml`.
@@ -50,7 +50,8 @@ If `pg_ctl` complains about `/var/run/postgresql`, the script already passes
 `backend/.env.example` is the authoritative list. For local PostgreSQL you need only:
 
 ```bash
-export DATABASE_URL=postgresql://confit:confit@127.0.0.1:5432/confit_dev
+export POSTGRES_PASSWORD=confit                       # local default; the DSN is assembled by scripts/dev/_env.sh
+export DATABASE_URL="postgresql://confit:${POSTGRES_PASSWORD}@127.0.0.1:5432/confit_dev"
 export SECRET_KEY=local-dev-secret-not-for-prod
 export JWT_REFRESH_SECRET=local-dev-refresh-not-for-prod
 export WARDROBE_STYLIST_PROVIDER=deterministic      # see §6 AI modes

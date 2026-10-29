@@ -5,7 +5,7 @@
 # Takes ~6 minutes for 20 VUs (sign-up pacing is excluded from the timing window).
 set -euo pipefail; source "$(dirname "$0")/_env.sh"; cd "$REPO_ROOT"
 VUS="${VUS:-20}"; REQ="${REQ:-20}"; OUT="${OUT:-docs/qa/load/stylist_mocked_${VUS}vu_postgres_2workers_5s_$(date +%Y%m%d).json}"
-export DATABASE_URL="${BENCH_DATABASE_URL:-postgresql://confit:confit@127.0.0.1:5432/confit_bench}"
+export DATABASE_URL="$BENCH_DATABASE_URL"
 "$PY" -m alembic -c backend/alembic.ini upgrade head >/dev/null
 DOUBLE_LATENCY_MS=5000 DOUBLE_JITTER_MS=1500 DOUBLE_ERROR_RATE=0.02 DOUBLE_RATE_LIMIT_RATE=0.01 \
   "$PY" -m uvicorn scripts.load.watsonx_double:app --host 127.0.0.1 --port 8089 --log-level warning & DPID=$!

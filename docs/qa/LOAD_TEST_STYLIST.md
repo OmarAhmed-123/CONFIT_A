@@ -242,3 +242,13 @@ deployment (Neon quota lock, Vercel 402).
   the live probe and a short mocked soak once staging exists.
 * Retry accounting: unchanged recommendation — if retries are to be inside
   the p99 budget, state the target as `2 × latency + 2 s` explicitly.
+
+## Fifth pass (2026-10-29) — reproducibility run
+
+Same rig and workload as the fourth pass (PostgreSQL 17.11, 2 workers, double at
+5 s ± 1.5 s with 2 % 503 + 1 % 429), now scripted as `scripts/dev/run_benchmark.sh`.
+Report: `docs/qa/load/stylist_mocked_20vu_postgres17_2workers_5s_20261029.json`.
+Recommend p50 **5.044 s**, p95 **6.475 s (PASS)**, p99 **10.932 s (FAIL, retry
+arithmetic)**, 660 requests, 0 × 5xx, 400/400 provenance `watsonx / granite-4-h-small`,
+save p95 0.034 s. Matches the 2026-10-27 after-fix run within 0.01 s at p95.
+Summary and reading: `docs/performance-test-report.md`.

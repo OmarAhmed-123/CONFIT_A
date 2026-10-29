@@ -49,11 +49,25 @@ brand portal — with a browse-freely / authenticate-at-checkout access model.
 |---|---|
 | Python | ≥ 3.11 |
 | Node.js + npm | ≥ 20 |
-| Neon (managed Postgres) | production only — local dev uses SQLite, zero setup |
+| PostgreSQL 16/17 | **recommended locally** — `docker compose -f docker-compose.dev.yml up -d` or native (`scripts/dev/start_postgres_native.sh`); SQLite remains a zero-setup fallback for quick unit loops only. Neon is production only. |
 | Modal account | only if you deploy the GPU try-on worker |
 | AI provider keys (Groq / Gemini / OpenAI) | optional locally — without them the stylist uses its deterministic grounded fallback |
 
 ## Local setup (from a clean clone)
+
+> **Full local stack without Neon / Vercel / Cloudflare** (PostgreSQL, migrations,
+> seed, reset, explicit AI modes, tests, benchmark): **`docs/local-development.md`**
+> — verified end-to-end 2026-10-29. Short version:
+>
+> ```bash
+> ./scripts/dev/start_postgres_native.sh   # or: docker compose -f docker-compose.dev.yml up -d
+> ./scripts/dev/migrate.sh                 # alembic → 0048
+> ./scripts/dev/run_backend.sh             # :8000  (WARDROBE_STYLIST_PROVIDER=deterministic by default — labelled, no model call)
+> ./scripts/dev/run_frontend.sh            # :43123
+> ./scripts/dev/healthcheck.sh             # liveness + schema gate
+> ```
+> Set `WARDROBE_STYLIST_PROVIDER=watsonx` plus `WATSONX_*` to use live IBM Granite.
+
 
 ```bash
 git clone https://github.com/OmarAhmed-123/CONFIT_A.git
@@ -300,6 +314,7 @@ static image or the user's own photo for a render.
 | Visual search | ✅ Live — real Gemini vision analysis (verified: dress/blazer/sneaker photos detected and matched truthfully) |
 | Virtual try-on rendering | ⏳ Awaiting GPU worker deployment (code complete; honest 503 until then) |
 | Payments | ⚠️ Demo mode — webhook signatures verified, idempotency real; live charges need PSP credentials + sandbox testing first |
+| **Production / staging** | ⛔ Currently unverifiable — Vercel 402, Neon quota (account-side, not code). Release decision and provider recovery: `docs/release-readiness.md`, `docs/deployment-recovery.md` |
 
 ## Security posture (abridged)
 

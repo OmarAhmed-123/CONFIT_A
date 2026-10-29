@@ -173,3 +173,14 @@ layer (no network). **LIVE**: executed against the real watsonx.ai endpoint in
 | Rollback / incident plan | Required for production | Partially documented | `docs/qa/MIGRATION_0047_0048_CHECKLIST.md` | eng | reviewed runbook |
 | Image-based wardrobe recognition (Granite Vision) | Conditional | **Blocked** — no Granite vision model in any of 6 watsonx regions (2026-10-28); non-Granite `llama-4-maverick` configured but inactive | `docs/GRANITE_VISION_AVAILABILITY_INVESTIGATION.md` | product owner decision | real-image classification tests |
 | Virtual try-on, e-commerce recs, chat follow-ups, body-shape personalisation | Optional / future | Not implemented | — | product owner | — |
+
+## Addendum 2026-10-29 — local PostgreSQL execution, D13/D14
+
+| FR | Requirement | Status | Evidence |
+|---|---|---|---|
+| FR-27 | Whole application runnable locally on PostgreSQL without Neon/Vercel/Cloudflare: migrations, seed, reset, tests, both AI modes, browser E2E | VERIFIED | `docs/local-development.md`; `scripts/dev/*`; `docs/qa/evidence/local_e2e_20261029/` |
+| FR-28 | In deterministic mode no item may claim model selection (`selected_by="rule_matcher"` for all) | VERIFIED (D13) | `test_d13_*` |
+| FR-29 | Common garment colour words map to the right family (indigo/teal/denim/… never to Black) | VERIFIED (D14) | `test_d14_*` ×6 |
+| NFR | PostgreSQL benchmark reproducible by script | VERIFIED | `scripts/dev/run_benchmark.sh`; `docs/performance-test-report.md` |
+
+Release view with sections A–I: `docs/release-readiness.md`.

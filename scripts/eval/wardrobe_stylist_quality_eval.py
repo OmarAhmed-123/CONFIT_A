@@ -193,7 +193,11 @@ def _score(scn: dict[str, Any], req: dict[str, Any], resp: dict[str, Any] | None
         if title and title not in final_titles and len(title) >= 6 and title in all_prose:
             hard.append("H11_prose_describes_filtered_item")
             break
-    rule_added = [i for i in items if i.get("selected_by") == "rule_matcher"]
+    # "Completion" means the rule matcher filled a slot the MODEL left empty. In
+    # deterministic_fallback every item is rule-selected (D13, 2026-10-29) and the
+    # whole answer carries the fallback notice, so count completions only on
+    # model-sourced answers to keep the metric meaningful.
+    rule_added = [i for i in items if i.get("selected_by") == "rule_matcher"] if resp.get("source") != "deterministic_fallback" else []
     if rule_added and not any("rule-based matcher" in lim or "المُطابِق القاعدي" in lim for lim in (resp.get("limitations") or [])):
         hard.append("H13_rule_completion_not_disclosed")
     rubric["rule_matcher_items_REVIEWER_NOTE"] = None  # placeholder keeps rubric keys stable

@@ -158,3 +158,25 @@ UI: amber "Added by rules / أُضيفت وفق القواعد" badge on the ite
 Sample-size caveat: 16 scenarios × ≤3 repeats. These numbers show the mechanisms work; they are not a statistically
 powered quality estimate. Human fashion review: **pending** (`docs/qa/FASHION_REVIEW_SHEET_STYLIST.md`). Native Arabic
 review: **pending** (`docs/qa/ARABIC_REVIEW_SHEET_STYLIST.md`).
+
+## 9. Addendum 2026-10-29 — local PostgreSQL run, D13 / D14
+
+Running the full stack locally on PostgreSQL 17 (browser + API, deterministic mode)
+surfaced two defects prior reports had missed:
+
+* **D13 — fallback items attributed to the model.** `RecommendedItem.selected_by`
+  defaults to `"model"`; `_deterministic()` never set it, so a rule-only outfit showed
+  per-item `selected_by="model"`. Fixed: every fallback item is `rule_matcher` (UI now
+  shows "Added by rules" on each; the answer-level badge already said "not AI").
+  Test `test_d13_deterministic_fallback_never_attributes_items_to_the_model`. The eval's
+  completion metric now ignores `deterministic_fallback` answers so "rule-completed
+  items" keeps meaning *slots the model left empty*.
+* **D14 — colour aliases.** "Dark indigo jeans" were persisted and reasoned about as
+  **Black** (no alias → fallback family). Added indigo/raw denim → Navy; denim, teal,
+  turquoise, aqua, petrol → Blue; bordeaux, cherry → Red; lime, moss, pistachio →
+  Green. Six parametrised tests. The unknown→Black fallback itself remains
+  (`known-limitations.md` #4).
+
+Deterministic eval re-run on the fixed code: 16/16 scenarios, 22 runs, 0 hard
+failures (`docs/qa/eval/wardrobe_stylist_eval_deterministic_20261029.json`). The
+2026-10-28 live eval stands: neither fix touches the model path.

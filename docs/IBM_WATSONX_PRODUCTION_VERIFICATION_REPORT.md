@@ -274,7 +274,7 @@ assertion was updated to the new accessible name ("Swap out Blue Plaid Shirt").
 ## D. Granite compliance
 
 * Reasoning: **`ibm/granite-4-h-small`** on watsonx.ai, LIVE on every path that
-  claims it; prompt versioned (`wx-stylist-1.0`); served `model_id` is what the
+  claims it; prompt versioned (`wx-stylist-1.1` since 2026-10-28; `wx-stylist-1.0` at the time of this report); served `model_id` is what the
   UI shows. No other provider is ever substituted for Granite silently: when
   Granite is unavailable the answer is labelled `deterministic_fallback`
   (`ai_generated=false`) or, in strict mode, the request fails with

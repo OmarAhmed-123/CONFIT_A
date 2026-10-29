@@ -246,6 +246,22 @@ def test_d11_deterministic_fallback_marks_unsuitable_too(client, monkeypatch):
     assert any("موسومة لمناسبة" in lim for lim in out["limitations"])
 
 
+def test_d13_deterministic_fallback_never_attributes_items_to_the_model(client, monkeypatch):
+    """D13 (found 2026-10-29 during the local PostgreSQL end-to-end run): in
+    deterministic mode every item was tagged ``selected_by="model"`` via the
+    schema default, although no language model was involved. The whole outfit
+    is rule-built, so every piece must say so."""
+    monkeypatch.setattr(settings, "WARDROBE_STYLIST_PROVIDER", "deterministic")
+    headers = _register(client)
+    _formal_only_closet(client, headers)
+    res = client.post(URL, headers=headers, json={"occasion": "Business", "time_of_day": "morning"})
+    assert res.status_code == 200, res.text
+    out = res.json()
+    assert out["source"] == "deterministic_fallback" and out["ai_generated"] is False
+    assert out["items"], "fallback should still pick the tagged business pieces"
+    assert {it["selected_by"] for it in out["items"]} == {"rule_matcher"}
+
+
 # ───────────────────────── D12 (id/description mix-up) ─────────────────────────
 def test_d12_role_collision_is_explained(client, wx_env, monkeypatch):
     """Live eval 2026-10-28 S01: the model cited the tee's id while describing the
@@ -365,3 +381,15 @@ def test_d12_completion_arabic_labels(client, wx_env, monkeypatch):
     assert out["is_complete"] is True
     assert sum(1 for i in out["items"] if i["selected_by"] == "rule_matcher") == 2
     assert any("المُطابِق القاعدي" in lim and "لم يخترها المصمم الذكي" in lim for lim in out["limitations"])
+
+
+# ───────────────────────── D14 (colour-family aliases) ─────────────────────────
+@pytest.mark.parametrize("raw,family", [("Indigo", "Navy"), ("Dark indigo", "Navy"), ("Teal", "Blue"),
+                                        ("Denim", "Blue"), ("Bordeaux", "Red"), ("Lime", "Green")])
+def test_d14_common_colours_do_not_collapse_to_black(raw, family):
+    """D14 (found 2026-10-29 in the local PostgreSQL browser run): 'Dark indigo
+    jeans' were persisted and reasoned about as *Black* because the alias table
+    had no entry and the fallback family is Black. A user excluding black would
+    silently lose their indigo jeans."""
+    from backend.app.services import wardrobe_taxonomy as taxonomy
+    assert taxonomy.normalize_color(raw) == family

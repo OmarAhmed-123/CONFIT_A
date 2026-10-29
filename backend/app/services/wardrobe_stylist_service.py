@@ -630,6 +630,8 @@ class WardrobeStylistService:
                 color_hex=best.color_hex or "#000000", image_url=storage_public_url(best.image_url),
                 reason=reason, analysis_source=getattr(best, "analysis_source", None),
                 ai_confidence=getattr(best, "ai_confidence", None),
+                # No language model chose this piece: the whole outfit is rule-built.
+                selected_by="rule_matcher",
             ))
         present_roles = {p.role for p in picked}
         missing = self._missing_categories(items, present_roles)

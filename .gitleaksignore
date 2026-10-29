@@ -69,3 +69,6 @@ ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:scripts/dev/_env.sh:database-dsn-with-p
 ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:scripts/dev/start_postgres_native.sh:database-dsn-with-password:27
 ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:docs/local-development.md:database-dsn-with-password:53
 ceb8616f98fa33c9a495f16d3f1aeabe538f9b28:scripts/dev/run_benchmark.sh:database-dsn-with-password:8
+# 428ad10: the explanatory comment above originally quoted the loopback DSN
+# pattern itself (fixed in 9f5dcc3). Comment text, never a credential.
+428ad10938a30238f4e0e7ffdb27c07f158f1b63:.gitleaksignore:database-dsn-with-password:60

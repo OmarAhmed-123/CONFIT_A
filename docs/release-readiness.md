@@ -69,7 +69,7 @@ disconnect; 11. Granite Vision DoD (optional, billable) — all in `deployment-r
 | Stylist suites on **PostgreSQL 17** (`confit_test`) | **49 passed** | PASS |
 | Wardrobe / colour / taxonomy `-k` sweep | **231 passed** | PASS |
 | Broad backend `-k` sweep (stylist, watsonx, wardrobe, taxonomy, outfit, migration, schema_gate, startup, health, auth) | **842 passed, 5 skipped** | PASS |
-| Full backend suite in one process | not run locally (2 GB OOM); CI backend job green at 3f2fe70, re-polled after push (see §F) | BLOCKED locally / CI |
+| Full backend suite in one process | not run locally (2 GB OOM); **CI backend job green on `ceb8616` and `ffd6118`** | PASS (CI) |
 | Frontend vitest | **2363 passed / 157 files** | PASS |
 | TypeScript `tsc --noEmit` | clean | PASS |
 | Ruff on touched files | 86 findings before = 86 after (pre-existing, CI does not gate) | PASS (no regression) |
@@ -113,7 +113,7 @@ PYTHONPATH=. ENVIRONMENT=test python scripts/eval/wardrobe_stylist_quality_eval.
 | Neon prod + staging | quota exceeded, unreachable | account |
 | Cloudflare Workers Builds | failing check, no in-repo config | account/integration |
 | GitHub Actions on `3f2fe70` | backend ✓ frontend ✓ migration+schema gate ✓ a11y browser gate ✓ parity ✓ gitleaks ✓ · release gate ✗ (fails closed on 402, by design) | — |
-| GitHub Actions on this pass's commit | see commit message / PR #387 after push | — |
+| GitHub Actions on this pass (`ceb8616` code → `ffd6118` head) | backend ✓ frontend ✓ migration chain + schema gate ✓ stylist a11y browser gate ✓ production parity ✓ **gitleaks ✓** (after the DSN-literal fix) · release gate ✗ (fails closed on 402) · Workers Builds ✗ (external) | — |
 | IBM watsonx.ai eu-de | live, verified | — |
 | Granite Vision | not served (DoD only) | account |
 

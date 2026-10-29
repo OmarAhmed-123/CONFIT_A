@@ -72,7 +72,7 @@ Supersedes the decision section of `docs/release-readiness.md` (kept for history
 * No live watsonx load soak; no real 503 timing from IBM; Granite Vision remains unavailable.
 * `docker-compose.dev.yml` still reviewed-not-run (no Docker in sandbox).
 * Fashion and Arabic reviews are **prepared**, not performed.
-* CI result for this exact commit is recorded in `docs/release-readiness.md §B` after the push (see final report section I).
+* **CI on `08aa080` (branch `feat/watsonx-granite-stylist`, push + PR runs)**: backend ✓ · frontend ✓ · postgres migration chain + schema gate ✓ · production parity ✓ · stylist drawer browser gate ✓ · **browser e2e ✓ (first run)** · gitleaks ✓ ; release gate ✗ (fails closed on Vercel 402, by design) ; Cloudflare Workers Builds ✗ (external). Condition D.7 is therefore met.
 
 ## G. Reproducibility (repo root)
 

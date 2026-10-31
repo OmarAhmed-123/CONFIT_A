@@ -353,6 +353,13 @@ export function useWardrobeViewModel({ enabled = true }: { enabled?: boolean } =
     });
   }, [updateItem]);
 
+  /** FR-05: user corrects an AI-inferred category. The server re-normalises
+   *  the value and flips `analysis_source` to "manual" so provenance is honest. */
+  const setCategory = useCallback(async (item: WardrobeItem, category: string) => {
+    if (!category || category === item.category) return;
+    await updateItem(item.id, { category });
+  }, [updateItem]);
+
   const setWearFrequency = useCallback(async (item: WardrobeItem, frequency: string) => {
     await updateItem(item.id, {
       wear_frequency: frequency,
@@ -452,6 +459,8 @@ export function useWardrobeViewModel({ enabled = true }: { enabled?: boolean } =
     retryingItemId,
     toggleFavorite,
     setWearFrequency,
+    setCategory,
+    updateItem,
     outfitSuggestion,
     isOutfitLoading,
     fetchOutfitSuggestion,

@@ -1,0 +1,30 @@
+# Minimal local database for day-to-day development and tests.
+# PostgreSQL ONLY — the API and the Vite dev server run natively on the host so
+# hot-reload, debuggers and test runners behave normally.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   ./scripts/dev/migrate.sh      # scripts/dev/_env.sh builds DATABASE_URL from POSTGRES_* (defaults match this file) && ./scripts/dev/run_backend.sh
+#
+# The full production-shaped stack (Redis, Meilisearch, Celery, built images)
+# stays in docker-compose.yml. See docs/local-development.md.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: confit-dev-postgres
+    environment:
+      POSTGRES_USER: confit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-confit}   # local only; override via env for anything shared
+      POSTGRES_DB: confit_dev
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"   # seed contains Arabic
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - confit_dev_pgdata:/var/lib/postgresql/data
+      - ./scripts/dev/pg_init:/docker-entrypoint-initdb.d:ro     # creates confit_test + confit_bench
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U confit -d confit_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  confit_dev_pgdata:

@@ -50,18 +50,13 @@ async def lifespan(app: FastAPI):
     # when ENVIRONMENT=production, forcing the operator to run migrations.
     try:
         if settings.ENVIRONMENT.lower() != "production":
-            Base.metadata.create_all(bind=engine)
-            # Seed guard level 1 (startup): demo catalogue + demo accounts are
-            # a development convenience only. In production the operator runs
-            # Alembic migrations and the app must NEVER auto-create known
-            # credentials like admin@confit.io / Password123!.
-            from sqlalchemy.orm import Session as _Session
-            from backend.app.models.catalog import Category
-            with _Session(engine) as _s:
-                if _s.query(Category).count() == 0:
-                    from backend.app.seed_data import seed_database
-                    seed_database(target_engine=engine)
-                    logger.info("Database was empty — seeded the default catalogue")
+            # create_all + first seed, serialised across workers with a
+            # session-level advisory lock (history and rationale in
+            # core/startup_init.py and core/startup_lock.py). Seed guard
+            # level 1: demo catalogue/accounts are a development convenience;
+            # production must never auto-create known credentials.
+            from backend.app.core.startup_init import initialise_dev_database
+            initialise_dev_database(engine, logger=logger)
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
 

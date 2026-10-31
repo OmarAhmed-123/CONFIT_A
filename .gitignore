@@ -76,3 +76,4 @@ shots_vercel_home.png
 shots_*/
 *.pdf
 
+e2e-artifacts/

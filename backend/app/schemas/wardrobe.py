@@ -55,6 +55,11 @@ class WardrobeItemOut(BaseModel):
     processing_status: str = "ready"  # uploaded | processing | ready | failed
     processing_error: Optional[str] = None
     ai_confidence: Optional[float] = None
+    # FR-18: which model tagged this piece ("manual" after a user correction,
+    # None for legacy rows). The UI renders it as a badge; it is never "AI"
+    # when a human or a fallback produced the metadata.
+    analysis_source: Optional[str] = None
+    analysis_description: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

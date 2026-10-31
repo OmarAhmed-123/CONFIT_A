@@ -1,0 +1,81 @@
+{
+  "mode": "mocked",
+  "wall_seconds": 101.54,
+  "requests_total": 33,
+  "throughput_rps": 0.32,
+  "server_errors_5xx": 0,
+  "client_errors_4xx": 0,
+  "error_rate_5xx": 0.0,
+  "per_endpoint": {
+    "add_item": {
+      "n": 8,
+      "p50_s": 0.009,
+      "p95_s": 0.021,
+      "p99_s": 0.021,
+      "mean_s": 0.01,
+      "max_s": 0.021,
+      "status": {
+        "201": 8
+      }
+    },
+    "recommend": {
+      "n": 20,
+      "p50_s": 4.652,
+      "p95_s": 6.365,
+      "p99_s": 10.996,
+      "mean_s": 5.068,
+      "max_s": 10.996,
+      "status": {
+        "200": 20
+      }
+    },
+    "save_outfit": {
+      "n": 4,
+      "p50_s": 0.019,
+      "p95_s": 0.03,
+      "p99_s": 0.03,
+      "mean_s": 0.021,
+      "max_s": 0.03,
+      "status": {
+        "201": 4
+      }
+    },
+    "list_outfits": {
+      "n": 1,
+      "p50_s": 0.018,
+      "p95_s": 0.018,
+      "p99_s": 0.018,
+      "mean_s": 0.018,
+      "max_s": 0.018,
+      "status": {
+        "200": 1
+      }
+    }
+  },
+  "recommendation_provenance": {
+    "watsonx|ai=True|ibm/granite-4-h-small": 20
+  },
+  "fallback_reasons": {},
+  "rejected_model_references_total": 0,
+  "sample_errors": [],
+  "targets": {
+    "p95_s": 6.5,
+    "p99_s": 8.0,
+    "error_rate": 0.01
+  },
+  "verdict": {
+    "p95_recommend_under_target": true,
+    "p99_recommend_under_target": false,
+    "error_rate_under_target": true,
+    "no_5xx_from_our_code": true
+  },
+  "pass": false,
+  "config": {
+    "vus_signed_in": 1,
+    "vus": 1,
+    "requests_per_vu": 20,
+    "language": "en",
+    "think_s": 0.0,
+    "base": "http://127.0.0.1:8000"
+  }
+}

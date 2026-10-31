@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
+import { colorLabel } from "../../lib/colorLabel";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useUndoableRemove } from '../../hooks/useUndoableRemove';
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -35,6 +36,8 @@ import {
 import { formatMoney } from '../../i18n/format';
 import { X, Star } from 'lucide-react';
 import { TryOnButton } from '../../components/product/TryOnButton';
+import { WardrobeStylistPanel } from '../../components/wardrobe/WardrobeStylistPanel';
+import { SavedWardrobeLooks } from '../../components/wardrobe/SavedWardrobeLooks';
 
 /**
  * Placeholder for a manually added wardrobe item.
@@ -124,7 +127,7 @@ export const WardrobeView: React.FC = () => {
   // in the live storage probe.
   const photoUploadUnavailable = capabilities.photo_upload_available === false;
 
-  const [activeTab, setActiveTab] = useState<"closet" | "looks" | "gaps" | "boards">(
+  const [activeTab, setActiveTab] = useState<"closet" | "stylist" | "looks" | "gaps" | "boards">(
     initialTab as any,
   );
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -180,6 +183,7 @@ export const WardrobeView: React.FC = () => {
     retryingItemId,
     toggleFavorite,
     setWearFrequency,
+    setCategory,
     outfitSuggestion,
     isOutfitLoading,
     fetchOutfitSuggestion,
@@ -353,6 +357,18 @@ export const WardrobeView: React.FC = () => {
               }`}
             >
               {t("nav.my_closet")}
+            </button>
+            <button data-motion="progressive"
+              onClick={() => setActiveTab("stylist")}
+              aria-current={activeTab === "stylist" ? "page" : undefined}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
+                activeTab === "stylist"
+                  ? "bg-white text-brand-charcoal shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <SparkleIcon size={14} color="#252729" />
+              <span>{t("wardrobe_stylist.tab")}</span>
             </button>
             <button data-motion="progressive"
               onClick={() => setActiveTab("looks")}
@@ -588,8 +604,33 @@ export const WardrobeView: React.FC = () => {
                       {item.title}
                     </h2>
                     <p className="text-xs text-brand-muted">
-                      {item.color_name} · {item.category}
+                      {colorLabel(item.color_name, t)} · {item.category}
                     </p>
+                    {/* FR-18 provenance: who/what produced this metadata. Never
+                        says "AI" for a manual edit or a legacy row. */}
+                    <p className="text-[10px] text-brand-muted mt-0.5 truncate" title={item.analysis_source ?? undefined}>
+                      {item.analysis_source
+                        ? item.analysis_source.startsWith("manual")
+                          ? t("wardrobe_stylist.tagged_manually")
+                          : t("wardrobe_stylist.tagged_by", { model: item.analysis_source })
+                        : t("wardrobe_stylist.tagged_unknown")}
+                    </p>
+                    {item.analysis_description && (
+                      <p className="text-[11px] text-slate-600 mt-1 line-clamp-2">{item.analysis_description}</p>
+                    )}
+
+                    {/* FR-05: correct an inferred category in place (the stylist
+                        reads the corrected value on its next request). */}
+                    <select
+                      value={item.category}
+                      onChange={(e) => setCategory(item, e.target.value)}
+                      className="mt-1.5 w-full px-2 py-1 rounded-lg border border-slate-200 text-[10px] bg-white text-slate-600"
+                      aria-label={t("wardrobe_stylist.category_label")}
+                    >
+                      {["Tops", "Bottoms", "Outerwear", "Footwear", "Accessories", "Dresses"].map((c) => (
+                        <option key={c} value={c}>{t(`wardrobe_stylist.categories.${c}`)}</option>
+                      ))}
+                    </select>
 
                     {/* Persistent wear-state selector: Favorite / Regular / Rarely Worn / Seasonal */}
                     <select
@@ -651,6 +692,12 @@ export const WardrobeView: React.FC = () => {
       {/* TAB 2: Saved Outfits + Wardrobe-First Styling (BRD §24) */}
       {activeTab === "looks" && (
         <div className="space-y-6">
+          {/* Looks the AI wardrobe stylist assembled from OWNED pieces and the
+              user chose to keep (0048). Separate from catalog looks below. */}
+          <SavedWardrobeLooks
+            isAuthenticated={isAuthenticated}
+            onOpenStylist={() => setActiveTab("stylist")}
+          />
           {/* Shop-your-wardrobe-first: build a look from owned pieces; only
               genuine gaps surface purchasable catalog items. */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
@@ -843,6 +890,16 @@ export const WardrobeView: React.FC = () => {
       )}
 
       {/* TAB 3: Wardrobe Gap Analysis (PDF Feature G4.1) */}
+      {/* TAB: AI Stylist (IBM watsonx.ai / Granite wardrobe → outfit flow) */}
+      {activeTab === "stylist" && (
+        <WardrobeStylistPanel
+          isAuthenticated={isAuthenticated}
+          readyItemCount={items.filter((it) => (it.processing_status ?? "ready") === "ready").length}
+          onOpenUpload={() => setUploadModalOpen(true)}
+          onSignIn={() => openAuthModal("login")}
+        />
+      )}
+
       {activeTab === "gaps" && (
         <div className="space-y-6">
           <div className="bg-brand-wash border border-brand-hairline rounded-3xl p-6">

@@ -709,6 +709,10 @@ export interface WardrobeItem {
   processing_status?: 'uploaded' | 'processing' | 'ready' | 'failed';
   processing_error?: string | null;
   ai_confidence?: number | null;
+  /** Model id that produced the AI metadata, "manual" after a user edit, null for legacy rows (FR-18). */
+  analysis_source?: string | null;
+  /** One factual sentence from the vision model about what is visible. */
+  analysis_description?: string | null;
   created_at: string;
 }
 

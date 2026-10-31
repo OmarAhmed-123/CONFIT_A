@@ -1,0 +1,258 @@
+{
+  "en": {
+    "tab_order": [
+      {
+        "tag": "SELECT",
+        "id": ":r7:-occasion",
+        "name": "CasualSmart CasualWork & BusinessBusines",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "SELECT",
+        "id": ":r7:-time",
+        "name": "AnyMorningAfternoonEveningNight",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "SELECT",
+        "id": ":r7:-season",
+        "name": "AnySpringSummerAutumnWinter",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "INPUT",
+        "id": ":r7:-location",
+        "name": "",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "SUMMARY",
+        "id": null,
+        "name": "Preferences, comfort & exclusions",
+        "role": null,
+        "outline": true,
+        "boxShadow": false,
+        "ring": false
+      },
+      {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "Build my outfit",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "AI Stylist Director",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": false
+      },
+      {
+        "tag": "A",
+        "id": null,
+        "name": "Curated Multi-Brand Catalog",
+        "role": null,
+        "outline": true,
+        "boxShadow": false,
+        "ring": false
+      },
+      {
+        "tag": "A",
+        "id": null,
+        "name": "Outfit Composer Canvas",
+        "role": null,
+        "outline": true,
+        "boxShadow": false,
+        "ring": false
+      }
+    ],
+    "submit_reachable_by_tab": true,
+    "enter_submits_form": false,
+    "focus_after_result": {
+      "tag": "SELECT",
+      "id": ":r7:-occasion",
+      "name": "CasualSmart CasualWork & BusinessBusines",
+      "role": null,
+      "outline": true,
+      "boxShadow": true,
+      "ring": true
+    },
+    "dialog": {
+      "opened_by_enter": true,
+      "focus_moved_into_dialog": true,
+      "escape_closes": true,
+      "focus_restored": true,
+      "before": {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "+ Upload piece",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": false
+      },
+      "after": {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "+ Upload piece",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": false
+      }
+    }
+  },
+  "en_desktop": {
+    "horizontal_overflow": false,
+    "interactive_targets_under_24px": 8
+  },
+  "en_mobile": {
+    "horizontal_overflow": false,
+    "interactive_targets_under_24px": 12
+  },
+  "ar": {
+    "tab_order": [
+      {
+        "tag": "SELECT",
+        "id": ":r7:-occasion",
+        "name": "كاجوالكاجوال أنيقعمل وأعمالرسمي للأعمالر",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "SELECT",
+        "id": ":r7:-time",
+        "name": "أيّ وقتصباحًاظهرًامساءًليلًا",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "SELECT",
+        "id": ":r7:-season",
+        "name": "أيّ وقتالربيعالصيفالخريفالشتاء",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "INPUT",
+        "id": ":r7:-location",
+        "name": "",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "SUMMARY",
+        "id": null,
+        "name": "التفضيلات والراحة والاستثناءات",
+        "role": null,
+        "outline": true,
+        "boxShadow": false,
+        "ring": false
+      },
+      {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "ابنِ إطلالتي",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": true
+      },
+      {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "المدير الأسلوبي بالذكاء الاصطناعي",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": false
+      },
+      {
+        "tag": "A",
+        "id": null,
+        "name": "كتالوج متعدد العلامات منسّق",
+        "role": null,
+        "outline": true,
+        "boxShadow": false,
+        "ring": false
+      },
+      {
+        "tag": "A",
+        "id": null,
+        "name": "لوحة تأليف الإطلالات",
+        "role": null,
+        "outline": true,
+        "boxShadow": false,
+        "ring": false
+      }
+    ],
+    "submit_reachable_by_tab": false,
+    "enter_submits_form": false,
+    "focus_after_result": {
+      "tag": "SELECT",
+      "id": ":r7:-occasion",
+      "name": "كاجوالكاجوال أنيقعمل وأعمالرسمي للأعمالر",
+      "role": null,
+      "outline": true,
+      "boxShadow": true,
+      "ring": true
+    },
+    "dialog": {
+      "opened_by_enter": true,
+      "focus_moved_into_dialog": true,
+      "escape_closes": true,
+      "focus_restored": true,
+      "before": {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "+ رفع قطعة",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": false
+      },
+      "after": {
+        "tag": "BUTTON",
+        "id": null,
+        "name": "+ رفع قطعة",
+        "role": null,
+        "outline": true,
+        "boxShadow": true,
+        "ring": false
+      }
+    }
+  },
+  "ar_desktop": {
+    "horizontal_overflow": false,
+    "interactive_targets_under_24px": 1
+  },
+  "ar_mobile": {
+    "horizontal_overflow": false,
+    "interactive_targets_under_24px": 12
+  }
+}

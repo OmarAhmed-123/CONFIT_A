@@ -1,0 +1,233 @@
+{
+  "version": "2026-10-27.1",
+  "notes": [
+    "Representative scenarios for POST /api/v1/wardrobe/outfit-recommendation.",
+    "Wardrobe fixtures are synthetic records (no real photos); image_url values are placeholders used only to verify image-to-item association. Quality of VISION classification is therefore NOT evaluated here.",
+    "expect.completable = the wardrobe contains every core role the product requires (top+bottom+footwear, or dress+footwear) AFTER the user's colour exclusions.",
+    "expect.banned_families = colour families that must not appear (derived from the request the same way the server does)."
+  ],
+  "scenarios": [
+    {
+      "id": "S01_casual_park_morning_autumn",
+      "request": {"occasion": "Casual", "time_of_day": "morning", "season": "autumn", "location": "park", "style_preferences": ["relaxed", "layered"], "language": "en"},
+      "wardrobe": [
+        ["Plaid Flannel Shirt", "Tops", "Navy", "Plaid", ["Casual"], "Autumn"],
+        ["White Cotton Tee", "Tops", "White", "Solid", ["Casual", "Lounge"], "All-Season"],
+        ["Khaki Chinos", "Bottoms", "Beige", "Solid", ["Casual", "Smart Casual"], "All-Season"],
+        ["Dark Wash Jeans", "Bottoms", "Blue", "Denim Wash", ["Casual"], "All-Season"],
+        ["Brown Leather Boots", "Footwear", "Brown", "Solid", ["Casual"], "Autumn"],
+        ["White Canvas Sneakers", "Footwear", "White", "Solid", ["Casual"], "Summer"],
+        ["Olive Field Jacket", "Outerwear", "Green", "Solid", ["Casual"], "Autumn"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en"}
+    },
+    {
+      "id": "S02_business_formal_meeting",
+      "request": {"occasion": "Business Formal", "time_of_day": "afternoon", "season": "spring", "location": "client office", "dress_code": "business formal", "color_preferences": ["navy", "white"], "language": "en"},
+      "wardrobe": [
+        ["White Poplin Shirt", "Tops", "White", "Solid", ["Work & Business", "Business Formal"], "All-Season"],
+        ["Light Blue Oxford", "Tops", "Blue", "Solid", ["Work & Business"], "All-Season"],
+        ["Graphic Band Tee", "Tops", "Black", "Graphic", ["Casual"], "Summer"],
+        ["Navy Wool Trousers", "Bottoms", "Navy", "Solid", ["Business Formal", "Work & Business"], "All-Season"],
+        ["Grey Flannel Trousers", "Bottoms", "Grey", "Solid", ["Work & Business"], "Winter"],
+        ["Ripped Jeans", "Bottoms", "Blue", "Denim Wash", ["Casual"], "All-Season"],
+        ["Black Cap-Toe Oxfords", "Footwear", "Black", "Solid", ["Business Formal", "Formal"], "All-Season"],
+        ["Running Shoes", "Footwear", "Orange", "Solid", ["Active"], "All-Season"],
+        ["Navy Blazer", "Outerwear", "Navy", "Solid", ["Business Formal", "Smart Casual"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en", "avoid_occasion_only": ["Casual", "Active"]}
+    },
+    {
+      "id": "S03_interview_no_black",
+      "request": {"occasion": "Work & Business", "activity": "job interview", "time_of_day": "morning", "season": "autumn", "excluded_colors": ["black"], "color_preferences": ["navy", "white", "beige"], "language": "en"},
+      "wardrobe": [
+        ["Black Silk Blouse", "Tops", "Black", "Solid", ["Work & Business", "Evening"], "All-Season"],
+        ["White Oxford Shirt", "Tops", "White", "Solid", ["Work & Business"], "All-Season"],
+        ["Black Tailored Trousers", "Bottoms", "Black", "Solid", ["Work & Business", "Business Formal"], "All-Season"],
+        ["Navy Chinos", "Bottoms", "Navy Blue", "Solid", ["Work & Business", "Smart Casual"], "All-Season"],
+        ["Black Oxfords", "Footwear", "Black", "Solid", ["Work & Business"], "All-Season"],
+        ["Brown Derbies", "Footwear", "Brown", "Solid", ["Work & Business", "Smart Casual"], "All-Season"],
+        ["Camel Coat", "Outerwear", "Camel", "Solid", ["Work & Business"], "Autumn"]
+      ],
+      "expect": {"completable": true, "banned_families": ["Black"], "language": "en"}
+    },
+    {
+      "id": "S04_summer_evening_dinner",
+      "request": {"occasion": "Smart Casual", "time_of_day": "evening", "season": "summer", "location": "rooftop restaurant, 31°C", "comfort_needs": "it will be hot and humid", "language": "en"},
+      "wardrobe": [
+        ["Linen Camp Shirt", "Tops", "Ivory", "Solid", ["Smart Casual", "Casual"], "Summer"],
+        ["Chunky Wool Turtleneck", "Tops", "Grey", "Textured", ["Smart Casual"], "Winter"],
+        ["Tailored Linen Trousers", "Bottoms", "Beige", "Solid", ["Smart Casual"], "Summer"],
+        ["Heavy Corduroy Trousers", "Bottoms", "Brown", "Textured", ["Casual"], "Winter"],
+        ["Leather Loafers", "Footwear", "Tan", "Solid", ["Smart Casual"], "All-Season"],
+        ["Shearling Boots", "Footwear", "Brown", "Solid", ["Casual"], "Winter"],
+        ["Down Parka", "Outerwear", "Black", "Solid", ["Casual"], "Winter"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en", "season_sensitive": true}
+    },
+    {
+      "id": "S05_winter_morning_commute",
+      "request": {"occasion": "Work & Business", "time_of_day": "morning", "season": "winter", "location": "city commute by metro", "comfort_needs": "walking 20 minutes outside", "language": "en"},
+      "wardrobe": [
+        ["Merino Crewneck", "Tops", "Navy", "Solid", ["Work & Business", "Smart Casual"], "Winter"],
+        ["Short-Sleeve Linen Shirt", "Tops", "White", "Solid", ["Casual"], "Summer"],
+        ["Grey Wool Trousers", "Bottoms", "Grey", "Solid", ["Work & Business"], "Winter"],
+        ["Linen Shorts", "Bottoms", "Beige", "Solid", ["Casual"], "Summer"],
+        ["Leather Chelsea Boots", "Footwear", "Black", "Solid", ["Work & Business", "Smart Casual"], "Winter"],
+        ["Espadrilles", "Footwear", "Beige", "Solid", ["Casual"], "Summer"],
+        ["Charcoal Wool Overcoat", "Outerwear", "Charcoal", "Solid", ["Work & Business"], "Winter"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en", "season_sensitive": true, "outerwear_expected": true}
+    },
+    {
+      "id": "S06_missing_footwear",
+      "request": {"occasion": "Smart Casual", "time_of_day": "afternoon", "season": "spring", "language": "en"},
+      "wardrobe": [
+        ["Striped Oxford Shirt", "Tops", "Blue", "Striped", ["Smart Casual"], "All-Season"],
+        ["Stone Chinos", "Bottoms", "Beige", "Solid", ["Smart Casual"], "All-Season"],
+        ["Navy Unstructured Blazer", "Outerwear", "Navy", "Solid", ["Smart Casual"], "All-Season"]
+      ],
+      "expect": {"completable": false, "banned_families": [], "language": "en", "missing_expected": ["Footwear"]}
+    },
+    {
+      "id": "S07_cocktail_dress_only",
+      "request": {"occasion": "Cocktail", "time_of_day": "evening", "season": "summer", "location": "hotel terrace", "language": "en"},
+      "wardrobe": [
+        ["Emerald Satin Midi Dress", "Dresses", "Green", "Solid", ["Cocktail", "Evening"], "All-Season"],
+        ["Black Strappy Heels", "Footwear", "Black", "Solid", ["Cocktail", "Formal", "Evening"], "All-Season"],
+        ["Gold Clutch", "Accessories", "Gold", "Solid", ["Cocktail", "Evening"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en", "dress_based": true}
+    },
+    {
+      "id": "S08_tiny_wardrobe_two_items",
+      "request": {"occasion": "Casual", "language": "en"},
+      "wardrobe": [
+        ["Grey Hoodie", "Tops", "Grey", "Solid", ["Casual", "Lounge"], "All-Season"],
+        ["Black Joggers", "Bottoms", "Black", "Solid", ["Casual", "Lounge", "Active"], "All-Season"]
+      ],
+      "expect": {"completable": false, "banned_families": [], "language": "en", "missing_expected": ["Footwear"]}
+    },
+    {
+      "id": "S09_large_wardrobe_24_items",
+      "request": {"occasion": "Smart Casual", "time_of_day": "afternoon", "season": "spring", "location": "art gallery opening", "style_preferences": ["minimal", "clean lines"], "language": "en"},
+      "wardrobe": [
+        ["White Oxford", "Tops", "White", "Solid", ["Smart Casual", "Work & Business"], "All-Season"],
+        ["Black Mock Neck", "Tops", "Black", "Solid", ["Smart Casual", "Evening"], "Autumn"],
+        ["Sage Linen Shirt", "Tops", "Sage", "Solid", ["Casual", "Smart Casual"], "Summer"],
+        ["Striped Breton Top", "Tops", "Navy", "Striped", ["Casual"], "Spring"],
+        ["Floral Blouse", "Tops", "Pink", "Floral", ["Casual", "Smart Casual"], "Spring"],
+        ["Band Tee", "Tops", "Black", "Graphic", ["Casual"], "Summer"],
+        ["Cream Cable Knit", "Tops", "Cream", "Textured", ["Casual"], "Winter"],
+        ["Burgundy Silk Camisole", "Tops", "Burgundy", "Solid", ["Evening", "Cocktail"], "All-Season"],
+        ["Black Straight Trousers", "Bottoms", "Black", "Solid", ["Smart Casual", "Work & Business"], "All-Season"],
+        ["Ecru Wide-Leg Trousers", "Bottoms", "Ecru", "Solid", ["Smart Casual"], "Spring"],
+        ["Light Wash Jeans", "Bottoms", "Blue", "Denim Wash", ["Casual"], "All-Season"],
+        ["Pleated Midi Skirt", "Bottoms", "Olive", "Solid", ["Smart Casual"], "Spring"],
+        ["Tartan Mini Skirt", "Bottoms", "Red", "Plaid", ["Casual"], "Autumn"],
+        ["Cycling Shorts", "Bottoms", "Black", "Solid", ["Active"], "Summer"],
+        ["Black Slip Dress", "Dresses", "Black", "Solid", ["Evening", "Cocktail"], "All-Season"],
+        ["White Leather Sneakers", "Footwear", "White", "Solid", ["Casual", "Smart Casual"], "All-Season"],
+        ["Black Loafers", "Footwear", "Black", "Solid", ["Smart Casual", "Work & Business"], "All-Season"],
+        ["Tan Sandals", "Footwear", "Tan", "Solid", ["Casual"], "Summer"],
+        ["Chelsea Boots", "Footwear", "Brown", "Solid", ["Smart Casual"], "Autumn"],
+        ["Trail Runners", "Footwear", "Orange", "Solid", ["Active"], "All-Season"],
+        ["Camel Trench", "Outerwear", "Camel", "Solid", ["Smart Casual", "Work & Business"], "Spring"],
+        ["Denim Jacket", "Outerwear", "Blue", "Denim Wash", ["Casual"], "Spring"],
+        ["Puffer Jacket", "Outerwear", "Black", "Solid", ["Casual"], "Winter"],
+        ["Silk Scarf", "Accessories", "Multi", "Paisley", ["Smart Casual"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en"}
+    },
+    {
+      "id": "S10_conflicting_constraints_black_tie_no_dark",
+      "request": {"occasion": "Black Tie", "time_of_day": "evening", "season": "winter", "dress_code": "black tie", "excluded_colors": ["black", "navy", "grey"], "language": "en"},
+      "wardrobe": [
+        ["Black Tuxedo Jacket", "Outerwear", "Black", "Solid", ["Black Tie", "Formal"], "All-Season"],
+        ["White Dress Shirt", "Tops", "White", "Solid", ["Black Tie", "Formal", "Business Formal"], "All-Season"],
+        ["Black Tuxedo Trousers", "Bottoms", "Black", "Solid", ["Black Tie", "Formal"], "All-Season"],
+        ["Navy Dress Trousers", "Bottoms", "Navy", "Solid", ["Formal", "Business Formal"], "All-Season"],
+        ["Black Patent Shoes", "Footwear", "Black", "Solid", ["Black Tie", "Formal"], "All-Season"],
+        ["Grey Suede Loafers", "Footwear", "Grey", "Solid", ["Smart Casual"], "All-Season"]
+      ],
+      "expect": {"completable": false, "banned_families": ["Black", "Navy", "Grey"], "language": "en", "conflict_expected": true}
+    },
+    {
+      "id": "S11_ambiguous_item_descriptions",
+      "request": {"occasion": "Casual", "time_of_day": "afternoon", "season": "spring", "language": "en"},
+      "wardrobe": [
+        ["the blue one", "Tops", "Blue", "Solid", ["Casual"], "All-Season"],
+        ["thing from grandma", "Tops", "Multi", "Floral", ["Casual"], "Spring"],
+        ["trousers (old)", "Bottoms", "Khaki", "Solid", ["Casual"], "All-Season"],
+        ["shoes 2", "Footwear", "White", "Solid", ["Casual"], "All-Season"],
+        ["???", "Accessories", "Silver", "Solid", ["Casual"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en"}
+    },
+    {
+      "id": "S12_arabic_casual_weekend",
+      "request": {"occasion": "Casual", "time_of_day": "afternoon", "season": "spring", "location": "نزهة في الحديقة مع العائلة", "style_preferences": ["مريح", "بسيط"], "language": "ar"},
+      "wardrobe": [
+        ["قميص كتان أبيض", "Tops", "White", "Solid", ["Casual", "Smart Casual"], "Spring"],
+        ["تيشيرت رمادي", "Tops", "Grey", "Solid", ["Casual", "Lounge"], "All-Season"],
+        ["بنطلون جينز أزرق", "Bottoms", "Blue", "Denim Wash", ["Casual"], "All-Season"],
+        ["بنطلون كاكي", "Bottoms", "Beige", "Solid", ["Casual", "Smart Casual"], "All-Season"],
+        ["حذاء رياضي أبيض", "Footwear", "White", "Solid", ["Casual"], "All-Season"],
+        ["جاكيت جينز", "Outerwear", "Blue", "Denim Wash", ["Casual"], "Spring"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "ar"}
+    },
+    {
+      "id": "S13_arabic_interview_no_black_free_text",
+      "request": {"occasion": "Work & Business", "activity": "مقابلة عمل", "time_of_day": "morning", "season": "autumn", "exclusions": "بدون أسود", "language": "ar"},
+      "wardrobe": [
+        ["بلوزة سوداء", "Tops", "Black", "Solid", ["Work & Business"], "All-Season"],
+        ["قميص أبيض", "Tops", "White", "Solid", ["Work & Business"], "All-Season"],
+        ["بنطلون أسود", "Bottoms", "Black", "Solid", ["Work & Business"], "All-Season"],
+        ["بنطلون كحلي", "Bottoms", "Navy", "Solid", ["Work & Business"], "All-Season"],
+        ["حذاء أسود", "Footwear", "Black", "Solid", ["Work & Business"], "All-Season"],
+        ["حذاء بني", "Footwear", "Brown", "Solid", ["Work & Business"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": ["Black"], "language": "ar"}
+    },
+    {
+      "id": "S14_arabic_formal_evening_wedding",
+      "request": {"occasion": "Formal", "time_of_day": "evening", "season": "winter", "location": "حفل زفاف في قاعة", "dress_code": "رسمي", "language": "ar"},
+      "wardrobe": [
+        ["فستان سهرة كحلي", "Dresses", "Navy", "Solid", ["Formal", "Evening"], "All-Season"],
+        ["فستان قطني صيفي", "Dresses", "Yellow", "Floral", ["Casual"], "Summer"],
+        ["حذاء كعب فضي", "Footwear", "Silver", "Solid", ["Formal", "Evening", "Cocktail"], "All-Season"],
+        ["صندل مسطح", "Footwear", "Tan", "Solid", ["Casual"], "Summer"],
+        ["شال صوف أسود", "Outerwear", "Black", "Solid", ["Formal", "Evening"], "Winter"],
+        ["حقيبة كلاتش ذهبية", "Accessories", "Gold", "Solid", ["Formal", "Evening"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "ar", "dress_based": true}
+    },
+    {
+      "id": "S15_pattern_heavy_wardrobe",
+      "request": {"occasion": "Smart Casual", "time_of_day": "afternoon", "season": "spring", "location": "brunch", "language": "en"},
+      "wardrobe": [
+        ["Plaid Shirt", "Tops", "Red", "Plaid", ["Casual"], "All-Season"],
+        ["Striped Shirt", "Tops", "Blue", "Striped", ["Smart Casual"], "All-Season"],
+        ["Plain White Shirt", "Tops", "White", "Solid", ["Smart Casual"], "All-Season"],
+        ["Houndstooth Trousers", "Bottoms", "Black", "Houndstooth", ["Smart Casual"], "Autumn"],
+        ["Floral Trousers", "Bottoms", "Multi", "Floral", ["Casual"], "Summer"],
+        ["Navy Chinos", "Bottoms", "Navy", "Solid", ["Smart Casual"], "All-Season"],
+        ["Leopard Loafers", "Footwear", "Brown", "Animal Print", ["Smart Casual"], "All-Season"],
+        ["White Sneakers", "Footwear", "White", "Solid", ["Casual", "Smart Casual"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en", "pattern_discipline": true}
+    },
+    {
+      "id": "S16_unsatisfiable_gym_with_formal_wardrobe",
+      "request": {"occasion": "Active", "activity": "gym workout", "time_of_day": "evening", "season": "summer", "language": "en"},
+      "wardrobe": [
+        ["White Dress Shirt", "Tops", "White", "Solid", ["Business Formal", "Formal"], "All-Season"],
+        ["Black Suit Trousers", "Bottoms", "Black", "Solid", ["Business Formal", "Formal"], "All-Season"],
+        ["Black Oxfords", "Footwear", "Black", "Solid", ["Business Formal", "Formal"], "All-Season"]
+      ],
+      "expect": {"completable": true, "banned_families": [], "language": "en", "unsuitable_inventory": true}
+    }
+  ],
+  "consistency_repeats": {"scenario_ids": ["S01_casual_park_morning_autumn", "S03_interview_no_black", "S12_arabic_casual_weekend"], "runs": 3}
+}

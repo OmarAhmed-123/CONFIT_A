@@ -257,6 +257,10 @@ const EXTRACTED = [
   'fit_finder.brand_chart_note',
   'fit_finder.error_rejected_fields',
   'fit_finder.error_generic',
+  // 2026-10-29 Unknown colour family (Phase 11-A): label for garments whose
+  // colour could not be classified — "Unknown colour" / "لون غير محدد".
+  // Reviewed for en/ar parity; MSA, no dialect.
+  'wardrobe.color_unknown',
 ];
 
 describe('extracted strings: presence and shape', () => {

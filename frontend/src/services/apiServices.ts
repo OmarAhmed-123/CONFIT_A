@@ -587,6 +587,7 @@ export const stylistService = {
     occasion?: string;
     budget_limit?: number;
     voice_input_used?: boolean;
+    images?: string[];
     recommendation_constraints?: {
       palette?: string;
       avoid_palette?: string;
@@ -600,6 +601,18 @@ export const stylistService = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  // Voice -> text via the backend Groq-whisper endpoint. Works in every browser
+  // that can record audio (MediaRecorder) — including ones without the Web
+  // Speech API — and transcribes Arabic reliably.
+  transcribeVoice: (audio: Blob, filename = "voice.webm") => {
+    const form = new FormData();
+    form.append("file", audio, filename);
+    return request<{ text: string; language?: string; model?: string }>(
+      "/stylist/transcribe",
+      { method: "POST", body: form },
+    );
+  },
 
   checkCompatibility: (productIdsOrPayload: any, targetOccasion?: string) => {
     const payload = Array.isArray(productIdsOrPayload)
@@ -1050,6 +1063,150 @@ export interface WardrobeFirstOutfit {
   message: string;
 }
 
+/* ── IBM watsonx.ai stylist (wardrobe → outfit) ─────────────────── */
+export type StylistTimeOfDay = "morning" | "afternoon" | "evening" | "night";
+export type StylistSeason = "spring" | "summer" | "autumn" | "winter";
+
+export interface OutfitRecommendationRequest {
+  occasion: string;
+  time_of_day?: StylistTimeOfDay;
+  season?: StylistSeason;
+  location?: string;
+  activity?: string;
+  dress_code?: string;
+  style_preferences?: string[];
+  color_preferences?: string[];
+  excluded_colors?: string[];
+  comfort_needs?: string;
+  exclusions?: string;
+  excluded_item_ids?: number[];
+  previous_item_ids?: number[];
+  language?: 'en' | 'ar';
+}
+
+export interface RecommendedWardrobeItem {
+  wardrobe_item_id: number;
+  role: "top" | "bottom" | "dress" | "footwear" | "outerwear" | "accessory";
+  category: string;
+  title: string;
+  subcategory?: string | null;
+  color_name: string;
+  color_hex: string;
+  image_url: string;
+  reason: string;
+  analysis_source?: string | null;
+  ai_confidence?: number | null;
+  /** "model" = chosen by the AI stylist (validated); "rule_matcher" = added by CONFIT's rule-based completion (D12). */
+  selected_by?: "model" | "rule_matcher";
+}
+
+export interface OutfitRecommendation {
+  outfit_id: string;
+  occasion: string;
+  title: string;
+  summary: string;
+  items: RecommendedWardrobeItem[];
+  styling_notes: string[];
+  limitations: string[];
+  missing_categories: string[];
+  assumptions: string[];
+  is_complete: boolean;
+  /** Server-computed: "suitable" | "partial" | "unsuitable" (D11). Optional for older saved looks. */
+  fit_status?: "suitable" | "partial" | "unsuitable";
+  /** Honesty block — never render "AI" when ai_generated is false. */
+  source: "watsonx" | "deterministic_fallback";
+  ai_generated: boolean;
+  model_id?: string | null;
+  prompt_version?: string | null;
+  fallback_reason?: string | null;
+  latency_seconds?: number | null;
+  rejected_references: number[];
+  context: Record<string, unknown>;
+}
+
+/** Saved wardrobe look (persisted by POST /wardrobe/outfits — migration 0048). */
+export interface SavedWardrobeOutfitItem {
+  wardrobe_item_id: number;
+  role: RecommendedWardrobeItem["role"];
+  category: string;
+  title: string;
+  subcategory?: string | null;
+  color_name: string;
+  color_hex: string;
+  image_url?: string | null;
+  reason: string;
+  analysis_source?: string | null;
+}
+
+export interface SavedWardrobeOutfit {
+  id: number;
+  title: string;
+  occasion: string;
+  summary: string;
+  items: SavedWardrobeOutfitItem[];
+  styling_notes: string[];
+  limitations: string[];
+  missing_categories: string[];
+  context: Record<string, unknown>;
+  is_complete: boolean;
+  source: "watsonx" | "deterministic_fallback" | string;
+  ai_generated: boolean;
+  model_id?: string | null;
+  prompt_version?: string | null;
+  created_at: string;
+  /** Garments binned since the look was saved (hidden, never shown stale). */
+  dropped_item_count: number;
+  /** Ids the server refused at save time (not yours / unknown / binned). */
+  rejected_references: number[];
+}
+
+export interface SaveWardrobeOutfitRequest {
+  title: string;
+  occasion: string;
+  summary: string;
+  items: { wardrobe_item_id: number; reason: string }[];
+  styling_notes: string[];
+  limitations: string[];
+  missing_categories: string[];
+  context: Record<string, unknown>;
+  source: "watsonx" | "deterministic_fallback";
+  ai_generated: boolean;
+  model_id?: string | null;
+  prompt_version?: string | null;
+}
+
+/** Build the save payload from a recommendation: ids + text only; the server
+ *  re-validates ownership, derives roles and keeps provenance truthful. */
+export function toSaveWardrobeOutfitRequest(rec: OutfitRecommendation): SaveWardrobeOutfitRequest {
+  return {
+    title: rec.title,
+    occasion: rec.occasion,
+    summary: rec.summary,
+    items: rec.items.map((i) => ({ wardrobe_item_id: i.wardrobe_item_id, reason: i.reason })),
+    styling_notes: rec.styling_notes,
+    limitations: rec.limitations,
+    missing_categories: rec.missing_categories,
+    context: rec.context ?? {},
+    source: rec.source,
+    ai_generated: rec.ai_generated,
+    model_id: rec.model_id ?? null,
+    prompt_version: rec.prompt_version ?? null,
+  };
+}
+
+export interface StylistStatus {
+  watsonx_configured: boolean;
+  watsonx_url?: string | null;
+  vision_model_id?: string | null;
+  reasoning_model_id?: string | null;
+  vision_provider_mode: string;
+  stylist_provider_mode: string;
+  legacy_vision_configured: boolean;
+  ready_items: number;
+  categories_present: string[];
+  prompt_version: string;
+}
+
 /**
  * Response contracts for reversible deletion, validated with zod because the
  * Undo affordance is rendered FROM this payload: a missing `undoable` or a
@@ -1169,6 +1326,29 @@ export const wardrobeService = {
     request<WardrobeFirstOutfit>(
       `/wardrobe/outfit-suggestions?occasion=${encodeURIComponent(occasion)}`,
     ),
+
+  /** IBM Granite stylist flow: context + owned items → one validated outfit. */
+  recommendOutfit: (payload: OutfitRecommendationRequest) =>
+    request<OutfitRecommendation>(`/wardrobe/outfit-recommendation`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getStylistStatus: () => request<StylistStatus>(`/wardrobe/stylist/status`),
+
+  /** Persist a recommended look (201 only after the server committed it). */
+  saveOutfit: (payload: SaveWardrobeOutfitRequest) =>
+    request<SavedWardrobeOutfit>(`/wardrobe/outfits`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  listSavedOutfits: () => request<SavedWardrobeOutfit[]>(`/wardrobe/outfits`),
+
+  getSavedOutfit: (id: number) => request<SavedWardrobeOutfit>(`/wardrobe/outfits/${id}`),
+
+  deleteSavedOutfit: (id: number) =>
+    request<void>(`/wardrobe/outfits/${id}`, { method: "DELETE" }),
 
   checkDuplicate: (payload: {
     product_id: number;
@@ -1741,7 +1921,7 @@ const adminAnalyticsContract = z
     tryon_adoption_rate: z.number().nullable(),
     stylist_conversion_ratio: z.number().nullable(),
     platform_avg_return_rate: z.number().nullable(),
-    revenue_attribution: z.record(z.number().nullable()),
+    revenue_attribution: z.record(z.string(), z.number().nullable()),
     top_performing_brands: z.array(z.object({ brand: z.string() }).passthrough()),
     time_range: z
       .object({

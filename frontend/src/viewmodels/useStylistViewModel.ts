@@ -95,6 +95,11 @@ export function useStylistViewModel() {
   const messagesRef = useRef<StylistMessage[]>([]);
   messagesRef.current = messages;
   const voiceTurnRef = useRef(false);
+  // Server-side voice path (Groq whisper): record audio here, upload on stop.
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const { addItem, openCart } = useCartStore();
   const { showToast } = useUIStore();
@@ -232,14 +237,14 @@ export function useStylistViewModel() {
     [inputPrompt, showToast, pendingImages],
   );
 
-  // Real voice input via the browser SpeechRecognition (Web Speech) pipeline:
-  // Microphone -> permission -> live transcript -> intent -> styling engine.
-  // No simulated/canned transcription. Gracefully reports when unsupported.
-  const startVoiceInput = useCallback(() => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-      return;
-    }
+  const stopMicTracks = useCallback(() => {
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+  }, []);
+
+  // Fallback voice path: the browser Web Speech API (Chrome/Edge only). Used
+  // when the device cannot record audio for the server-side whisper path.
+  const startBrowserSpeech = useCallback(() => {
     const w = window as any;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) {
@@ -283,7 +288,6 @@ export function useStylistViewModel() {
         voiceTurnRef.current = false;
       }
       if (!text && !voiceFailed) {
-        // Ended cleanly with nothing recognised: say so, instead of doing nothing.
         showToast(msg(VOICE_FAILURE_MESSAGE.no_speech), "error");
       }
     };
@@ -299,7 +303,93 @@ export function useStylistViewModel() {
       console.error("[stylist] voice start failed:", err?.message ?? err);
       showToast(translatableFrom(err, "stylist.voice_start_failed"), "error");
     }
-  }, [isRecording, sendPrompt, showToast]);
+  }, [sendPrompt, showToast]);
+
+  // Primary voice input: record audio (MediaRecorder — every modern browser) and
+  // transcribe it server-side via Groq whisper. Reliable across browsers and
+  // strong on Arabic; no simulated/canned transcription. Falls back to the Web
+  // Speech API only when the device cannot record.
+  const startVoiceInput = useCallback(async () => {
+    if (isRecording) {
+      const mr = mediaRecorderRef.current;
+      if (mr && mr.state !== "inactive") mr.stop();
+      else recognitionRef.current?.stop();
+      return;
+    }
+    const nav = typeof navigator !== "undefined" ? (navigator as any) : undefined;
+    const canRecord =
+      !!nav?.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined";
+    if (!canRecord) {
+      startBrowserSpeech();
+      return;
+    }
+
+    let stream: MediaStream;
+    try {
+      stream = await nav.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      showToast(msg(VOICE_FAILURE_MESSAGE.permission), "error");
+      return;
+    }
+    mediaStreamRef.current = stream;
+
+    let mr: MediaRecorder;
+    try {
+      mr = new MediaRecorder(stream);
+    } catch {
+      stopMicTracks();
+      startBrowserSpeech();
+      return;
+    }
+    mediaRecorderRef.current = mr;
+    audioChunksRef.current = [];
+    mr.ondataavailable = (e: BlobEvent) => {
+      if (e.data && e.data.size) audioChunksRef.current.push(e.data);
+    };
+    mr.onstop = async () => {
+      setIsRecording(false);
+      stopMicTracks();
+      const blob = new Blob(audioChunksRef.current, { type: mr.mimeType || "audio/webm" });
+      audioChunksRef.current = [];
+      if (!blob.size) {
+        voiceTurnRef.current = false;
+        showToast(msg(VOICE_FAILURE_MESSAGE.no_speech), "error");
+        return;
+      }
+      try {
+        setIsTranscribing(true);
+        const res = await stylistService.transcribeVoice(blob);
+        const text = (res?.text || "").trim();
+        if (text) {
+          setInputPrompt(text);
+          sendPrompt(text);
+        } else {
+          voiceTurnRef.current = false;
+          showToast(msg(VOICE_FAILURE_MESSAGE.no_speech), "error");
+        }
+      } catch (err: any) {
+        voiceTurnRef.current = false;
+        // eslint-disable-next-line no-console
+        console.error("[stylist] transcription failed:", err?.message ?? err);
+        showToast(msg("stylist.voice_service_blocked"), "error");
+      } finally {
+        setIsTranscribing(false);
+      }
+    };
+
+    try {
+      setInputPrompt("");
+      setIsRecording(true);
+      voiceTurnRef.current = true;
+      mr.start();
+    } catch (err: any) {
+      setIsRecording(false);
+      stopMicTracks();
+      // eslint-disable-next-line no-console
+      console.error("[stylist] voice start failed:", err?.message ?? err);
+      showToast(translatableFrom(err, "stylist.voice_start_failed"), "error");
+    }
+  }, [isRecording, sendPrompt, showToast, startBrowserSpeech, stopMicTracks]);
 
   const addCompleteLookToCart = useCallback(
     async (outfit: Outfit) => {
@@ -350,6 +440,7 @@ export function useStylistViewModel() {
     setInputPrompt,
     isTyping,
     isRecording,
+    isTranscribing,
     error,
     errorRetryable,
     isAddingLook,

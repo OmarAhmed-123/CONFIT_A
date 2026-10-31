@@ -57,6 +57,13 @@ class WardrobeItem(Base):
     processing_status = Column(String(20), default="ready", nullable=False, index=True)
     processing_error = Column(Text, nullable=True)              # last failure detail for retry UX
     ai_confidence = Column(Float, nullable=True)                # vision model confidence 0.0-1.0
+    # Migration 0047 — FR-18 honesty: the model id that produced the AI
+    # metadata (e.g. "ibm/granite-4-h-small", "gemini-flash-lite-latest"),
+    # "manual" when the user supplied/corrected it, NULL for legacy rows.
+    analysis_source = Column(String(120), nullable=True)
+    # One factual sentence from the vision model ("what is visible"), shown
+    # to the user so they can judge and correct the inference.
+    analysis_description = Column(Text, nullable=True)
     image_hash = Column(String(64), nullable=True, index=True)  # sha256 — duplicate upload protection
     # FLOW E lineage: which persisted OrderItem this piece was synchronised
     # from (NULL for uploaded / manually added items). Server-authoritative
@@ -86,3 +93,52 @@ class WardrobeGapAnalysis(Base):
     unlocks_outfit_count = Column(Integer, default=3, nullable=False)
     recommended_products_json = Column(Text, default="[]", nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class WardrobeOutfit(Base):
+    """A saved outfit built ONLY from the user's own wardrobe items.
+
+    Deliberately separate from ``outfits``/``outfit_items`` (catalog looks with
+    prices, cart and share semantics). Items reference ``wardrobe_items`` by
+    id — never by filename — and cascade when a garment is deleted, so a saved
+    look can only ever show garments the user still owns.
+    """
+
+    __tablename__ = "wardrobe_outfits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(160), nullable=False)
+    occasion = Column(String(60), nullable=False)
+    summary = Column(Text, nullable=False, default="")
+    styling_notes_json = Column(Text, nullable=False, default="[]")
+    limitations_json = Column(Text, nullable=False, default="[]")
+    missing_categories_json = Column(Text, nullable=False, default="[]")
+    context_json = Column(Text, nullable=False, default="{}")
+    is_complete = Column(Boolean, nullable=False, default=False)
+    # Provenance — copied verbatim from the recommendation so a saved look
+    # keeps saying who made it (FR-14 / FR-18).
+    source = Column(String(40), nullable=False)           # watsonx | deterministic_fallback
+    ai_generated = Column(Boolean, nullable=False, default=False)
+    model_id = Column(String(160), nullable=True)
+    prompt_version = Column(String(40), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    items = relationship(
+        "WardrobeOutfitItem", back_populates="outfit", cascade="all, delete-orphan",
+        order_by="WardrobeOutfitItem.sort_order",
+    )
+
+
+class WardrobeOutfitItem(Base):
+    __tablename__ = "wardrobe_outfit_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    outfit_id = Column(Integer, ForeignKey("wardrobe_outfits.id", ondelete="CASCADE"), nullable=False, index=True)
+    wardrobe_item_id = Column(Integer, ForeignKey("wardrobe_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)
+    reason = Column(Text, nullable=False, default="")
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    outfit = relationship("WardrobeOutfit", back_populates="items")
+    wardrobe_item = relationship("WardrobeItem")

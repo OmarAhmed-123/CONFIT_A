@@ -78,7 +78,9 @@ class GapAnalysisService:
         for it in existing_items:
             cat = taxonomy.normalize_category(it.category)
             owned_counts[cat] = owned_counts.get(cat, 0) + 1
-            owned_colors.append(taxonomy.normalize_color(it.color_name))
+            fam = taxonomy.normalize_color(it.color_name)
+            if taxonomy.is_known_color(fam):  # Unknown must not become the palette anchor
+                owned_colors.append(fam)
 
         # Suggested colors harmonize with what the user already owns (existing
         # ColorHarmonyEngine vocabulary) rather than a fixed palette.
@@ -212,7 +214,7 @@ class DuplicateDetectorService:
             if taxonomy.normalize_category(item.category) == product_category:
                 score += 55
                 reasons.append(f"same type ({product_category})")
-            if taxonomy.normalize_color(item.color_name) == product_color:
+            if taxonomy.is_known_color(product_color) and taxonomy.normalize_color(item.color_name) == product_color:
                 score += 35
                 reasons.append(f"same color family ({product_color})")
             if product_pattern and taxonomy.normalize_pattern(item.pattern) == product_pattern:

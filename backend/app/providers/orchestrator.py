@@ -263,6 +263,15 @@ class MultiProviderAIOrchestrator:
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"UnoRouter {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
 
+                # watsonx is the PAID last resort: it runs only when it is the last
+                # configured leg standing, so a shopper is never billed for IBM
+                # inference while a free provider could have answered.
+                elif provider == "watsonx" and settings.WATSONX_APIKEY and settings.WATSONX_PROJECT_ID:
+                    res = await self._call_watsonx(system_prompt, user_prompt)
+                    if self._is_usable(res):
+                        text, model_id = res
+                        return self._format_response(text, prompt, intent, f"watsonx {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
+
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code in [401, 402, 404, 429]:
                     self.mark_cooling(provider, f"HTTP {exc.response.status_code}")
@@ -436,6 +445,65 @@ class MultiProviderAIOrchestrator:
             res.raise_for_status()
             return self._accept_chat_completion(
                 "groq", res.json(), "openai/gpt-oss-120b")
+
+    async def _call_watsonx(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
+        """Paid IBM watsonx.ai leg (Granite reasoning). Reuses the hardened
+        WatsonxClient (IAM token cache, honest error taxonomy, bounded retries).
+        Returned as (text, served_model_id) so the provenance label is truthful."""
+        from backend.app.providers.watsonx.client import get_watsonx_client
+
+        client = get_watsonx_client()
+        if not client.configured:
+            return None
+        result = await client.chat(
+            model_id=settings.WATSONX_REASONING_MODEL_ID,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=self._max_tokens(),
+            temperature=0.7,
+            deployment_id=settings.WATSONX_REASONING_DEPLOYMENT_ID or None,
+        )
+        if result and result.content:
+            return (result.content, result.model_id)
+        return None
+
+    async def transcribe_audio(
+        self, audio_bytes: bytes, filename: str = "audio.webm", language: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Voice -> text via Groq whisper-large-v3-turbo (free, multilingual incl.
+        Arabic). Returns {text, language, model, provider}. Honest failure (no
+        fabricated transcript) when Groq is unconfigured or the call fails."""
+        if not settings.groq_api_key:
+            return {"text": None, "provider": None, "error": "stt_not_configured"}
+        data = {"model": "whisper-large-v3-turbo", "response_format": "verbose_json"}
+        if language:
+            data["language"] = language
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:
+                res = await client.post(
+                    "https://api.groq.com/openai/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+                    files={"file": (filename, audio_bytes)},
+                    data=data,
+                )
+                res.raise_for_status()
+                j = res.json()
+            return {
+                "text": (j.get("text") or "").strip(),
+                "language": j.get("language"),
+                "model": "whisper-large-v3-turbo",
+                "provider": "groq",
+            }
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (401, 402, 429):
+                self.mark_cooling("groq", f"STT HTTP {exc.response.status_code}")
+            logger.warn("stt_groq_http_error", status=exc.response.status_code)
+            return {"text": None, "provider": None, "error": f"stt_http_{exc.response.status_code}"}
+        except Exception as exc:
+            logger.warn("stt_groq_failed", error=str(exc)[:160])
+            return {"text": None, "provider": None, "error": "stt_failed"}
 
     async def _call_gemini(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=self._timeout("gemini")) as client:

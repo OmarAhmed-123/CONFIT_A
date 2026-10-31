@@ -40,13 +40,13 @@ COLOR_FAMILIES: Dict[str, List[str]] = {
     "White": ["white", "optic white", "off-white", "off white", "snow"],
     "Ivory": ["ivory", "alabaster", "cream", "ecru", "bone"],
     "Grey": ["grey", "gray", "charcoal", "slate", "heather", "graphite", "ash"],
-    "Navy": ["navy", "navy blue", "dark navy", "midnight blue", "ink blue", "marine"],
-    "Blue": ["blue", "sky blue", "royal blue", "cobalt", "azure", "light blue", "denim blue", "steel blue"],
+    "Navy": ["navy", "navy blue", "dark navy", "midnight blue", "ink blue", "marine", "indigo", "dark indigo", "raw denim"],
+    "Blue": ["blue", "sky blue", "royal blue", "cobalt", "azure", "light blue", "denim blue", "steel blue", "denim", "teal", "turquoise", "aqua", "petrol"],
     "Beige": ["beige", "sand", "khaki", "taupe", "stone", "oat", "oatmeal", "nude"],
     "Tan": ["tan", "camel", "caramel", "toffee", "cognac"],
     "Brown": ["brown", "espresso", "chocolate", "coffee", "mocha", "chestnut", "walnut"],
-    "Green": ["green", "emerald", "forest green", "olive", "sage", "mint", "khaki green", "hunter"],
-    "Red": ["red", "crimson", "scarlet", "burgundy", "maroon", "wine", "oxblood", "rust", "terracotta"],
+    "Green": ["green", "emerald", "forest green", "olive", "sage", "mint", "khaki green", "hunter", "lime", "moss", "pistachio"],
+    "Red": ["red", "crimson", "scarlet", "burgundy", "maroon", "wine", "oxblood", "rust", "terracotta", "bordeaux", "cherry"],
     "Pink": ["pink", "blush", "rose", "fuchsia", "magenta", "salmon", "coral pink"],
     "Purple": ["purple", "violet", "lavender", "lilac", "plum", "mauve", "aubergine"],
     "Yellow": ["yellow", "mustard", "gold", "golden", "champagne", "lemon", "amber"],
@@ -54,6 +54,33 @@ COLOR_FAMILIES: Dict[str, List[str]] = {
     "Silver": ["silver", "metallic", "platinum", "pewter"],
     "Multi": ["multi", "multicolor", "multi-color", "colorful", "rainbow"],
 }
+
+# Arabic colour words (Modern Standard Arabic + common spellings without
+# hamza) so an Arabic-speaking user's preferences and exclusions normalise to
+# the same families as English ones. Added 2026-10-27: before this, "أسود"
+# never matched "Black", so neither preference scoring nor the server-side
+# colour exclusion could act on Arabic input.
+_ARABIC_COLOR_ALIASES: Dict[str, List[str]] = {
+    "Black": ["أسود", "اسود", "سوداء"],
+    "White": ["أبيض", "ابيض", "بيضاء"],
+    "Ivory": ["عاجي", "كريمي", "كريم"],
+    "Grey": ["رمادي", "رمادية"],
+    "Navy": ["كحلي", "كحلية", "أزرق داكن", "ازرق داكن", "أزرق غامق"],
+    "Blue": ["أزرق", "ازرق", "زرقاء", "سماوي"],
+    "Beige": ["بيج", "كاكي", "رملي"],
+    "Tan": ["جملي", "كراميل"],
+    "Brown": ["بني", "بنية"],
+    "Green": ["أخضر", "اخضر", "خضراء", "زيتي", "زيتوني"],
+    "Red": ["أحمر", "احمر", "حمراء", "عنابي", "نبيذي", "خمري"],
+    "Pink": ["وردي", "زهري", "فوشيا"],
+    "Purple": ["بنفسجي", "موف", "أرجواني", "ارجواني"],
+    "Yellow": ["أصفر", "اصفر", "ذهبي", "خردلي"],
+    "Orange": ["برتقالي", "مشمشي"],
+    "Silver": ["فضي"],
+    "Multi": ["ملون", "متعدد الألوان", "متعدد الالوان"],
+}
+for _fam, _words in _ARABIC_COLOR_ALIASES.items():
+    COLOR_FAMILIES.setdefault(_fam, []).extend(_words)
 
 # Loose hex palette for the canonical families (used when the model does not
 # return a hex, or returns an implausible one).
@@ -63,6 +90,7 @@ COLOR_FAMILY_HEX = {
     "Brown": "#4A3525", "Green": "#2D4A3E", "Red": "#8C2F39", "Pink": "#D9A7B0",
     "Purple": "#6B5B95", "Yellow": "#C5A059", "Orange": "#C4733B", "Silver": "#C0C0C0",
     "Multi": "#888888",
+    "Unknown": "#A3A3A3",  # neutral swatch; the label says it is unclassified
 }
 
 # ── Patterns ────────────────────────────────────────────────────────────────
@@ -152,11 +180,26 @@ def normalize_category(raw: Optional[str], subcategory_hint: Optional[str] = Non
     return "Tops"  # safest default bucket for an unrecognized garment
 
 
+UNKNOWN_COLOR = "Unknown"
+
+
+def is_known_color(family: Optional[str]) -> bool:
+    """True only for a real colour family — never for the Unknown bucket."""
+    return bool(family) and family != UNKNOWN_COLOR and family in COLOR_FAMILIES
+
+
 def normalize_color(raw: Optional[str]) -> str:
-    """Normalize 'Navy Blue' / 'dark navy' / 'midnight' to one family."""
+    """Normalize 'Navy Blue' / 'dark navy' / 'midnight' to one family.
+
+    Words that match no alias (exactly or fuzzily) normalise to ``"Unknown"``
+    (2026-10-29). Before that the fallback was ``"Black"``, which let
+    "Periwinkle" or an empty value be excluded by "no black", counted as a
+    neutral, and matched against black products — all false claims. Unknown is
+    never neutral, never preferred, never banned and never a colour match.
+    """
     v = _norm(raw or "")
     if not v:
-        return "Black"
+        return UNKNOWN_COLOR
     # Longest alias first so 'navy blue' wins over 'blue'
     aliases = sorted(
         ((alias, fam) for fam, toks in COLOR_FAMILIES.items() for alias in toks),
@@ -167,7 +210,7 @@ def normalize_color(raw: Optional[str]) -> str:
         if alias in v:
             return fam
     match = _closest(v, list(COLOR_FAMILIES.keys()))
-    return match or "Black"
+    return match or UNKNOWN_COLOR
 
 
 def color_hex_for_family(family: str, model_hex: Optional[str] = None) -> str:

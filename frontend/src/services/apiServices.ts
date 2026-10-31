@@ -587,6 +587,7 @@ export const stylistService = {
     occasion?: string;
     budget_limit?: number;
     voice_input_used?: boolean;
+    images?: string[];
     recommendation_constraints?: {
       palette?: string;
       avoid_palette?: string;
@@ -600,6 +601,18 @@ export const stylistService = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  // Voice -> text via the backend Groq-whisper endpoint. Works in every browser
+  // that can record audio (MediaRecorder) — including ones without the Web
+  // Speech API — and transcribes Arabic reliably.
+  transcribeVoice: (audio: Blob, filename = "voice.webm") => {
+    const form = new FormData();
+    form.append("file", audio, filename);
+    return request<{ text: string; language?: string; model?: string }>(
+      "/stylist/transcribe",
+      { method: "POST", body: form },
+    );
+  },
 
   checkCompatibility: (productIdsOrPayload: any, targetOccasion?: string) => {
     const payload = Array.isArray(productIdsOrPayload)

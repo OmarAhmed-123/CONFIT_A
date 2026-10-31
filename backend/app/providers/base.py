@@ -1,8 +1,21 @@
 import asyncio
+import re
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Callable
 from backend.app.core.logging import logger
+
+# Redact API keys/tokens that ride in a URL or message before they reach a log
+# line. httpx error strings include the full request URL, so a provider whose
+# key is a query parameter (e.g. Gemini `?key=...`) would otherwise leak it.
+_SECRET_IN_TEXT = re.compile(
+    r'((?:api[_-]?key|apikey|key|access[_-]?token|token|password|secret)=)[^&\s"\'}\\]+',
+    re.IGNORECASE,
+)
+
+
+def _scrub(text: object) -> str:
+    return _SECRET_IN_TEXT.sub(r"\1REDACTED", str(text))
 
 
 class BaseProvider(ABC):
@@ -31,7 +44,7 @@ class BaseProvider(ABC):
             except asyncio.TimeoutError:
                 logger.warn(f"Provider {self.name} timed out on attempt {attempt}/{self.max_retries}")
             except Exception as exc:
-                logger.error(f"Provider {self.name} failed on attempt {attempt}: {str(exc)}")
+                logger.error(f"Provider {self.name} failed on attempt {attempt}: {_scrub(exc)}")
 
             if attempt < self.max_retries:
                 await asyncio.sleep(0.3 * attempt)

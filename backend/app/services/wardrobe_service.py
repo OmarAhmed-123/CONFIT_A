@@ -1056,8 +1056,30 @@ class WardrobeService:
         answered, so the persisted row never misattributes the inference.
         """
         mode = (getattr(settings, "WARDROBE_VISION_PROVIDER", "auto") or "auto").lower()
-        if mode not in ("auto", "watsonx", "legacy"):
+        if mode not in ("auto", "watsonx", "legacy", "free_first"):
             mode = "auto"
+
+        # free_first: the free chain (Gemini/NVIDIA/Qwen) answers first; watsonx
+        # is the paid LAST resort, tried only when the free chain cannot answer
+        # for a SERVICE reason. A content verdict (e.g. "not a garment") is final
+        # and is NOT re-checked by another model.
+        if mode == "free_first":
+            from backend.app.providers.tryon_provider import VisualSearchAIProvider
+            raw = await VisualSearchAIProvider().analyze_wardrobe_image(data_url)
+            if raw.get("analysis_available"):
+                if not raw.get("analysis_source"):
+                    raw["analysis_source"] = settings.VISION_MODEL
+                return raw
+            from backend.app.providers.watsonx.vision import WatsonxVisionProvider
+            wx = WatsonxVisionProvider()
+            if wx.is_configured():
+                try:
+                    wx_res = await wx.analyze_wardrobe_image(data_url)
+                except ValueError as exc:
+                    raise ValidationDomainError(f"Uploaded image could not be processed: {exc}") from exc
+                if wx_res.get("analysis_available"):
+                    return wx_res
+            return raw
 
         last: Dict[str, Any] = {"analysis_available": False, "reason": "no_vision_provider"}
         if mode in ("auto", "watsonx"):

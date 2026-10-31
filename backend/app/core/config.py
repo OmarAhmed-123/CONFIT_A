@@ -292,12 +292,15 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: Optional[str] = None
     NVIDIA_CHAT_KEY_2: Optional[str] = None
 
-    # AI Failover Configuration
-    # `local_gpu` leads the chain so a self-hosted model is PREFERRED the
-    # moment one exists. It is skipped with zero cost while
-    # LOCAL_LLM_BASE_URL is unset, so listing it first costs nothing today
-    # and needs no code change on the day the GPU subscription renews.
-    AI_PROVIDERS: str = "local_gpu,nvidia,groq,gemini,openai,unorouter"
+    # AI Failover Configuration — FREE providers first, the PAID watsonx leg LAST.
+    # `local_gpu` leads the chain so a self-hosted model is PREFERRED the moment
+    # one exists; it is skipped with zero cost while LOCAL_LLM_BASE_URL is unset.
+    # Then the free hosted tiers (Groq gpt-oss-120b is the strongest/most reliable
+    # measured, then Gemini, then OpenAI). `watsonx` is placed LAST so a shopper
+    # is billed for IBM Granite only when every free leg is unavailable and
+    # watsonx is configured. (nvidia/unorouter are opt-in: add them to the env
+    # list when their keys are provisioned.)
+    AI_PROVIDERS: str = "local_gpu,groq,gemini,openai,watsonx"
 
     # ── Self-hosted stylist inference (activates on GPU renewal) ──────────
     #

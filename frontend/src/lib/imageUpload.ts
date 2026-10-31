@@ -163,7 +163,16 @@ export async function compressImageToDataUrl(
   let passes = 0;
   let lastDataUrl = '';
 
-  while (dim >= MIN_DIM) {
+  // `passes === 0` is load-bearing, not a guard against an empty loop: for an
+  // image whose longest edge is already below MIN_DIM (a 64x64 catalogue
+  // thumbnail, an icon, a small mood-board crop) `dim >= MIN_DIM` is false
+  // immediately, so the body never ran and the function fell through to
+  // `errors.image_compression_failed` — reporting "could not be compressed
+  // small enough" about an 8KB file. A small image needs one honest encode, not
+  // a downscale, so the first pass always runs. The MIN_DIM floor still governs
+  // every later pass, so large images behave exactly as before and a genuinely
+  // oversized small image still fails after that single retry.
+  while (dim >= MIN_DIM || passes === 0) {
     const scale = dim / Math.max(img.naturalWidth, img.naturalHeight);
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
     const h = Math.max(1, Math.round(img.naturalHeight * scale));

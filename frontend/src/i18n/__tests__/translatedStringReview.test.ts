@@ -48,6 +48,13 @@ const flatAr = flatten(ar as Tree);
 
 /** Keys added by the 2026-10-17 extraction; the set this file is accountable for. */
 const EXTRACTED = [
+  // try-on person input (2026-10-25): framing guidance, the demo-model
+  // disclosure, and three strings that were hardcoded English inside an
+  // otherwise-translated modal (they rendered in English under AR).
+  'tryon.person_framing_hint', 'tryon.avatar_demo_disclosure',
+  'tryon.garment_demo_disclosure',
+  'tryon.live_scan', 'tryon.download_result', 'tryon.temporary_render_note',
+  'tryon.btn_undo',
   // consumer
   'wardrobe.retention_engine_eyebrow', 'wardrobe.retention_engine_headline',
   'wardrobe.retention_engine_body', 'wardrobe.boards_title', 'wardrobe.boards_subtitle',

@@ -42,13 +42,15 @@ class StylingEngine:
         available_products: List[Any],
         intent: Dict[str, Any],
         user_profile: Optional[Any] = None,
-        max_outfits: int = 2
+        max_outfits: int = 2,
+        ai_selection: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         return cls._composer.compose_outfits(
             available_products=available_products,
             intent=intent,
             user_profile=user_profile,
-            max_outfits=max_outfits
+            max_outfits=max_outfits,
+            ai_selection=ai_selection,
         )
 
     @classmethod
@@ -58,6 +60,7 @@ class StylingEngine:
         intent: Dict[str, Any],
         user_profile: Optional[Any] = None,
         max_outfits: int = 2,
+        ai_selection: Optional[Dict[str, Any]] = None,
     ) -> "tuple[List[Dict[str, Any]], Dict[str, Any]]":
         """Same composition, plus why fewer looks were published than requested.
 
@@ -72,6 +75,7 @@ class StylingEngine:
             user_profile=user_profile,
             max_outfits=max_outfits,
             meta_out=meta,
+            ai_selection=ai_selection,
         )
         return outfits, meta
 

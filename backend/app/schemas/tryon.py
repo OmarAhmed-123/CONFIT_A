@@ -78,6 +78,10 @@ class VtonProductCapabilityOut(BaseModel):
     reason_code: str
     message: str
     provider: str = "fashn_vton_segfee"
+    #: Where the try-on garment image came from. "generated-demo" => the
+    #: rendered garment is an AI-generated stand-in, NOT the catalogue product,
+    #: and the studio must say so. None (unknown) is never shown as real.
+    garment_asset_provenance: Optional[str] = None
 
 
 class VtonSlaOut(BaseModel):

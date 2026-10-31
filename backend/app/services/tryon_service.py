@@ -16,6 +16,7 @@ import os
 import time
 import hashlib
 import asyncio
+import pathlib
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -94,24 +95,143 @@ def _clamp_model_used(value) -> str:
 #
 # The ids/assets mirror the frontend avatar picker
 # (frontend/src/components/tryon/VirtualTryOnModal.tsx).
+#
+# 2026-10-25 — the avatars used to be four Unsplash PORTRAITS, and every
+# schema defaulted ``avatar_model_id`` to ``avatar_athletic_m``: a face crop.
+# The default try-on path therefore smeared a garment onto a head-and-
+# shoulders photo and still returned ``fit_confidence_score: 100`` with the
+# per-layer gate passing — the gate verifies the GARMENT layer, and there is
+# nothing on the person side that asked whether a body was in the frame at
+# all. A green gate on a meaningless image is worse than an honest failure.
+#
+# The four bundled assets below are AI-generated full-body studio figures
+# (head to feet, plain contrasting backdrop, hands visible) shipped with the
+# repo so the default path renders on an actual body. They are DEMO people,
+# tagged ``synthetic-demo``, and the UI labels them as such — they are not
+# customers and not product photography.
+#
+# The ids are deliberately UNCHANGED: a stale browser still running the old
+# front-end bundle keeps working and silently gets the corrected asset,
+# which is what makes the fix reach cached clients without a cache purge.
+AVATAR_ASSET_SCHEME = "asset://vton-avatars/"
+VTON_AVATAR_ASSET_DIR = (
+    pathlib.Path(__file__).resolve().parents[2] / "assets" / "vton_avatars"
+)
+
+FRAMING_FULL_BODY = "full_body"
+FRAMING_PORTRAIT = "portrait"
+
 VTON_AVATARS = {
-    "avatar_athletic_m": (
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
-    "avatar_hourglass_f": (
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
-    "avatar_curvy_f": (
-        "https://images.unsplash.com/photo-1517841905240-472988babdf9"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
-    "avatar_tall_m": (
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e"
-        "?w=600&auto=format&fit=crop&q=80"
-    ),
+    "avatar_athletic_m": AVATAR_ASSET_SCHEME + "avatar_athletic_m.jpg",
+    "avatar_hourglass_f": AVATAR_ASSET_SCHEME + "avatar_hourglass_f.jpg",
+    "avatar_curvy_f": AVATAR_ASSET_SCHEME + "avatar_curvy_f.jpg",
+    "avatar_tall_m": AVATAR_ASSET_SCHEME + "avatar_tall_m.jpg",
 }
+
+#: Framing of each bundled person reference. The registry is the ONLY source
+#: of truth about framing: nothing infers it from pixels at render time.
+VTON_AVATAR_FRAMING = {
+    "avatar_athletic_m": FRAMING_FULL_BODY,
+    "avatar_hourglass_f": FRAMING_FULL_BODY,
+    "avatar_curvy_f": FRAMING_FULL_BODY,
+    "avatar_tall_m": FRAMING_FULL_BODY,
+}
+
+#: Where each bundled asset came from, for licence/consent hygiene.
+VTON_AVATAR_PROVENANCE = {avatar_id: "synthetic-demo" for avatar_id in VTON_AVATARS}
+
+#: The four Unsplash portraits the avatars pointed at before 2026-10-25
+#: (query string stripped). They are retired, but a cached front-end bundle or
+#: an older API client can still send them — and a render on one puts a
+#: garment on a face while the layer gate reports success. Refuse them.
+VTON_RETIRED_PORTRAIT_REFERENCES = frozenset({
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb",
+    "https://images.unsplash.com/photo-1517841905240-472988babdf9",
+    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e",
+})
+
+
+def avatar_asset_path(avatar_model_id: str) -> Optional[pathlib.Path]:
+    """Filesystem path of a bundled avatar asset, or None for a non-avatar."""
+    ref = VTON_AVATARS.get(avatar_model_id)
+    if not ref or not ref.startswith(AVATAR_ASSET_SCHEME):
+        return None
+    return VTON_AVATAR_ASSET_DIR / ref[len(AVATAR_ASSET_SCHEME):]
+
+
+def expand_avatar_asset(ref: str) -> str:
+    """Turn an ``asset://`` reference into a data URL the worker can consume.
+
+    Bundled assets are resolved in-process instead of over the network: no
+    public origin, no bucket permissions, no CSP, nothing to presign and no
+    third-party dependency that can disappear from under a render.
+    """
+    import base64
+
+    rel = ref[len(AVATAR_ASSET_SCHEME):]
+    # ``rel`` reaches the filesystem, so refuse traversal outright.
+    if "/" in rel or "\\" in rel or rel.startswith("."):
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: malformed bundled avatar reference {ref!r}."
+        )
+    path = VTON_AVATAR_ASSET_DIR / rel
+    try:
+        raw = path.read_bytes()
+    except OSError as e:
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: bundled avatar asset {rel!r} is unavailable ({e.__class__.__name__})."
+        ) from e
+    mime = _mime_from_bytes(raw)
+    return f"data:{mime};base64," + base64.b64encode(raw).decode()
+
+
+def _canonical_person_reference(ref: str) -> str:
+    """Canonical form used to look a person reference up in the registry."""
+    return ref.split("?", 1)[0].strip().rstrip("/")
+
+
+def ensure_renderable_person_reference(
+    person_ref: str, avatar_model_id: Optional[str] = None
+) -> None:
+    """Refuse a person reference we KNOW is not a full body. Never guesses.
+
+    Two sources of truth, and only two:
+
+    * the bundled avatar registry (``VTON_AVATAR_FRAMING``), and
+    * the retired-portrait list of third-party URLs the avatars used to use.
+
+    Anything else is accepted. That is a deliberate, measured decision, not an
+    oversight: a head-width heuristic (PIL+numpy) scored a legitimate
+    cluttered-background full-body photo at 37.7% "head width" — indistinguishable
+    from a bust crop — and a YCrCb skin-blob heuristic returned NO blob at all
+    for an obvious portrait while misreading the same cluttered photo at 95.9%.
+    Both would refuse real customers, disproportionately people photographing
+    themselves at home and people with darker skin tones. A framing detector
+    that is worth trusting needs a pose model, which belongs on the GPU worker
+    (it already runs DWPose), not on the serverless bundle — a separate
+    infrastructure decision, not something to smuggle in here.
+    """
+    if avatar_model_id:
+        framing = VTON_AVATAR_FRAMING.get(avatar_model_id)
+        if framing == FRAMING_PORTRAIT:
+            raise ValidationDomainError(
+                f"VTON_PERSON_FRAMING_INVALID: avatar '{avatar_model_id}' is a "
+                f"head-and-shoulders portrait, and a try-on needs a full-body "
+                f"photo. Pick a full-body avatar or upload a photo showing your "
+                f"whole body, head to feet."
+            )
+
+    if person_ref in VTON_AVATARS.values():
+        return
+
+    canonical = _canonical_person_reference(person_ref)
+    if canonical in VTON_RETIRED_PORTRAIT_REFERENCES:
+        raise ValidationDomainError(
+            "VTON_PERSON_FRAMING_INVALID: that photo is a head-and-shoulders "
+            "portrait, and a try-on needs a full-body photo showing the whole "
+            "body head to feet. Please upload a full-length photo."
+        )
 
 
 def resolve_person_reference(
@@ -127,6 +247,7 @@ def resolve_person_reference(
     silently, and never uses a garment/model image as the person reference.
     """
     if user_image_url:
+        ensure_renderable_person_reference(user_image_url)
         return user_image_url
     if user_image_base64:
         return user_image_base64
@@ -137,6 +258,8 @@ def resolve_person_reference(
                 f"VTON_INPUT_INVALID: unknown avatar_model_id '{avatar_model_id}'. "
                 f"Known ids: {sorted(VTON_AVATARS)}."
             )
+        # Registry-tagged framing: a portrait avatar can never reach a render.
+        ensure_renderable_person_reference(asset, avatar_model_id=avatar_model_id)
         return asset
     raise ValidationDomainError(
         "VTON_INPUT_INVALID: a person reference is required — upload a person "
@@ -287,6 +410,40 @@ def assert_layer_applied(verify: Dict[str, Any], job_id: str) -> None:
         f"stddev={verify.get('metric_image_stddev')}). "
         "No complete, verified outfit was produced."
     )
+
+
+def _map_worker_error_code(error_str: str) -> str:
+    """Turn a worker exception string into the canonical failure code.
+
+    Single source of truth for the taxonomy: the async job path and the tests
+    both go through here, so a code can never be mapped one way in one branch
+    and differently in another.
+
+    ``VTON_PERSON_FRAMING_INVALID`` is deliberately its own branch rather than
+    folded into ``VTON_INPUT_INVALID``: it is an input problem, and it must keep
+    the guided "upload a full-body photo" hint attached instead of being
+    re-labelled ``GPU_WORKER_ERROR``, which tells the shopper the hardware broke
+    when their photo was the problem.
+    """
+    if "VTON_AUTH_FAILURE" in error_str:
+        return "VTON_AUTH_FAILURE"
+    if "VTON_WORKER_NOT_READY" in error_str:
+        return "VTON_WORKER_NOT_READY"
+    if "VTON_WORKER_COLD_START" in error_str:
+        return "VTON_WORKER_COLD_START"
+    if "VTON_LAYER_NOT_APPLIED" in error_str:
+        return "VTON_LAYER_NOT_APPLIED"
+    if "VTON_PERSON_FRAMING_INVALID" in error_str:
+        return "VTON_PERSON_FRAMING_INVALID"
+    if "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
+        return "VTON_INPUT_INVALID"
+    if "VTON_OUTPUT_INVALID" in error_str:
+        return "VTON_OUTPUT_INVALID"
+    if "VTON_TIMEOUT" in error_str:
+        return "VTON_TIMEOUT"
+    if "VTON_ENGINE_UNAVAILABLE" in error_str:
+        return "VTON_ENGINE_UNAVAILABLE"
+    return "GPU_WORKER_ERROR"
 
 
 class TryOnService:
@@ -443,10 +600,72 @@ class TryOnService:
             if slot not in SUPPORTED_SLOTS:
                 slot = DEFAULT_VTON_SLOT
 
-            # Try to fetch as base64 first for reliability (avoids worker SSRF/fetch issues)
-            b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+            # ── WHICH IMAGE IS THE GARMENT? ──────────────────────────────
+            # BUG FIXED 2026-10-25: this used to be
+            #     b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+            # with no second look at the prepared asset. A `tryon_ready`
+            # asset therefore only SKIPPED the ghost-hands gate while the
+            # bytes sent to the segmentation-free engine were still the
+            # catalogue photo. Measured live: product 3 (a white Oxford
+            # shirt whose stock thumbnail shows THREE shirts on a table)
+            # rendered as a purple jacket, and two runs a minute apart with
+            # different prepared assets returned a byte-identical image -
+            # proof the asset was never read. It also made `tryon_ready`
+            # UNSAFE: it waved an ON-MODEL photo past the gate, which is the
+            # exact ghost-hands incident the gate exists to prevent.
+            #
+            # The prepared asset IS the garment. Prefer it, and fail closed if
+            # it cannot be fetched rather than silently substituting the
+            # on-model catalogue photo.
+            from backend.app.models.tryon import GarmentAsset as _GarmentAsset
 
-            if gate_enabled:
+            _asset = (
+                self.db.query(_GarmentAsset)
+                .filter(_GarmentAsset.product_id == p.id)
+                .first()
+            )
+            _prepared_url = None
+            if _asset and _asset.tryon_ready:
+                _prepared_url = _asset.clean_image_url or _asset.segmented_garment_url
+
+            if _prepared_url:
+                # The object store is PRIVATE by default (anonymous GET on the
+                # Neon endpoint returns 403 - verified 2026-10-25). The database
+                # stores the canonical unsigned URL, so it must be signed at
+                # read time, exactly like the API does at response boundaries.
+                # Without this the prepared asset is correct in the row and
+                # still unfetchable, and the render fails closed forever.
+                _fetch_url = _prepared_url
+                try:
+                    from backend.app.services.storage_service import get_storage_backend
+
+                    _store = get_storage_backend()
+                    _key = _store.key_for_url(_prepared_url)
+                    if _key:
+                        _signed = _store.presign_url(_key)
+                        if _signed:
+                            _fetch_url = _signed
+                except Exception as _exc:  # noqa: BLE001
+                    logger.warn(
+                        "garment_asset_presign_failed",
+                        product_id=p.id,
+                        error=type(_exc).__name__,
+                    )
+
+                b64 = await self._fetch_image_as_base64(_fetch_url)
+                if not b64:
+                    raise ValidationDomainError(
+                        f"VTON_GARMENT_ASSET_INVALID: product {p.id} "
+                        f"({p.title!r}) has a validated clean asset but it could "
+                        "not be fetched. Refusing to fall back to the catalogue "
+                        "photo, which may be an on-model shot (fail closed)."
+                    )
+            else:
+                # No prepared asset: the catalogue photo is the only candidate,
+                # and the ghost-hands gate below decides whether it may be used.
+                b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+
+            if gate_enabled and not _prepared_url:
                 from backend.app.models.tryon import GarmentAsset
                 from backend.app.services.garment_asset_guard import (
                     asset_gate_error,
@@ -587,6 +806,14 @@ class TryOnService:
         then fails explicitly, and no GPU call is made with a bad reference.
         """
         import base64
+
+        # Bundled avatar: resolved in-process to a data URL. No network, no
+        # bucket, nothing that can 403 or be swapped underneath a render.
+        if person_ref.startswith(AVATAR_ASSET_SCHEME):
+            data_url = expand_avatar_asset(person_ref)
+            raw = base64.b64decode(data_url.split(",", 1)[1])
+            check_person_bytes(raw, f"bundled avatar {person_ref[:80]}")
+            return data_url
 
         if person_ref.startswith("http"):
             data_url = await self._fetch_image_as_base64(person_ref)
@@ -757,6 +984,15 @@ class TryOnService:
                 logger.error("vton_pilot_failed", job_id=job_id,
                              reason=reason, detail=str(exc)[:200])
                 return None
+            # ── The same gate the worker path uses ────────────────────────
+            # The pilot computes verify.PASS from the pixels, but nothing
+            # asserted on it: an engine that answered 200 with an unchanged
+            # person (ZeroGPU quota, a 404 /upload, a silent no-op) produced a
+            # `completed` job and an unverified image. A pilot render now has
+            # to clear `assert_layer_applied` exactly like a worker render, so
+            # "completed" means verified on both paths — or the job fails with
+            # the one canonical code.
+            assert_layer_applied(result.get("verify") or {}, job_id)
             logger.info("vton_pilot_served", job_id=job_id, reason=reason,
                         engine=result.get("model_used"))
             return result
@@ -1375,25 +1611,8 @@ class TryOnService:
 
             except Exception as exc:
                 error_str = str(exc)
-                # Error taxonomy mapping
-                if "VTON_AUTH_FAILURE" in error_str:
-                    error_code = "VTON_AUTH_FAILURE"
-                elif "VTON_WORKER_NOT_READY" in error_str:
-                    error_code = "VTON_WORKER_NOT_READY"
-                elif "VTON_WORKER_COLD_START" in error_str:
-                    error_code = "VTON_WORKER_COLD_START"
-                elif "VTON_LAYER_NOT_APPLIED" in error_str:
-                    error_code = "VTON_LAYER_NOT_APPLIED"
-                elif "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
-                    error_code = "VTON_INPUT_INVALID"
-                elif "VTON_OUTPUT_INVALID" in error_str:
-                    error_code = "VTON_OUTPUT_INVALID"
-                elif "VTON_TIMEOUT" in error_str:
-                    error_code = "VTON_TIMEOUT"
-                elif "VTON_ENGINE_UNAVAILABLE" in error_str:
-                    error_code = "VTON_ENGINE_UNAVAILABLE"
-                else:
-                    error_code = "GPU_WORKER_ERROR"
+                # Error taxonomy mapping — one helper, so every path agrees.
+                error_code = _map_worker_error_code(error_str)
 
                 # Honest, user-facing copy + circuit feedback. The old message
                 # ("GPU Inference Worker Failure: ... not ready after 3
@@ -1418,6 +1637,11 @@ class TryOnService:
                 # message from the render contract; do not prefix it as a generic
                 # worker failure (it is the engine not applying the garment).
                 if error_code == "VTON_LAYER_NOT_APPLIED":
+                    job.error_message = error_str[:500]
+                elif error_code == "VTON_PERSON_FRAMING_INVALID":
+                    # Keeps the guided full-body hint the worker wrote; the UI
+                    # shows it verbatim (EN) and pairs it with the localised
+                    # framing hint.
                     job.error_message = error_str[:500]
                 elif error_code == "VTON_INPUT_INVALID":
                     # Input problems carry an actionable reason already.
@@ -1704,8 +1928,39 @@ class TryOnService:
                 "reason_code": code,
                 "message": msg,
                 "provider": provider,
+                # "generated-demo" => the studio must disclose that the
+                # rendered garment is an AI-generated demo, not the product
+                # photograph. None (unknown) is not disclosed as real.
+                "garment_asset_provenance": self.garment_asset_provenance(product.id),
             })
         return out
+
+    def garment_asset_provenance(self, product_id: int) -> Optional[str]:
+        """Where the try-on garment image came from — read only, never creates.
+
+        ``generated-demo`` means an AI-generated flat-lay stands in for the real
+        product photo, so the studio must say so: the garment the shopper sees
+        dressed onto the model is not the one in the catalogue picture.
+
+        Returns None when there is no asset or the provenance cannot be read.
+        None is deliberately distinct from "real-photo" — an unknown asset must
+        never be presented to the customer as the actual product.
+        """
+        asset = (
+            self.db.query(GarmentAsset)
+            .filter(GarmentAsset.product_id == product_id)
+            .first()
+        )
+        if asset is None or not asset.classification_json:
+            return None
+        try:
+            meta = json.loads(asset.classification_json)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(meta, dict):
+            return None
+        provenance = meta.get("provenance")
+        return provenance if isinstance(provenance, str) else None
 
     def get_or_create_garment_asset(self, product_id: int) -> Dict[str, Any]:
         asset = self.db.query(GarmentAsset).filter(GarmentAsset.product_id == product_id).first()

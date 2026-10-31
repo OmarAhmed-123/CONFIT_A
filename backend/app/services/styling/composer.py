@@ -9,7 +9,20 @@ from backend.app.services.styling.rules import look_completeness
 from backend.app.services.styling.constraints import anchor_matches, palette_bonus, parse_anchor
 from backend.app.services.styling.diversity import MIN_DISTINCTNESS_OVERLAP, is_distinct, suppression_reason
 from backend.app.services.styling.rules import StylingRulesEngine
+from backend.app.services.styling.watsonx_list_builder import position_for as _position_for_product
 
+
+# Fallback wording for a model-chosen item that came back without a reason.
+# Mirrors the vocabulary the deterministic composer already uses, so the drawer
+# never shows an empty role for an item.
+DEFAULT_ROLE_FOR_POSITION = {
+    "dress": "Occasion-Defining Silhouette",
+    "outerwear": "Structured Outer Layer",
+    "top": "Refined Base Layer",
+    "bottom": "Structured Lower Silhouette",
+    "footwear": "Polished Footwear Foundation",
+    "accessory": "Refined Accenting Hardware",
+}
 
 # Common English filler words — recognizable language, but they carry NO
 # styling signal. A prompt made up solely of these (or of gibberish) is
@@ -265,7 +278,18 @@ class OutfitComposer:
         user_profile: Optional[Any] = None,
         max_outfits: int = 2,
         meta_out: Optional[Dict[str, Any]] = None,
+        ai_selection: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
+        """Build the looks.
+
+        ``ai_selection`` is an OPTIONAL, already-validated choice made upstream by
+        the async layer (styling/watsonx_list_builder.py). This method stays
+        synchronous and pure: it never calls a model itself, so the event loop is
+        never blocked from inside the composer. When the selection names a
+        product this composer did not classify, it is ignored and the
+        deterministic look is kept - the model can change WHICH eligible products
+        are shown, never whether the shopper sees a valid look.
+        """
         if not available_products:
             if meta_out is not None:
                 meta_out.clear()
@@ -469,6 +493,15 @@ class OutfitComposer:
             title1 = f"The Essential {occasion} Tailored Look"
             desc1 = f"A cohesive multi-brand ensemble combining structured {outer.brand.brand_name if outer else 'tailoring'} with pristine {top.brand.brand_name if top else 'cotton'} and Goodyear-welted footwear."
 
+        # Granite may have chosen the pieces upstream. Apply the selection here,
+        # AFTER the deterministic look exists, so a rejected or partial selection
+        # simply leaves that look in place. Budget, completeness, anchor and the
+        # publish gates below all still run and can still suppress the result.
+        look1_items, used_product_ids, ai_title = self._apply_ai_selection(
+            ai_selection, look1_items, used_product_ids)
+        if ai_title:
+            title1 = ai_title
+
         look1_items, budget1 = self._enforce_budget(look1_items, slot_map, used_product_ids, budget_limit, intent)
         total1_dec = money_sum([to_decimal(i["price"]) for i in look1_items])
         total1 = to_float(total1_dec)
@@ -663,6 +696,49 @@ class OutfitComposer:
                 "image_palette": palette_families,
             })
         return outfits
+
+    def _apply_ai_selection(
+        self,
+        ai_selection: Optional[Dict[str, Any]],
+        deterministic_items: List[Dict[str, Any]],
+        used_product_ids: set,
+    ):
+        """Swap in a validated model selection, or keep the deterministic one.
+
+        Returns ``(items, used_product_ids, title)``. Any doubt falls back: a
+        shopper must never receive a half-applied selection.
+        """
+        if not ai_selection:
+            return deterministic_items, used_product_ids, None
+
+        entries = ai_selection.get("items") or []
+        rebuilt: List[Dict[str, Any]] = []
+        seen: set = set()
+        try:
+            for index, entry in enumerate(entries):
+                product = entry.get("product") if isinstance(entry, dict) else None
+                if product is None:
+                    return deterministic_items, used_product_ids, None
+                position = _position_for_product(product)
+                slot = getattr(product, "_detected_slot", None)
+                if position is None or slot is None:
+                    # The model named something this composer did not classify.
+                    return deterministic_items, used_product_ids, None
+                if product.id in seen:
+                    return deterministic_items, used_product_ids, None
+                seen.add(product.id)
+                rebuilt.append(self._to_item_dict(
+                    product, position, slot, index,
+                    entry.get("reason") or DEFAULT_ROLE_FOR_POSITION[position],
+                ))
+        except Exception:  # noqa: BLE001 - a bad selection must never break composition
+            logger.warn("AI selection could not be applied", exc_info=True)
+            return deterministic_items, used_product_ids, None
+
+        if len(rebuilt) < 2:
+            return deterministic_items, used_product_ids, None
+
+        return rebuilt, seen, ai_selection.get("title")
 
     def _candidate_pool(self, slot_map: Dict[SlotType, List[Any]], position: str) -> List[Any]:
         """Ordered candidate pool for a coarse canvas position, cheapest last is

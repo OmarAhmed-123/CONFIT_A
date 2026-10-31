@@ -141,6 +141,25 @@ describe('compressImageToDataUrl', () => {
     ).toBe('errors.image_compression_failed');
   });
 
+  it('encodes an image smaller than MIN_DIM instead of calling it a compression failure', async () => {
+    // Found in the Phase-4 visual-search journey: a valid 64x64 PNG was rejected
+    // with "could not be compressed small enough to upload safely". The retry
+    // loop's guard is `while (dim >= MIN_DIM)` and MIN_DIM is 256, so for any
+    // image whose longest edge is under 256 the body never ran once and the
+    // function fell straight through to the failure branch. A small image needs
+    // no downscaling — it needs one honest encode.
+    class TinyImage extends FakeImage {
+      naturalWidth = 64;
+      naturalHeight = 64;
+    }
+    vi.stubGlobal('Image', TinyImage);
+    const r = await compressImageToDataUrl(blob, { canvasFactory: fakeCanvasFactory([small]) });
+    expect(r.passes).toBe(1);
+    expect(r.width).toBe(64);
+    expect(r.height).toBe(64);
+    expect(r.dataUrl).toBe(small);
+  });
+
   it('propagates validation errors before any encoding work', async () => {
     const bad = new Blob(['x'], { type: 'application/pdf' });
     expect(

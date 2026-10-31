@@ -35,6 +35,7 @@ export const VirtualTryOnModal: React.FC = () => {
 
   const {
     tryOnStatus,
+    errorMessage,
     motionStatus,
     isRendering,
     isAnimating,
@@ -82,29 +83,36 @@ export const VirtualTryOnModal: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
+  // 2026-10-25 — these were four Unsplash head-and-shoulders PORTRAITS, so the
+  // picker offered faces and the render put a garment on a face. They are now
+  // AI-generated full-body studio figures (head to feet, portrait 2:3, light
+  // neutral base so any garment colour produces a visible change), bundled in
+  // public/vton-avatars and mirrored in the backend registry
+  // (VTON_AVATARS / VTON_AVATAR_FRAMING). The ids are unchanged so a stale
+  // bundle keeps working against the corrected assets.
   const avatars = [
     {
       id: "avatar_athletic_m",
       name: t("tryon.avatar_athletic_m"),
-      img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80",
+      img: "/vton-avatars/avatar_athletic_m.jpg",
       gender: "male",
     },
     {
       id: "avatar_hourglass_f",
       name: t("tryon.avatar_hourglass_f"),
-      img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80",
+      img: "/vton-avatars/avatar_hourglass_f.jpg",
       gender: "female",
     },
     {
       id: "avatar_curvy_f",
       name: t("tryon.avatar_curvy_f"),
-      img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80",
+      img: "/vton-avatars/avatar_curvy_f.jpg",
       gender: "female",
     },
     {
       id: "avatar_tall_m",
       name: t("tryon.avatar_tall_structured"),
-      img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80",
+      img: "/vton-avatars/avatar_tall_m.jpg",
       gender: "male",
     },
   ];
@@ -328,15 +336,15 @@ export const VirtualTryOnModal: React.FC = () => {
                     >
                       <span>
                         {isCompressing
-                          ? "⏳ Processing photo…"
-                          : "📸 Upload Photo"}
+                          ? `⏳ ${t("tryon.processing_photo")}…`
+                          : `📸 ${t("tryon.upload_photo")}`}
                       </span>
                     </button>
                     <button data-motion="upload"
                       onClick={() => setIsCameraScanOpen(true)}
                       className="px-3 py-1.5 rounded-xl bg-brand-wash border border-brand-hairline/40 hover:bg-brand-charcoal hover:text-white text-brand-charcoal text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all"
                     >
-                      <span>🎥 Live Scan</span>
+                      <span>🎥 {t("tryon.live_scan")}</span>
                     </button>
                     <input
                       ref={fileInputRef}
@@ -392,6 +400,58 @@ export const VirtualTryOnModal: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* A refusal the WORKER made, after seeing the real photo.
+                    It carries VTON_PERSON_FRAMING_INVALID plus an English,
+                    operator-grade message; showing only that would leave a
+                    shopper — especially an Arabic one — with an error they
+                    cannot act on. Pair the code with the localised framing
+                    guidance the studio already ships. */}
+                {tryOnStatus === 'failed' &&
+                  typeof errorMessage === 'string' &&
+                  errorMessage.includes('VTON_PERSON_FRAMING_INVALID') && (
+                    <p
+                      data-testid="tryon-framing-refusal"
+                      role="alert"
+                      className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-snug font-medium text-amber-900"
+                    >
+                      {t("tryon.person_framing_hint")}
+                    </p>
+                  )}
+
+                {/* Framing hint. The backend refuses a person reference it
+                    KNOWS is a portrait (VTON_PERSON_FRAMING_INVALID). For an
+                    upload it cannot tell — measured pixel heuristics rejected
+                    legitimate photos — so the guidance is given here instead
+                    of guessed at. */}
+                <p
+                  data-testid="tryon-framing-hint"
+                  className="text-[11px] leading-snug text-slate-500"
+                >
+                  {t("tryon.person_framing_hint")}
+                </p>
+                <p
+                  data-testid="tryon-avatar-disclosure"
+                  className="text-[10px] leading-snug text-slate-400"
+                >
+                  {t("tryon.avatar_demo_disclosure")}
+                </p>
+                {/* The garment side of the same honesty. Products whose
+                    try-on asset is a `generated-demo` flat-lay render a
+                    stand-in, not the catalogue photograph: the shopper is
+                    looking at a different garment than the one they may buy.
+                    Driven by the backend's per-product provenance, never by a
+                    blanket label — that would become false the day real
+                    photography lands. */}
+                {vtonCapabilities?.[tryOnProduct.id]?.garment_asset_provenance ===
+                  "generated-demo" && (
+                  <p
+                    data-testid="tryon-garment-demo-disclosure"
+                    className="text-[10px] leading-snug font-medium text-amber-700"
+                  >
+                    {t("tryon.garment_demo_disclosure")}
+                  </p>
+                )}
 
                 {/* Avatar Strip */}
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -614,10 +674,10 @@ export const VirtualTryOnModal: React.FC = () => {
                           onClick={handleDownloadRenderedResult}
                           className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-brand-charcoal text-white text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
                         >
-                          ⬇ Download Result
+                          ⬇ {t("tryon.download_result")}
                         </button>
                         <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-slate-950/75 text-white text-[9px] font-semibold border border-white/15">
-                          Temporary render — download to keep it
+                          {t("tryon.temporary_render_note")}
                         </span>
                       </>
                     )}
@@ -704,7 +764,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       onClick={undoLastAction}
                       className="inline-flex min-h-6 items-center text-[11px] font-semibold text-slate-500 hover:text-slate-900"
                     >
-                      ↩ Undo
+                      ↩ {t("tryon.btn_undo")}
                     </button>
                     <button data-motion="destructive"
                       onClick={clearCanvas}

@@ -136,7 +136,7 @@ def _job_row(job_id: str):
         db.close()
 
 
-PERSON = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+PERSON = "https://example.com/vton/full-body-person.jpg"
 
 
 # ── 1. no silent substitution ─────────────────────────────────────────────

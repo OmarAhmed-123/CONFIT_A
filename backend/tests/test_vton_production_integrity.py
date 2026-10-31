@@ -48,7 +48,7 @@ class TestVTONInputValidation:
         monkeypatch.delenv("VTON_WORKER_URL", raising=False)
         res = client.post("/api/v1/tryon/multi-render", json={
             "product_ids": [1],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+            "user_image_url": "https://example.com/vton/full-body-person.jpg"
         })
         # Should return 503 ENGINE_UNAVAILABLE or 500 with honest error
         assert res.status_code in [500, 503]
@@ -62,7 +62,7 @@ class TestVTONInputValidation:
         monkeypatch.delenv("VTON_WORKER_URL", raising=False)
         res = client.post("/api/v1/tryon/animation-render", json={
             "product_ids": [1, 2],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+            "user_image_url": "https://example.com/vton/full-body-person.jpg"
         })
         assert res.status_code in [500, 503]
         data = res.json()
@@ -74,7 +74,7 @@ class TestVTONInputValidation:
         monkeypatch.delenv("VTON_WORKER_URL", raising=False)
         res = client.post("/api/v1/try-on/jobs", json={
             "product_ids": [1],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+            "user_image_url": "https://example.com/vton/full-body-person.jpg"
         })
         assert res.status_code == 202
         data = res.json()
@@ -180,7 +180,7 @@ class TestVTONJobLifecycle:
         # Create job
         res = client.post("/api/v1/try-on/jobs", json={
             "product_ids": [1],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+            "user_image_url": "https://example.com/vton/full-body-person.jpg"
         })
         assert res.status_code == 202
         job_id = res.json()["job_id"]
@@ -205,7 +205,7 @@ class TestVTONJobLifecycle:
         monkeypatch.delenv("VTON_WORKER_URL", raising=False)
         res = client.post("/api/v1/try-on/jobs", json={
             "product_ids": [1, 2],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+            "user_image_url": "https://example.com/vton/full-body-person.jpg"
         })
         data = res.json()
         assert "/tryon_results/" not in (data.get("output_image_url") or "")
@@ -215,7 +215,7 @@ class TestVTONJobLifecycle:
         monkeypatch.delenv("VTON_WORKER_URL", raising=False)
         res = client.post("/api/v1/try-on/jobs", json={
             "product_ids": [1],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+            "user_image_url": "https://example.com/vton/full-body-person.jpg"
         })
         data = res.json()
         metrics = data.get("metrics", {})
@@ -275,7 +275,7 @@ class TestVTONErrorTaxonomy:
         monkeypatch.delenv("VTON_WORKER_URL", raising=False)
         res = client.post("/api/v1/try-on/jobs", json={
             "product_ids": [1],
-            "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+            "user_image_url": "https://example.com/vton/full-body-person.jpg"
         })
         data = res.json()
         # Must be failed, not completed

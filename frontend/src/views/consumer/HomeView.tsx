@@ -32,7 +32,7 @@ import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 import { HeroSection, HeroMedia, HeroLightCard } from "../../components/common/HeroSection";
 import { usePrefersReducedMotion } from "../../components/common/InteractionPrimitives";
 import { CollectionRail } from "../../components/home/CollectionRail";
-import { AnnouncementBar } from "../../components/home/AnnouncementBar";
+import { AnnouncementSlot } from "../../components/home/AnnouncementSlot";
 import { SectionHeader } from "../../components/common/SectionHeader";
 import { motion } from "framer-motion";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
@@ -299,10 +299,15 @@ export const HomeView: React.FC = () => {
           the cart). Dismissible; the dismissal is keyed to the policy value
           so a changed threshold is news again. */}
       <div className="-mb-10 sm:-mb-16">
-        <AnnouncementBar
-          threshold={capabilities.free_shipping_threshold}
-          currency={capabilities.shipping_currency}
-        />
+        {/* CLS: the bar is data-gated, so it used to appear ~1.3s after first
+            paint and shove the hero down (measured 0.8088 on this page).
+            AnnouncementSlot reserves the measured 46px from the first frame and
+            never gives the space back inside a session — releasing it moved an
+            already-painted hero and measured 0.8145, worse than the defect. A
+            deployment with no policy simply reserves nothing from the second
+            visit on. See the component for the numbers and both rejected
+            alternatives. */}
+        <AnnouncementSlot />
       </div>
 
       {/* 1. Hero — reusable dark editorial panel + light structured card

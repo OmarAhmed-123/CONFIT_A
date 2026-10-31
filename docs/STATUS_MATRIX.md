@@ -295,3 +295,343 @@ deliberately does not have.
 | Full Repository Test Suites (`Frontend` + `Backend` + `PostgreSQL 17`) | **VERIFIED** | Frontend Vitest `155/155` files (`2,338/2,338` tests, `0` failures) + `tsc && vite build`; Backend `pytest` `4,537` passed (`0` failures) + `6/6` Postgres row-lock concurrency tests |
 | Live Production Media (`https://confit-a.vercel.app`) & Cloud Catalog Worker (`Modal`) | **VERIFIED** | Repaired 10 missing S3 renditions on Product `#18` and stale thumbnails on Products `#9` & `#18` -> **`120/120` renditions & `12/12` active thumbnails return `HTTP 200/206` (`0` broken)**; resynced Modal `confit-catalog-worker` secrets (including cold-start `JWT_REFRESH_SECRET` & `CATALOG_WORKER_ADMIN_TOKEN`), verified `/health` -> `200 healthy` (`storage_ready: true`), verified live negative control (`job_id=14` -> `failed`, `media: source_not_approved`) + live positive control (`job_id=15` -> `completed`, `media_rows_registered: 10`, `200 image/jpeg` via `confit-a.vercel.app`), and restored exact baseline counts (`12` products, `28` SKUs, `120` images) |
 
+## 10. Phase 4 — accessibility, performance, E2E and release readiness (2026-10-21)
+
+**Tested candidate:** `ce74577` + the fix below, on `work/production-hardening`.
+**Environment:** local build served from `127.0.0.1:43124` (gzip) with `/api`
+proxied to a local API on the **verify database** (`confit_fixverify`, revision
+`0045_brand_verified_domains`). Performance numbers are **laboratory** numbers
+from this host; they are not field data and not production latency.
+
+### 10.1 Performance baseline
+
+The repository has **no performance tooling at all** — no Lighthouse config, no
+`web-vitals` dependency, no budgets, no perf job in CI. There is therefore no
+existing threshold to pass or fail; the numbers below are a baseline, and any
+target would be a *proposal*, not a requirement.
+
+Lab baseline (Chromium 156, 412×915, cold cache, n=3, gzip, median):
+
+| Route | Condition | FCP | LCP | CLS | JS transfer | Long tasks / blocking |
+|---|---|---|---|---|---|---|
+| `/` | unthrottled | 536 ms | 1,096 ms | **0.759** | 469 kB | 1 / 3 ms |
+| `/` | Fast-3G + 4×CPU | 3,280 ms | 3,892 ms | **0.8984** | 469 kB | 8 / 351 ms |
+| `/discover` | unthrottled | 576 ms | 668 ms | 0.0097 | 469 kB | 0 / 0 ms |
+| `/discover` | Fast-3G + 4×CPU | 3,284 ms | 4,520 ms | 0.0092 | 469 kB | 7 / 282 ms |
+| `/product/silk-slip-column-maxi-dress` | unthrottled | 476 ms | 2,200 ms | 0.0118 | 469 kB | 0 / 0 ms |
+| `/product/silk-slip-column-maxi-dress` | Fast-3G + 4×CPU | 3,136 ms | 5,188 ms | 0.0116 | 469 kB | 0 / 0 ms |
+
+Bundle: **1,833 kB raw JS (479 kB gzip)**, of which `index-*.js` is 1,428 kB raw
+(367 kB gzip), `vendor-react` 174 kB (59 kB gzip), `vendor-ui` 142 kB (46 kB
+gzip). CSS 135 kB raw.
+
+**BUG-VERIFIED — CLS 0.759 on `/` is a real defect, not a harness artefact.**
+Cross-checked with Google's `web-vitals` attribution build (0.8088 at t=1557.6 ms)
+and isolated by ablation: aborting only `/api/v1/catalog/capabilities` drops CLS
+to **0.0147** (−98%). The announcement bar renders only after that response
+arrives (~1.5 s locally), inserting a 46 px block into the flow above the hero;
+margin collapsing then moves the 10,456 px content container by a further −24 px.
+Production publishes a threshold too (13,622.21 EGP) and that endpoint answers in
+~1.2 s there, so the same gate exists in production. **Not fixed:** every
+available remedy is a product decision — reserve the bar's height (shows an empty
+strip while loading and collapses when a deployment has no policy), overlay it
+(detaches it from the layout), or make the threshold available before first
+paint. Recorded for owner decision rather than changed unilaterally.
+
+### 10.2 Backend baseline (§9)
+
+390 read-only requests against the local API (seeded verify DB, remote Neon, no
+chargeable operation):
+
+| Endpoint | c | n | p50 | p95 | p99 | rps | errors |
+|---|---|---|---|---|---|---|---|
+| `/health` | 1 | 25 | 606 ms | 612 ms | 5,241 ms | 1.18 | 0 |
+| `/catalog/products?limit=20` | 1 | 25 | 761 ms | 903 ms | 904 ms | 1.25 | 0 |
+| `/catalog/products/…` | 1 | 25 | 910 ms | 954 ms | 1,029 ms | 1.09 | 0 |
+| `/catalog/brands` | 1 | 25 | 2,256 ms | 2,384 ms | 2,434 ms | 0.44 | 0 |
+| `/catalog/categories` | 1 | 25 | 456 ms | 467 ms | 477 ms | 2.19 | 0 |
+| `/health` | 8 | 40 | 608 ms | 8,219 ms | 11,040 ms | 3.12 | 0 |
+| mixed, 6 endpoints | 8 | 40 each | — | — | — | 5.39 aggregate | 0 |
+
+DB: 1.19 transactions per request, 133 tuples returned per request. Error and
+timeout rate **0** across all 390 requests; no invalid payloads.
+
+**Caveat that governs the whole table:** the database is Neon, reached from this
+sandbox over the public internet, and `pool_pre_ping` is enabled for a
+long-running server, so *every* request pays extra round trips. `/health` at
+606 ms is the round-trip cost, not server compute. These numbers describe this
+host and rank endpoints against each other; they do not describe production
+latency. `/catalog/brands` is the one clear outlier (p50 2.3 s, ~3.7× the next
+slowest) and is worth profiling on its own.
+
+### 10.3 Browser journeys (scenarios 5, 6, 7, 10)
+
+| Scenario | State | Evidence |
+|---|---|---|
+| 5 Fit Finder — rejects implausible measurements, never guesses | **VERIFIED** — height 999 → "Must be 100–250 cm" + "Fix the highlighted measurement fields first", no size shown | `a11y/p4.journeys.json` E2E-5a |
+| 5 Fit Finder — real recommendation | **VERIFIED** — the engine returned an honest **refusal** (not a size) for the seeded product, with the refusal footer and a live region | E2E-5b |
+| 5 Visual search — real UI flow | **VERIFIED** — card → modal → photo-consent ("I agree — process this photo") → matches, with the banner "Vision analysis is unavailable right now — showing catalog matches without image detection" | `a11y/p4.scen5-6.json` |
+| 6 Media upload — success path | **BLOCKED** — `photo_upload_available: false` locally; in production it is `true` with `storage_mode: s3`, so a real upload would write to the project bucket and run a paid vision model | `a11y/p4.scen5-6.json` |
+| 6 Media upload — endpoint capability agreement | **BUG-VERIFIED** — `POST /wardrobe/upload` returned **201 created** while `/catalog/capabilities` reported `photo_upload_available: false` and `storage_mode: local`. The flag is advisory; the endpoint does not enforce it, so a deployment that advertises no durable storage still accepts writes it cannot keep. | `a11y/p4.scen5-6.json` |
+| 7 Analytics — no prior baseline | **VERIFIED** — 5 `growth-basis-*` chips reading "No prior-period baseline" on the seeded brand | E2E-7a |
+| 7 Analytics — genuine empty tenant | **VERIFIED** — Arket (0 products, 0 orders) shows `empty-catalogue` "No products in your catalogue yet" and 3 chips reading "No activity in either period"; `return_rate` is `null`, not `0` | E2E-7b |
+| 7 Analytics — real zero vs null | **VERIFIED** — same tenant reports `discount_total: 0.0` and `returned_units: 0` as zeros while `return_rate` is `null`; the UI does not collapse the two | `p4.journeys.json`, `p4.scen5-6.json` |
+| 10 Failure + recovery | **VERIFIED** — 3 `/catalog/products` requests aborted at the transport layer → "The catalog couldn't be loaded" + Retry; after unblocking, Retry loaded 54 product links and the error cleared | E2E-10 |
+
+Scenarios 1–4, 8 and 9 remain as closed in Phase 3 (`a11y/p3.journeys.json`,
+13/13) plus pytest coverage; they were not re-run.
+
+**Defect found and fixed — `imageUpload.ts` rejected every small image.**
+The retry loop guarding `compressImageToDataUrl` is `while (dim >= MIN_DIM)` with
+`MIN_DIM = 256`, so for any image whose longest edge is under 256 px the body
+never executed once and the function fell through to
+`errors.image_compression_failed` — telling the user an 8,277-byte PNG "could not
+be compressed small enough to upload safely". Found by driving visual search in a
+browser; the client-side guard, not the network, was failing. Fixed by letting the
+first pass always run (`|| passes === 0`), which leaves every image ≥ 256 px
+byte-for-byte identical in behaviour and still fails honestly if a small image
+cannot fit. Regression test added; it fails on the previous revision at
+`imageUpload.ts:188` and passes after. `npm run verify` **EXIT 0**, 154 files,
+**2,282 tests**.
+
+### 10.4 Still unverified
+
+| Item | State |
+|---|---|
+| NVDA / JAWS / VoiceOver (macOS + iOS) / TalkBack / Orca | **BLOCKED** — unchanged from Phase 3: no display server, no AT-SPI, no dbus, no Orca, no Windows/macOS/iOS host |
+| Real iOS / Android hardware | **BLOCKED** — no devices, no device farm |
+| Forced colours on real Windows High Contrast | **NOT TESTED** — emulation only |
+| INP / real-user field data | **NOT TESTED** — requires production RUM, which does not exist |
+| Media-upload success path | **BLOCKED** — see 10.3 |
+| CLS fix on `/` | **NOT FIXED** — defect documented, remedy requires a product decision |
+
+## 11. Phase 5 — critical remediation, upload contract, performance evidence (2026-10-21)
+
+**Tested candidate:** `08b281b` + `0cdbae4` (CLS) + `38ed8b7` (upload), branch `work/production-hardening`.
+**Environment:** local build served from `127.0.0.1:43124` (gzip) with `/api` proxied to a
+local API on the **verify database** (`confit_fixverify`, DB revision `0046` vs code `0045`
+→ gate `ahead`, non-blocking). Performance figures remain **laboratory** measurements on
+this host, not field data.
+
+### 11.1 P1A — homepage CLS (VERIFIED cause, IMPLEMENTED, TESTED-PASS, production unmeasured)
+
+| Item | Result |
+|---|---|
+| Baseline CLS on `/` (412×915, web-vitals attribution, n=3) | **0.8088** |
+| Ablation `/catalog/capabilities` only | **0.0147** |
+| Control ablation `/catalog/occasions` | 0.7641 (defect survives → capability call is the cause) |
+| Shift sources | 3, all at t≈1,600–1,690 ms: hero `section` 205→251, container 207→183, a 16 px `li` 16→0 |
+| Root cause | the announcement bar is committed ~1.6 s after first paint and pushes the hero down 46 px |
+| Option A reserve / B overlay / C pre-render data | A **0.0088**, B **0.0088** but paints the bar over the hero, C **0.8077** (zero-latency data does not help: React still commits after paint) |
+| Reserve-then-release (rejected) | **0.8145** — worse than the defect; never re-introduce a mid-session release |
+
+Shipped behaviour (`frontend/src/components/home/AnnouncementSlot.tsx`): 46 px decided at
+first paint, never released; a remembered `confit.announcement.policy.v1 = "none"` suppresses
+it on later visits; only a *real* capabilities answer may write that hint, discriminated from a
+failed fetch by identity against `HONEST_FALLBACK_CAPABILITIES`.
+
+| Branch | CLS (median of 3) | slot / bar | heroTop | bodyHeight |
+|---|---|---|---|---|
+| A policy present | **0.0145** | 46 / 46 | 253 | 11,888 |
+| B capability fetch aborted | **0.0145** (was 0.8088) | 46 / none | 253 | 11,904 |
+| C no policy, remembered | **0.0147** | 0 / none | 207 | 11,858 |
+| Arabic (`confit_lang=ar`, RTL) | **0.0257** | 46 / 46 | 259 | — |
+
+Final geometry is identical between the reserve/no-reserve branches: nothing is hidden or
+moved, only the timing of an existing 46 px is pinned. Artefacts:
+`a11y/p5.cls-branches.json`, `a11y/p5.cls-ar.json`. Tests: 10, all passing.
+**Production post-fix: PENDING APPROVAL — no deployment was performed.**
+
+### 11.2 P1B — upload contract (BUG-VERIFIED → IMPLEMENTED → TESTED-PASS)
+
+Reproduced on the verify stack: `/catalog/capabilities` reported
+`photo_upload_available=false`, `storage_mode=local`, and `POST /api/v1/wardrobe/upload`
+answered **201 Created** with a row pointing at `/uploads/wardrobe/1/<hash>.png`.
+
+Root cause: `require_production_storage()` keyed durability on `settings.is_production`
+only, so any non-production deployment on an ephemeral filesystem accepted bytes it could
+not keep. Four corrections, each with a test: the ephemeral-host signal
+(`VERCEL`/`AWS_LAMBDA_FUNCTION_NAME`) is now part of the gate; a storage transport failure is
+**502 PROVIDER_ERROR** (retryable) instead of 422-with-the-endpoint-in-the-message; an object
+written before a metadata failure is deleted, and that case is **503**; `key_for_url()`
+strips a presigned query string before the traversal guard.
+
+| Contract state | Result | Evidence |
+|---|---|---|
+| Enabled + persistent | **PASS** — 201, presigned URL, object on disk, readable from another process | `a11y/p5.upload-s3-http.json` (18/18) |
+| Disabled by config | **PASS** — 501 `FEATURE_NOT_CONFIGURED`, no row | `test_upload_storage_contract.py` |
+| Storage unreachable | **PASS** — 502 `PROVIDER_ERROR`, retryable, no row, no endpoint leak | same |
+| Storage fails mid-upload | **PASS** — real connection-refused, no row left | same |
+| Object written, metadata fails | **PASS** — 503 and the object is removed | same |
+| Retry after partial failure | **PASS** — duplicate, same item id, one row, no second copy | `p5.upload-s3-http.json` |
+
+The persistent path is a **real S3 protocol server backed by a directory** with the
+application's own boto3 client — not a mock. The project's production bucket
+(`confit-a-media`) was never contacted, and no new cloud resource was created.
+
+### 11.3 P2B — `/catalog/brands` (~2,256 ms p50): network round trips, not compute
+
+| Measurement | Result |
+|---|---|
+| `SELECT 1` round trip to the database | **143.4 ms** median |
+| Repository pattern (1 + 2 queries per brand; 4 brands = 9 queries) | **1,574.1 ms** median |
+| Same data as one grouped query | **429.6 ms** median |
+| `EXPLAIN ANALYZE` for the per-brand product lookup | **0.042 ms**, Seq Scan, 4 buffers (9 active products) |
+
+The query plans are optimal and execution is negligible; the endpoint's latency is
+`round_trip × query_count`. Batching is the fix (≈5× fewer round trips). Artefact:
+`a11y/p5.brands-profile.json`.
+
+### 11.4 P2A — initial bundle: why `index-*.js` is 1,428 kB
+
+`src/router` statically imports **30 view modules** and uses `import()` for only 4. Every
+screen, and every library those screens pull in (23 modules import `framer-motion`), is in
+the initial chunk. Route-level code splitting is the remedy; it has **not** been
+implemented. No budget exists in the repository, so any target is a **PROPOSED** number for
+owner approval, not a requirement.
+
+### 11.5 Phase 5 gates
+
+`npm run verify` **EXIT 0** — 155 files / 2,292 tests (was 154/2,282). Backend suite
+**4,528 passed / 25 skipped / 0 failed**. `tsc --noEmit` 0. `npm run build` 0.
+`gitleaks` success on the pushed head.
+
+| Item | State |
+|---|---|
+| `Workers Builds: confit-a` | **FAIL** — also fails on base `43377d8`; root cause not established, not attributable to this branch |
+| `test_product_lifecycle_e2e::test_a_brand_owner_upload_reaches_the_public_catalog` | **pre-existing, order-dependent** — reproduces on the unmodified tree with the same `-k` selection (`MultipleResultsFound` on `product_skus`) |
+| NVDA / JAWS / VoiceOver / TalkBack / Orca | **BLOCKED** — unchanged |
+| Real High Contrast, physical devices, production RUM | **NOT TESTED** / **BLOCKED** |
+| Production deployment of any Phase-5 fix | **PENDING APPROVAL** |
+
+## 12. Phase 6 — branch integration and release attempt (2026-10-22)
+
+**Candidate:** `ba7b7bc` (merge of `origin/main` @ `cfc6d803` into `work/production-hardening`)
+**PR:** #372, retargeted `fix/wizard-reappearing` → `main`.
+**Decision this section supports: NO-GO for production release.** The blocker is external to
+the code and is named in 12.3.
+
+### 12.1 Repository state at integration
+
+| Item | Value |
+|---|---|
+| `main` before integration | `cfc6d803` (PR #375) |
+| Branch before integration | `978b403` (4 Phase-5 commits) |
+| Divergence | diverged — 4 ahead, 10 behind |
+| Merge commit | **`ba7b7bc`** (parents `978b403`, `cfc6d803`) |
+| Conflict | one, `docs/STATUS_MATRIX.md`; both sides kept verbatim |
+| Auto-merged, then manually verified | `wardrobe_service.py`, `HomeView.tsx` |
+| `fix/wizard-reappearing` | **fully contained in `main`** (0 unique commits, 15 behind) — so the
+retarget abandons nothing. This resolves the earlier "designated integration target" note
+with evidence rather than substitution. |
+
+A local object-store corruption was also found and repaired in this phase: `git fsck`
+reported missing blobs and `git fetch` failed with `unresolved deltas left after unpacking`.
+The repository was re-cloned after verifying every local commit existed on the remote and that
+the clone reproduced the identical tree hash (`921ffe63…`), then swapped in. No work was lost.
+
+### 12.2 Quality gates on the merged tree
+
+| Gate | Result |
+|---|---|
+| `npm run verify` (i18n parity + tsc + vitest + build) | **EXIT 0** — 156 files / **2,356 tests**, build OK |
+| `pytest backend/tests/` | **4,547 passed, 25 skipped, 0 failed** |
+| CI `frontend` | success |
+| CI `backend` | success |
+| CI `postgres migration chain + schema gate` | success |
+| CI `stylist drawer browser gate` | success |
+| CI `gitleaks secret scan` | success |
+| CI `production parity (deployment contract)` | success |
+| CI `Workers Builds: confit-a` | **failure** — also fails on base `43377d8`; not attributable to this branch, not a required check |
+| **`release gate (production schema parity)`** | **required check — fails closed, see 12.3** |
+
+### 12.3 Production is NOT deployable, and not because of this branch
+
+Verification of `https://confit-a.vercel.app` at 2026-10-22T04:0xZ:
+
+| Probe | Result |
+|---|---|
+| `/api/v1/catalog/capabilities` | **503** `DATABASE_UNREACHABLE` |
+| `/api/v1/catalog/products`, `/categories`, `/brands` | **503** |
+| `/api/v1/health` | **500** |
+| `/` | 200 (static shell only) |
+
+The server names its own cause:
+
+```
+ProgrammingError: (pg8000.dbapi.ProgrammingError) {'S': 'ERROR', 'C': '53000',
+ 'M': 'Your account or project has exceeded the quota. Upgrade your plan to increase limits.'}
+expected_head: 0046_user_wishlist_items, database_revision: null
+```
+
+**This is quota exhaustion at the database provider, not schema drift and not a code defect.**
+The deployed commit is `cfc6d803` — already `main`, and unrelated to this PR. The same endpoint
+host (`ep-frosty-term-b2ivqwuz-pooler…`) also serves the verify database, which fails
+identically, so the whole Neon project is unavailable. The SPA still serves because it is static.
+
+Consequences, stated plainly:
+
+* `check_release_schema_parity.py` exits **2 (indeterminate)** because production cannot answer
+  `/health`. The required check therefore blocks the merge — the gate doing exactly its job.
+  It was **not** bypassed, and no allowlist or workflow edit was made to turn it green.
+* Production cannot be smoke-tested, so "the deployment serves the correct release" is
+  **UNVERIFIED** for any commit, including the current one.
+* `0046_user_wishlist_items` is additive and idempotent. Once the database is reachable,
+  `alembic upgrade head` completes the release; the recovery plan is forward-only, with no
+  destructive step and no data rewrite.
+
+**Owner action required:** raise or restore the Neon project quota (or repoint production at a
+database with capacity), then confirm `/api/v1/health` returns 200. Only then can the release
+gate pass and a deploy be verified.
+
+### 12.4 CLS fix verified after the merge, against a reference build of `main`
+
+Measured on the merged build and, for comparison, on a separately built `origin/main`, same
+probe, same data, 412×915:
+
+| Build | Branch A (policy present) | Branch B (fetch aborted) |
+|---|---|---|
+| `main` `cfc6d803` (no fix) | **0.8583** — shift target `#confit-main-content` container at t≈566 ms | 0.0147 |
+| merged branch (with fix) | **0.0581** — residual shift is the header utility strip (y=6, h=62) | 0.0145 |
+
+The fix survives the merge and removes ~93% of the shift on this dataset. The residual 0.0581
+is a **different element** — the header's "Partner Portal / English / العربية / currency" strip,
+which re-wraps — not the announcement slot (slot 46 px, heroTop 253, identical geometry either
+way). It measured 0.0145 on the verify dataset, so it is dataset- and timing-dependent; it is
+recorded here as an open observation rather than claimed clean, and it stays well inside the
+"good" band (<0.1).
+
+### 12.5 What could not be run, and why
+
+| Item | State |
+|---|---|
+| Orca / AT-SPI2 / Xvfb / Firefox AT harness (`scripts/qa/run_live_orca_multiengine_a11y_audit.py`) | **VERIFIED (2026-10-22 re-run on integrated `work/production-hardening`)** — Provisioned `Xvfb`, `Orca 48.1`, `AT-SPI2 2.56.2`, `Speech Dispatcher 0.12.0`, `eSpeak NG 1.52.0`, `PyGObject`, `PostgreSQL 17.11`, `Redis 7`, and Playwright (`Chromium 156.0.8078.4`, `Firefox 157.0`, `WebKit 27.2`). Executed live against integrated branch (`DEF-28..DEF-31` included): `126 / 126` 3-engine `axe-core` audits (`0` critical/serious/moderate/minor violations), `103` live `AT-SPI2` bus events, `16 / 16` real TTS audio/IPA checks (`8 EN` + `8 AR`), `14 / 14` real E2E journeys `PASS`, `0` Arabic English ARIA leaks, `0px` overflow at `320px` and `200%` zoom, and `5 / 5` authz/tenant isolation checks `PASS` (`docs/qa/live_orca_multiengine_a11y_report.json`). |
+| NVDA / JAWS / VoiceOver (macOS + iOS) / TalkBack | **NOT TESTED** — Linux container environment has no physical Windows, macOS, iOS, or Android devices; multi-engine Linux checks are never substituted for native proprietary OS screen readers |
+| Production smoke tests, live DB migration `0046`, live CSV worker/import E2E | **BLOCKED** — Production Neon project `ep-frosty-term-b2ivqwuz` refuses all SQL connections with `SQLSTATE 53000` (`Your account or project has exceeded the quota. Upgrade your plan to increase limits.`); owner selected `keep_as_is_no_go` (leave Neon plan untouched, do not bypass `check_release_schema_parity.py`) |
+| Standalone Cloudflare R2 / S3 storage & Modal worker health probes | **VERIFIED (2026-10-22)** — Direct `probe_storage(force=True)` against `confit-a-media` passed (`ok: true`, write/read/delete verified in `1,557.4 ms`); Modal `wardrobe-worker` `/health` returned `HTTP 200` (`ready: true`); Modal `catalog-worker` (`omarsafealden--confit-catalog-worker-http.us-east.modal.run/health`) answered `HTTP 401` (`env_present=True`, proving warm control plane + token guard active) |
+
+### 12.6 Addendum — 2026-10-22 Pre-Integration Defect Remediation & Full Local Quality Gate (`DEF-28` – `DEF-31`)
+
+Four additional defects found during pre-integration audit of `08b281b..51dbf011` were fixed at root cause on `work/production-hardening` without weakening any security, financial, or release gate:
+
+1. **`DEF-28` (`P1`, `backend/app/services/capability_service.py`, `backend/tests/test_health_db_unreachable.py`):** Guarded `build_capabilities_dict(..., database_ok=False)` so `click_and_collect` never issues an unguarded `SELECT COUNT(*) FROM stores` when `GET /api/v1/health` has already determined PostgreSQL is unreachable (`status: "unhealthy"`, `database: "unreachable"` returned as structured `HTTP 200` instead of unhandled `HTTP 500`, while `check_release_schema_parity.py` continues to exit `2`). Locked down by `3` regression tests preserving prior `app.dependency_overrides[get_db]`.
+2. **`DEF-29` (`P1`, `frontend/src/components/common/SplashScreen.tsx`, `frontend/src/components/common/__tests__/splashScreen.a11y.test.tsx`):** Dismissed fixed `z-50` splash overlay immediately on keyboard `Tab` / `Escape` or `document` `focusin` (`WCAG 2.2 AA SC 2.4.11 Focus Not Obscured`) and added `motion-reduce:transition-none`, verified across `3` unit tests + live `Chromium`, `Firefox`, and `WebKit` (`splash_count_after_tab == 0`).
+3. **`DEF-30` (`P2`, `frontend/src/components/home/AnnouncementBar.tsx`, `AnnouncementSlot.tsx`, `__tests__/announcementSlot.reservation.test.tsx`):** Released reserved `46px` mobile / `40px` desktop slot (`data-reserved="false"`) immediately upon announcement dismissal while holding initial CLS to `0.00568` (`< 0.1`) on `412×915`.
+4. **`DEF-31` (`P1`, `.github/workflows/release-gate.yml`):** Expanded `pull_request.types` to `[opened, synchronize, reopened, edited]` so the required `release gate (production schema parity)` check re-evaluates cleanly when PR metadata is refreshed after operational recovery without requiring an empty commit.
+
+Separate measured suite counts on integrated `work/production-hardening` (`2026-10-22`, never summed across unrelated runners):
+- Frontend i18n parity (`npm run i18n:check`): `exit 0` (`2,326` active / `3,102` defined keys, `0` untranslated).
+- Frontend TypeScript (`npx tsc --noEmit`): `exit 0`.
+- Frontend Vitest (`npx vitest run --maxWorkers=2`): `exit 0` (`157 / 157` files, `2,360 / 2,360` tests passed).
+- Frontend production build (`npm run build`): `exit 0` (`2,178` modules).
+- Stylist drawer browser gate (`bash scripts/stylist_browser_gate.sh`): `exit 0` (`PASS`).
+- Backend full pytest (`PYTHONPATH=. .venv/bin/python -m pytest backend/tests -q --tb=short`): `exit 0` (`4,551 passed, 24 skipped, 0 failed`).
+- PostgreSQL 17.11 gates: `check_migration_chain_postgres.py` (`exit 0`, `0001..0046`, `62` tables), schema drift (`45 passed`), audit HMAC/provenance (`42 passed`), brand portal locking/memberships (`40 passed`), MFA concurrency (`3 passed`).
+- Live Redis 7 + async worker / cloud dispatch / S3 / Fawaterak suite: `exit 0` (`58 passed`).
+- Production parity (`import api.index` + manifest/parity tests): `exit 0` (`56 passed`).
+- Backend security & financial mutation gate (`run_mutation_gates.py`): `exit 0` (`42 / 42` mutations killed, `0` survived).
+- Security & dependency audits: `npm audit --omit=dev --audit-level=high` (`0` vulns), `pip-audit -r backend/requirements.txt` (`0` vulns), `gitleaks detect --source . --verbose` (`0` leaks).
+
+### 12.7 Release decision
+
+**NO-GO for production release.** All repository code, migrations (`0001..0046_user_wishlist_items`), security/financial invariants, multi-engine WCAG 2.2 AA gates, and live Linux `Orca 48.1` + `AT-SPI2` checks are verified green on `work/production-hardening`, and `PR #372` remains safely open and unmerged (`main` branch protection strictly respected — never bypassed) until Neon project `ep-frosty-term-b2ivqwuz` quota (`SQLSTATE 53000`) is restored and live production E2E verification can complete.

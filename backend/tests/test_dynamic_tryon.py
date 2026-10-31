@@ -30,7 +30,7 @@ def test_dynamic_multi_garment_male_suit_tryon(client: TestClient):
         # (unsupported slots have their own fast-fail guard:
         # test_vton_person_reference.py::test_multi_render_unsupported_slot_rejected_upfront)
         "product_ids": [1, 3, 4],  # Blazer, Oxford Shirt, Suit Trousers
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+        "user_image_url": "https://example.com/vton/full-body-person.jpg",
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",
         "consent_retain_photo": False
@@ -47,7 +47,7 @@ def test_dynamic_multi_garment_female_dress_tryon(client: TestClient):
         "product_ids": [5],  # Silk Column Dress (supported slot; the other
         # former picks — sandals/clutch — are engine-unsupported and have
         # their own fast-fail guard)
-        "user_image_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600",
+        "user_image_url": "https://example.com/vton/full-body-person.jpg",
         "avatar_model_id": "avatar_hourglass_f",
         "gender_mode": "female",
         "consent_retain_photo": False
@@ -66,7 +66,7 @@ def test_dynamic_animation_tryon_render(client: TestClient):
         # (footwear/accessory inputs are rejected upfront with 422 before
         # the availability check — see test_vton_person_reference.py)
         "product_ids": [1, 3, 4],
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+        "user_image_url": "https://example.com/vton/full-body-person.jpg",
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",
         "output_aspect": "9:16",
@@ -118,7 +118,7 @@ def test_tryon_session_rest_lifecycle(client: TestClient):
         repo = TryOnRepository(db)
         session = repo.create_tryon_session(
             product_id=1,
-            input_user_image_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+            input_user_image_url="https://example.com/vton/full-body-person.jpg",
             applied_items=[{
                 "product_id": 1,
                 "position": "upper_outer",
@@ -175,7 +175,7 @@ def test_tryon_image_validation_endpoint(client: TestClient):
     assert data.get("body_framing") is None
 
     res2 = client.post("/api/v1/try-on/validate-image", json={
-        "image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+        "image_url": "https://example.com/vton/full-body-person.jpg"
     })
     assert res2.status_code == 200
     assert res2.json()["is_valid"] is False

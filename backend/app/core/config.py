@@ -297,7 +297,37 @@ class Settings(BaseSettings):
     # moment one exists. It is skipped with zero cost while
     # LOCAL_LLM_BASE_URL is unset, so listing it first costs nothing today
     # and needs no code change on the day the GPU subscription renews.
-    AI_PROVIDERS: str = "local_gpu,nvidia,groq,gemini,openai,unorouter"
+    # `watsonx` is listed LAST on purpose. It is skipped at zero cost while
+    # IBM_CLOUD_API_KEY / WATSONX_PROJECT_ID are unset (exactly how `local_gpu`
+    # behaves), so it becomes a real leg the moment the operator configures it
+    # without displacing any provider that is already serving traffic. Move it
+    # earlier once it has been measured in production.
+    AI_PROVIDERS: str = "local_gpu,nvidia,groq,gemini,openai,unorouter,watsonx"
+
+    # ── IBM watsonx.ai (Granite) — stylist text leg ───────────────────────
+    #
+    # Verified against the live account on 2026-10-24: the watsonx.ai runtime
+    # (pm-20) and the project both live in `eu-de`, the same region family as the
+    # Neon database (eu-central-1) and the Vercel functions (fra1), so the whole
+    # request path stays inside Europe.
+    #
+    # Auth is an IBM Cloud IAM API key, NOT a bearer token: IAM tokens expire
+    # after ~60 minutes, so providers/watsonx/client.py exchanges and caches one
+    # and never logs it.
+    IBM_CLOUD_API_KEY: Optional[str] = None
+    WATSONX_BASE_URL: str = "https://eu-de.ml.cloud.ibm.com"
+    WATSONX_PROJECT_ID: Optional[str] = None
+    WATSONX_MODEL_ID: str = "ibm/granite-4-h-small"
+    #: IBM requires an API version query parameter on every /ml/v1 call.
+    WATSONX_API_VERSION: str = "2023-05-29"
+    WATSONX_TIMEOUT_SECONDS: float = 45.0
+    #: IAM tokens live 60 minutes; refresh early so a request never races expiry.
+    WATSONX_TOKEN_REFRESH_SECONDS: float = 3000.0
+    #: Let Granite CHOOSE the outfit (IBM "AI stylist" step), not only describe
+    #: one the deterministic engine chose. Kill switch: set to false to pin the
+    #: shipped rule-based selection without touching code. A model selection is
+    #: used only when it validates against the exact shortlist it was shown.
+    WATSONX_LIST_BUILDING: bool = True
 
     # ── Self-hosted stylist inference (activates on GPU renewal) ──────────
     #

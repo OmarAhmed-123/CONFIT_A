@@ -318,7 +318,7 @@ def test_job_fails_fast_with_the_honest_code_when_the_circuit_is_open(dead_worke
     started = time.time()
     res = client.post("/api/v1/try-on/jobs", json={
         "product_ids": [3],
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+        "user_image_url": "https://example.com/vton/full-body-person.jpg",
     })
     elapsed = time.time() - started
     assert res.status_code == 202
@@ -340,7 +340,7 @@ def test_input_validation_failure_does_not_open_the_circuit(dead_worker):
     cb.reset()
     res = client.post("/api/v1/try-on/jobs", json={
         "product_ids": [],  # rejected before any worker interaction
-        "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+        "user_image_url": "https://example.com/vton/full-body-person.jpg",
     })
     assert res.status_code in (202, 422)
     assert cb.snapshot()["state"] == "closed"

@@ -549,3 +549,74 @@ def test_the_capabilities_endpoint_contract_is_unchanged(client: TestClient):
         "returns_window_days",
     }
     assert body["bnpl_live"] is (body["payments_live"] and body["bnpl_live"])
+
+
+# --- regression: /health must survive an unreachable database ---------------
+
+
+def test_health_survives_an_unreachable_database_without_a_500(client: TestClient):
+    """Regression (2026-10-22 production outage).
+
+    When the database is unreachable, /health must return an honest, readable
+    payload — ``status: unhealthy`` with ``database`` named as blocking — not an
+    opaque 500.
+
+    Before the fix, ``capability_probes`` ran an unguarded
+    ``db.query(StoreLocation).count()`` for click_and_collect; a dead database
+    raised there and the exception escaped to the generic 500 handler, so the
+    one endpoint meant to name the cause (see schema_gate.py's docstring) was the
+    one that died. Production returned 500 on /api/v1/health while Neon was over
+    quota, and operators/the uptime monitor could not read the cause from it.
+    """
+    from backend.app.core.database import get_db
+    from backend.app.main import app
+    from backend.tests.conftest import override_get_db
+
+    class _DeadSession:
+        def execute(self, *args, **kwargs):
+            raise RuntimeError("database unreachable (simulated: quota exceeded)")
+
+        def query(self, *args, **kwargs):
+            raise RuntimeError("database unreachable (simulated: quota exceeded)")
+
+        def close(self):
+            pass
+
+    def _dead_db():
+        yield _DeadSession()
+
+    app.dependency_overrides[get_db] = _dead_db
+    try:
+        r = client.get(HEALTH)
+    finally:
+        app.dependency_overrides[get_db] = override_get_db
+
+    assert r.status_code == 200, r.text  # NOT 500
+    body = r.json()
+    assert body["status"] == "unhealthy", "a dead database is not a live process"
+    assert body["ready"] is False
+    assert body["checks"]["database"] == "unhealthy"
+    assert "database" in body["blocking_capabilities"], (
+        "the unreachable database must be named, not hidden behind a 500"
+    )
+
+
+def test_capability_probes_degrades_click_and_collect_when_the_store_query_dies():
+    """Unit: a DB that dies on the store-count query degrades click_and_collect
+    honestly; capability_probes must not propagate the exception (doing so 500s
+    /health). Covers the case where SELECT 1 passed but the connection then
+    dropped mid-probe (database_ok computed True, query raises)."""
+    from backend.app.services import capability_service
+
+    class _DBThatDiesOnQuery:
+        def query(self, *args, **kwargs):
+            raise RuntimeError("connection reset by peer")
+
+    caps = {
+        c.name: c
+        for c in capability_service.capability_probes(_DBThatDiesOnQuery(), True)
+    }
+    cc = caps["click_and_collect"]
+    assert cc.state == STATE_BLOCKED
+    assert cc.criticality == CRITICALITY_SUPPORTING
+    assert "could not be counted" in cc.detail

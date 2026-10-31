@@ -1,8 +1,8 @@
 {
-  "generated_at_utc": "2026-10-21T23:24:02.316251+00:00",
+  "generated_at_utc": "2026-10-22T09:17:18.085851+00:00",
   "source_commit": {
-    "git_branch": "feat/final-a11y-audit-closure",
-    "git_sha": "1cee4101a295b733afc288f10925231be230d486"
+    "git_branch": "work/production-hardening",
+    "git_sha": "51dbf011b5bad92b4c8258e3b29bb8d3f3b94681"
   },
   "environment": {
     "orca_version": "Orca version 48.1, AT-SPI2 version: 2.56.2",
@@ -18,8 +18,13 @@
   },
   "orca_atspi_live_firefox": {
     "firefox_version": "157.0",
-    "captured_atspi_bus_events_count": 101,
+    "captured_atspi_bus_events_count": 103,
     "captured_atspi_bus_events_sample": [
+      {
+        "type": "window:activate",
+        "role": "frame",
+        "name": "CONFIT — Where Style Meets Your Character — Nightly"
+      },
       {
         "type": "object:state-changed:focused",
         "role": "panel",
@@ -28,7 +33,7 @@
       {
         "type": "object:state-changed:focused",
         "role": "combo box",
-        "name": "Search with Google or enter address"
+        "name": "Search or enter address"
       },
       {
         "type": "document:load-complete",
@@ -62,6 +67,11 @@
       },
       {
         "type": "object:state-changed:focused",
+        "role": "document web",
+        "name": ""
+      },
+      {
+        "type": "document:load-complete",
         "role": "document web",
         "name": ""
       },
@@ -159,16 +169,6 @@
         "type": "document:load-complete",
         "role": "document web",
         "name": ""
-      },
-      {
-        "type": "object:state-changed:focused",
-        "role": "document web",
-        "name": "Checkout · CONFIT"
-      },
-      {
-        "type": "document:load-complete",
-        "role": "document web",
-        "name": "Checkout · CONFIT"
       }
     ],
     "locales": {
@@ -196,7 +196,7 @@
                 "menu bar": 1,
                 "page tab list": 1,
                 "page tab": 1,
-                "button": 59,
+                "button": 57,
                 "separator": 3,
                 "panel": 14,
                 "combo box": 5,
@@ -208,13 +208,13 @@
                 "status bar": 6,
                 "link": 40,
                 "landmark": 10,
+                "toggle button": 8,
                 "menu item": 13,
                 "paragraph": 26,
                 "image": 28,
                 "heading": 34,
                 "list": 4,
                 "list item": 16,
-                "toggle button": 6,
                 "static": 8,
                 "article": 6,
                 "alert": 1
@@ -322,15 +322,15 @@
                 },
                 {
                   "role": "combo box",
-                  "name": "Search with Google or enter address"
+                  "name": "Search or enter address"
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 79aeca96-a056-40a3-a102-594b91cc2bc6"
+                  "name": "JUGGLER 7b45a72f-9ad4-4416-ac6b-107c9d973940"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 79aeca96-a056-40a3-a102-594b91cc2bc6"
+                  "name": "JUGGLER 7b45a72f-9ad4-4416-ac6b-107c9d973940"
                 },
                 {
                   "role": "button",
@@ -365,11 +365,11 @@
                   "name": "Change display language"
                 },
                 {
-                  "role": "button",
+                  "role": "toggle button",
                   "name": "English"
                 },
                 {
-                  "role": "button",
+                  "role": "toggle button",
                   "name": "العربية"
                 },
                 {
@@ -531,15 +531,15 @@
                 },
                 {
                   "role": "combo box",
-                  "name": "Search with Google or enter address"
+                  "name": "Search or enter address"
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 79aeca96-a056-40a3-a102-594b91cc2bc6"
+                  "name": "JUGGLER 7b45a72f-9ad4-4416-ac6b-107c9d973940"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 79aeca96-a056-40a3-a102-594b91cc2bc6"
+                  "name": "JUGGLER 7b45a72f-9ad4-4416-ac6b-107c9d973940"
                 },
                 {
                   "role": "button",
@@ -739,15 +739,15 @@
                 },
                 {
                   "role": "combo box",
-                  "name": "Search with Google or enter address"
+                  "name": "Search or enter address"
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 79aeca96-a056-40a3-a102-594b91cc2bc6"
+                  "name": "JUGGLER 7b45a72f-9ad4-4416-ac6b-107c9d973940"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 79aeca96-a056-40a3-a102-594b91cc2bc6"
+                  "name": "JUGGLER 7b45a72f-9ad4-4416-ac6b-107c9d973940"
                 },
                 {
                   "role": "button",
@@ -813,7 +813,7 @@
               "has_main_target": true
             },
             "atspi_tree": {
-              "visited_nodes": 244,
+              "visited_nodes": 240,
               "role_counts": {
                 "application": 1,
                 "frame": 1,
@@ -822,7 +822,7 @@
                 "menu bar": 1,
                 "page tab list": 1,
                 "page tab": 1,
-                "button": 27,
+                "button": 26,
                 "separator": 3,
                 "panel": 7,
                 "combo box": 2,
@@ -830,8 +830,8 @@
                 "scroll pane": 1,
                 "internal frame": 1,
                 "document web": 1,
-                "section": 74,
-                "status bar": 6,
+                "section": 72,
+                "status bar": 5,
                 "link": 13,
                 "landmark": 4,
                 "toggle button": 6,
@@ -953,11 +953,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 67929683-f903-4854-b7ff-52446c3d8f41"
+                  "name": "JUGGLER 442cbf7c-f96b-404f-8f3d-8c8d5455c118"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 67929683-f903-4854-b7ff-52446c3d8f41"
+                  "name": "JUGGLER 442cbf7c-f96b-404f-8f3d-8c8d5455c118"
                 },
                 {
                   "role": "button",
@@ -1160,11 +1160,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 67929683-f903-4854-b7ff-52446c3d8f41"
+                  "name": "JUGGLER 442cbf7c-f96b-404f-8f3d-8c8d5455c118"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 67929683-f903-4854-b7ff-52446c3d8f41"
+                  "name": "JUGGLER 442cbf7c-f96b-404f-8f3d-8c8d5455c118"
                 },
                 {
                   "role": "button",
@@ -1373,11 +1373,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 26640604-9f69-4970-9d24-f312b41b84a8"
+                  "name": "JUGGLER 7fc604c0-1326-4089-b82f-c14418d5e7e8"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 26640604-9f69-4970-9d24-f312b41b84a8"
+                  "name": "JUGGLER 7fc604c0-1326-4089-b82f-c14418d5e7e8"
                 },
                 {
                   "role": "button",
@@ -1589,11 +1589,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 17c55e5f-5ee7-4cc5-b371-445335cf0f47"
+                  "name": "JUGGLER b4e003c2-5b30-49a0-ba80-b61d0176ab3b"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 17c55e5f-5ee7-4cc5-b371-445335cf0f47"
+                  "name": "JUGGLER b4e003c2-5b30-49a0-ba80-b61d0176ab3b"
                 },
                 {
                   "role": "button",
@@ -1826,11 +1826,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER b538f300-fbf3-4c45-ba60-06c237772e7b"
+                  "name": "JUGGLER c2850375-b759-4d7c-8272-cecd54f63f01"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER b538f300-fbf3-4c45-ba60-06c237772e7b"
+                  "name": "JUGGLER c2850375-b759-4d7c-8272-cecd54f63f01"
                 },
                 {
                   "role": "button",
@@ -2035,11 +2035,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER b538f300-fbf3-4c45-ba60-06c237772e7b"
+                  "name": "JUGGLER c2850375-b759-4d7c-8272-cecd54f63f01"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER b538f300-fbf3-4c45-ba60-06c237772e7b"
+                  "name": "JUGGLER c2850375-b759-4d7c-8272-cecd54f63f01"
                 },
                 {
                   "role": "button",
@@ -2243,11 +2243,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER b538f300-fbf3-4c45-ba60-06c237772e7b"
+                  "name": "JUGGLER c2850375-b759-4d7c-8272-cecd54f63f01"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER b538f300-fbf3-4c45-ba60-06c237772e7b"
+                  "name": "JUGGLER c2850375-b759-4d7c-8272-cecd54f63f01"
                 },
                 {
                   "role": "button",
@@ -2453,11 +2453,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER f9e62aef-da67-416e-a55d-a9614556c7ed"
+                  "name": "JUGGLER 6fe40a03-ad21-441e-9185-131f4a9ca9e8"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER f9e62aef-da67-416e-a55d-a9614556c7ed"
+                  "name": "JUGGLER 6fe40a03-ad21-441e-9185-131f4a9ca9e8"
                 },
                 {
                   "role": "button",
@@ -2660,11 +2660,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER f9e62aef-da67-416e-a55d-a9614556c7ed"
+                  "name": "JUGGLER 6fe40a03-ad21-441e-9185-131f4a9ca9e8"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER f9e62aef-da67-416e-a55d-a9614556c7ed"
+                  "name": "JUGGLER 6fe40a03-ad21-441e-9185-131f4a9ca9e8"
                 },
                 {
                   "role": "button",
@@ -2873,11 +2873,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 3b95cf77-74f7-4dd0-977f-97d5222937b0"
+                  "name": "JUGGLER a7772d65-9dfd-4252-8912-6edadc23283b"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 3b95cf77-74f7-4dd0-977f-97d5222937b0"
+                  "name": "JUGGLER a7772d65-9dfd-4252-8912-6edadc23283b"
                 },
                 {
                   "role": "button",
@@ -3089,11 +3089,11 @@
                 },
                 {
                   "role": "button",
-                  "name": "JUGGLER 7f76d3f3-662d-4dcf-a9e7-ba04e7655dda"
+                  "name": "JUGGLER 12230390-22c3-4296-8ddb-268599ca9b2f"
                 },
                 {
                   "role": "label",
-                  "name": "JUGGLER 7f76d3f3-662d-4dcf-a9e7-ba04e7655dda"
+                  "name": "JUGGLER 12230390-22c3-4296-8ddb-268599ca9b2f"
                 },
                 {
                   "role": "button",
@@ -4708,7 +4708,7 @@
                 "id": "color-contrast",
                 "impact": "serious",
                 "help": "Elements must meet minimum color contrast ratio thresholds",
-                "node_count": 20,
+                "node_count": 21,
                 "sample": [
                   "<button data-motion=\"filter\" data-motion-tone=\"icon\" type=\"button\" aria-pressed=\"false\" lang=\"en\" class=\"px-2.5 py-1 tex",
                   "<button data-motion=\"filter\" data-motion-tone=\"icon\" type=\"button\" aria-pressed=\"true\" lang=\"ar\" class=\"px-2.5 py-1 text"
@@ -7306,7 +7306,7 @@
                 "id": "color-contrast",
                 "impact": "serious",
                 "help": "Elements must meet minimum color contrast ratio thresholds",
-                "node_count": 74,
+                "node_count": 65,
                 "sample": [
                   "<button data-motion=\"filter\" data-motion-tone=\"icon\" type=\"button\" aria-pressed=\"true\" lang=\"en\" class=\"px-2.5 py-1 text",
                   "<button data-motion=\"filter\" data-motion-tone=\"icon\" type=\"button\" aria-pressed=\"false\" lang=\"ar\" class=\"px-2.5 py-1 tex"
@@ -8193,10 +8193,10 @@
                 "id": "color-contrast",
                 "impact": "serious",
                 "help": "Elements must meet minimum color contrast ratio thresholds",
-                "node_count": 27,
+                "node_count": 35,
                 "sample": [
                   "<button data-motion=\"filter\" data-motion-tone=\"icon\" type=\"button\" aria-pressed=\"false\" lang=\"en\" class=\"px-2.5 py-1 tex",
-                  "<span>جرّب الآن</span>"
+                  "<span aria-hidden=\"true\">✕</span>"
                 ]
               }
             ],
@@ -9374,8 +9374,8 @@
         },
         "idempotency": {
           "tampered_total_rejected_422": true,
-          "first_order_number": "CONF-F3858640",
-          "replay_order_number": "CONF-F3858640",
+          "first_order_number": "CONF-79C69F66",
+          "replay_order_number": "CONF-79C69F66",
           "idempotent_same_order": true
         },
         "tracking_dom": {
@@ -9452,8 +9452,8 @@
         },
         "idempotency": {
           "tampered_total_rejected_422": true,
-          "first_order_number": "CONF-C130ADDD",
-          "replay_order_number": "CONF-C130ADDD",
+          "first_order_number": "CONF-FF27F0AB",
+          "replay_order_number": "CONF-FF27F0AB",
           "idempotent_same_order": true
         },
         "tracking_dom": {

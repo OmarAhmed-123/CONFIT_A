@@ -237,7 +237,15 @@ async def upload_wardrobe_image(
     result = await service.upload_items(user.id, [(file.filename or "upload", file.content_type, data)])
     entry = result["results"][0]
     if entry["status"] == "failed":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=entry["detail"])
+        # 422 only when the file itself was the problem. A server-side fault
+        # (metadata write failed after the bytes landed) is a 503: the shopper
+        # should retry, and telling them their photo is invalid would be a lie.
+        code = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if entry.get("retryable")
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(status_code=code, detail=entry["detail"])
     return result
 
 

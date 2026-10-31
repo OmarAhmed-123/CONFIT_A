@@ -40,6 +40,7 @@ export const SplashScreen: React.FC<{ onComplete?: () => void }> = ({ onComplete
   // Latest callback without making it an effect dependency: a parent re-render
   // must not restart the timers and stretch the splash out.
   const onCompleteRef = useRef(onComplete);
+  const completedRef = useRef(false);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
@@ -58,21 +59,42 @@ export const SplashScreen: React.FC<{ onComplete?: () => void }> = ({ onComplete
   // 2. RUN — arm while visible, and always clear. A timer that outlives the
   // component is a leak: it calls setState on an unmounted tree and, in tests,
   // can fire after the environment is gone.
+  //
+  // WCAG 2.2 AA SC 2.4.11 (Focus Not Obscured — Minimum): if a keyboard user
+  // presses Tab/Escape or focuses any underlying page element while the z-[100]
+  // splash is mounted, dismiss immediately so focused controls are never hidden.
   useEffect(() => {
     if (!isVisible) return;
+
+    const completeOnce = () => {
+      if (completedRef.current) return;
+      completedRef.current = true;
+      setIsVisible(false);
+      if (onCompleteRef.current) onCompleteRef.current();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' || event.key === 'Escape') {
+        completeOnce();
+      }
+    };
 
     const fadeTimer = setTimeout(() => {
       setIsFading(true);
     }, 1100);
 
     const finishTimer = setTimeout(() => {
-      setIsVisible(false);
-      if (onCompleteRef.current) onCompleteRef.current();
+      completeOnce();
     }, 1500);
+
+    document.addEventListener('focusin', completeOnce);
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(finishTimer);
+      document.removeEventListener('focusin', completeOnce);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isVisible]);
 
@@ -82,7 +104,7 @@ export const SplashScreen: React.FC<{ onComplete?: () => void }> = ({ onComplete
     <div
       aria-hidden="true"
       role="presentation"
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white transition-opacity duration-300 motion-reduce:transition-none ${
         isFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >

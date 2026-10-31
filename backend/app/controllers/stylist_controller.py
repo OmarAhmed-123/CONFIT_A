@@ -1,6 +1,6 @@
 import base64
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from limits import parse as parse_rate_limit
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
@@ -17,6 +17,7 @@ from backend.app.services.content_safety_service import (
 from backend.app.services.stylist_image_intake import ImageIntakeError, ParsedImage, parse_images
 from backend.app.services.stylist_service import StylistService
 from backend.app.services.outfit_service import OutfitService
+from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.schemas.stylist import (
     StylistPromptRequest,
     StylistMessageOut,
@@ -137,6 +138,34 @@ async def _interact(service, user_id, payload, fx, images):
         include_wardrobe_items=payload.include_wardrobe_items,
         history=[{"role": t.role, "content": t.content} for t in (payload.history or [])],
     )
+
+
+@router.post("/transcribe")
+# Threat: transcription spends provider quota per call and accepts anonymous
+# callers, so it needs its own per-caller limit like /chat.
+@limiter.limit("30/hour")
+async def transcribe_voice(
+    request: Request,
+    file: UploadFile = File(...),
+    user: Optional[User] = Depends(get_current_user_optional),
+):
+    """Voice -> text for the stylist chat (Groq whisper, free, multilingual incl.
+    Arabic). The client records audio and uploads it; the transcript is returned
+    so the shopper can review it and send it as a normal chat message (with
+    voice_input_used=true). Honest 503 when STT is unavailable; a transcript is
+    NEVER fabricated."""
+    audio = await file.read()
+    if not audio:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Empty audio upload.")
+    if len(audio) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Audio too large (max 25 MB).")
+    result = await get_orchestrator().transcribe_audio(audio, file.filename or "audio.webm")
+    if not result.get("text"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Voice transcription is temporarily unavailable. Please type your message instead.",
+        )
+    return {"text": result["text"], "language": result.get("language"), "model": result.get("model")}
 
 
 @router.post("/compatibility", response_model=CompatibilityCheckResponse)
